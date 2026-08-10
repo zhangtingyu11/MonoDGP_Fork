@@ -22,6 +22,11 @@ def main():
     parser.add_argument("--data-root", required=True)
     parser.add_argument("--checkpoint", required=True)
     parser.add_argument("--batch-size", type=int, default=8)
+    parser.add_argument(
+        "--work-dir",
+        default="/tmp/monodgp_cuda129_eval_contract",
+        help="Temporary directory for the contract log; predictions stay in memory.",
+    )
     args = parser.parse_args()
 
     with open(args.config, "r", encoding="utf-8") as handle:
@@ -47,14 +52,15 @@ def main():
     model.load_state_dict(checkpoint["model_state"], strict=True)
     model = model.cuda().eval()
 
-    save_path = "outputs/cuda129_eval_contract/"
+    save_path = os.path.abspath(args.work_dir)
     model_name = "official_monodgp_epoch177"
-    output_dir = os.path.join(ROOT_DIR, save_path, model_name)
+    output_dir = os.path.join(save_path, model_name)
     os.makedirs(output_dir, exist_ok=True)
     logger = create_logger(os.path.join(output_dir, "eval.log"))
 
     train_cfg = {"save_path": save_path, "save_all": False}
     tester_cfg = dict(cfg["tester"])
+    tester_cfg["export_predictions"] = False
     tester = Tester(
         cfg=tester_cfg,
         model=model,
@@ -63,8 +69,8 @@ def main():
         train_cfg=train_cfg,
         model_name=model_name,
     )
-    tester.inference()
-    moderate_ap = tester.evaluate()
+    results = tester.inference()
+    moderate_ap = tester.evaluate(results)
     print(f"checkpoint_epoch={checkpoint.get('epoch')}")
     print(f"car_moderate_3d_ap_r40={moderate_ap}")
     print("FULL_KITTI_EVAL_OK")

@@ -96,8 +96,8 @@ class Trainer(object):
 
                 if self.tester is not None:
                     self.logger.info("Test Epoch {}".format(self.epoch))
-                    self.tester.inference()
-                    cur_result = self.tester.evaluate()
+                    results = self.tester.inference()
+                    cur_result = self.tester.evaluate(results)
                     if cur_result > best_result:
                         best_result = cur_result
                         best_epoch = self.epoch
@@ -188,4 +188,3 @@ class Trainer(object):
                     target_dict[key] = val[bz]
             targets_list.append(target_dict)
         return targets_list
-
