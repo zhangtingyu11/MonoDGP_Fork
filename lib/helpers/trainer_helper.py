@@ -1,5 +1,4 @@
 import os
-import tqdm
 
 import torch
 import numpy as np
@@ -181,9 +180,11 @@ class Trainer(object):
     def train(self):
         start_epoch = self.epoch
 
-        progress_bar = tqdm.tqdm(range(start_epoch, self.cfg['max_epoch']), dynamic_ncols=True, leave=True, desc='epochs')
         best_result = self.best_result
         best_epoch = self.best_epoch
+        self.logger.info(
+            "Training started: epochs=%d, start_epoch=%d",
+            self.cfg['max_epoch'], start_epoch)
         for epoch in range(start_epoch, self.cfg['max_epoch']):
             # reset random seed
             # ref: https://github.com/pytorch/pytorch/issues/5059
@@ -223,8 +224,6 @@ class Trainer(object):
                             ckpt_name)
                     self.logger.info("Best Result:{}, epoch:{}".format(best_result, best_epoch))
 
-            progress_bar.update()
-
         self.logger.info("Best Result:{}, epoch:{}".format(best_result, best_epoch))
 
         return None
@@ -232,9 +231,11 @@ class Trainer(object):
     def train_one_epoch(self, epoch):
         torch.set_grad_enabled(True)
         self.model.train()
-        print(">>>>>>> Epoch:", str(epoch) + ":")
-
-        progress_bar = tqdm.tqdm(total=len(self.train_loader), leave=(self.epoch+1 == self.cfg['max_epoch']), desc='iters')
+        batch_count = len(self.train_loader)
+        log_frequency = max(1, int(self.cfg.get('log_frequency', 30)))
+        self.logger.info(
+            "Train epoch started: epoch=%d/%d, batches=%d",
+            epoch + 1, self.cfg['max_epoch'], batch_count)
         batch_source = self.train_loader
         prefetched = self.use_cuda_batch_prefetch
         epoch_loss_sum = 0.0
@@ -269,44 +270,52 @@ class Trainer(object):
                 detr_losses = sum(detr_losses_dict_weighted)
 
                 detr_losses_dict = misc.reduce_dict(detr_losses_dict)
-                detr_losses_dict_log = {}
-                detr_losses_log = 0
-                for k in detr_losses_dict.keys():
-                    if k in weight_dict:
-                        detr_losses_dict_log[k] = (detr_losses_dict[k] * weight_dict[k]).item()
-                        detr_losses_log += detr_losses_dict_log[k]
-                detr_losses_dict_log["loss_detr"] = detr_losses_log
+                detr_losses_log = sum(
+                    detr_losses_dict[key] * weight_dict[key]
+                    for key in detr_losses_dict
+                    if key in weight_dict).detach().item()
                 epoch_loss_sum += detr_losses_log
                 epoch_batch_count += 1
 
-                flags = [True] * 5
-                if batch_idx % 30 == 0:
-                    print("----", batch_idx, "----")
-                    print("%s: %.2f, " %("loss_detr", detr_losses_dict_log["loss_detr"]))
-                    for key, val in detr_losses_dict_log.items():
-                        if key == "loss_detr":
-                            continue
-                        if "0" in key or "1" in key or "2" in key or "3" in key or "4" in key or "5" in key:
-                            if flags[int(key[-1])]:
-                                print("")
-                                flags[int(key[-1])] = False
-                        print("%s: %.2f, " %(key, val), end="")
-                    print("")
-                    print("")
+                should_log = (
+                    batch_idx % log_frequency == 0
+                    or batch_idx + 1 == batch_count)
+                if should_log:
+                    loss_keys = sorted(detr_losses_dict)
+                    loss_values = torch.stack([
+                        detr_losses_dict[key].detach().reshape(())
+                        for key in loss_keys
+                    ]).cpu().tolist()
+                    loss_text = ", ".join(
+                        f"{key}={value:.6f}"
+                        for key, value in zip(loss_keys, loss_values))
+                    learning_rates = ",".join(
+                        f"{group['lr']:.8g}"
+                        for group in self.optimizer.param_groups)
+                    self.logger.info(
+                        "Train metrics: epoch=%d/%d, step=%d/%d, "
+                        "lr=[%s], loss_detr=%.6f, losses={%s}",
+                        epoch + 1, self.cfg['max_epoch'],
+                        batch_idx + 1, batch_count, learning_rates,
+                        detr_losses_log, loss_text)
 
                 detr_losses.backward()
                 self.optimizer.step()
 
-                progress_bar.update()
         finally:
             if prefetched:
                 batch_source.close()
-        progress_bar.close()
-        return {
+        summary = {
             'batch_count': epoch_batch_count,
             'mean_loss': (epoch_loss_sum / epoch_batch_count
                           if epoch_batch_count else float('nan')),
         }
+        self.logger.info(
+            "Train epoch completed: epoch=%d/%d, batches=%d, "
+            "mean_loss=%.6f",
+            epoch + 1, self.cfg['max_epoch'],
+            summary['batch_count'], summary['mean_loss'])
+        return summary
 
     def prepare_targets(self, targets, batch_size):
         targets_list = []

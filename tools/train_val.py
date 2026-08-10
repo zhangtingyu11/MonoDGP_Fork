@@ -38,7 +38,9 @@ def main():
     output_path = os.path.join('./' + cfg["trainer"]['save_path'], model_name)
     os.makedirs(output_path, exist_ok=True)
 
-    log_file = os.path.join(output_path, 'train.log.%s' % datetime.datetime.now().strftime('%Y%m%d_%H%M%S'))
+    log_file = os.path.join(
+        output_path,
+        'train.%s.log' % datetime.datetime.now().strftime('%Y%m%d_%H%M%S'))
     logger = create_logger(log_file)
 
     # build dataloader

@@ -1,5 +1,4 @@
 import os
-import tqdm
 import shutil
 
 import torch
@@ -156,8 +155,10 @@ class Tester(object):
         self.model.eval()
 
         results = {}
-        progress_bar = tqdm.tqdm(total=len(self.dataloader), leave=True, desc='Evaluation Progress')
-        model_infer_time = 0
+        validation_start = time.time()
+        self.logger.info(
+            'Validation inference started: batches=%d, images=%d',
+            len(self.dataloader), len(self.dataloader.dataset))
         batch_source = self.dataloader
         prefetched = self.use_cuda_eval_prefetch
         if prefetched:
@@ -175,12 +176,9 @@ class Tester(object):
                     calibs = calibs.to(self.device)
                     img_sizes = info['img_size'].to(self.device)
 
-                start_time = time.time()
                 ###dn
                 outputs = self.model(inputs, calibs, targets, img_sizes, dn_args = 0)
                 ###
-                end_time = time.time()
-                model_infer_time += end_time - start_time
 
                 dets = extract_dets_from_outputs(outputs=outputs, K=self.max_objs, topk=self.cfg['topk'])
 
@@ -198,15 +196,17 @@ class Tester(object):
                     threshold=self.cfg.get('threshold', 0.2))
 
                 results.update(dets)
-                progress_bar.update()
         finally:
             if prefetched:
                 batch_source.close()
 
-        print("inference on {} images by {}/per image".format(
-            len(self.dataloader), model_infer_time / len(self.dataloader)))
-
-        progress_bar.close()
+        validation_seconds = time.time() - validation_start
+        image_count = len(self.dataloader.dataset)
+        self.logger.info(
+            'Validation inference completed: batches=%d, images=%d, '
+            'seconds=%.3f, images_per_second=%.3f',
+            len(self.dataloader), image_count, validation_seconds,
+            image_count / validation_seconds)
 
         # Validation is evaluated directly from memory.  Writing thousands of
         # KITTI text files is reserved for explicitly requested exports.

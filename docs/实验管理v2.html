@@ -648,6 +648,10 @@
           <span class="nav-index">17</span>
           <span class="nav-copy"><strong>2D查询分组布局</strong><small>11组修复、合同与速度</small></span>
         </button>
+        <button class="nav-button" data-target="exp18" type="button">
+          <span class="nav-index">18</span>
+          <span class="nav-copy"><strong>零mask与区域图构造</strong><small>等价清理与B16单轮速度</small></span>
+        </button>
       </nav>
 
       <div>
@@ -1930,7 +1934,7 @@
               <div class="stage"><span>优先6 · 不删除11组，只减少搬运</span><h3>11组查询的张量布局</h3><p>训练仍使用11组×50个查询，匹配和Loss也按11组计算，所以11组本身不是废代码、不能删除。候选只减少每层反复的repeat、split、cat和contiguous，保持完全相同的11组结果。use_dn=False仅表示没有额外的加噪去噪查询。</p></div>
               <div class="stage"><span>优先7 · 每批答案相同却重复计算</span><h3>固定几何元数据缓存</h3><p>B16和图像尺寸固定时，spatial shapes、level starts、valid ratios和reference points每批结果相同，可以按形状、设备和dtype复用。这与11组查询是两件独立的事。</p></div>
               <div class="stage"><span>优先8 · 少造内容完全确定的张量</span><h3>第4层零掩码和区域0/1图</h3><p><strong>第4层零掩码：</strong>额外特征层目前仍在CPU创建全0图、搬到GPU，并对同尺寸零图做无效缩放。这项与“数据增强黑边应如何表示”分开处理，不再宣称所有图像位置都有效。<br><strong>区域0/1图：</strong>当前为了把区域概率变成0或1，先创建一张全1图和一张全0图，再用where选择；可以直接用“概率&gt;0.5”的布尔结果转成浮点数，输出逐像素相同。</p></div>
-              <div class="stage"><span>优先9 · 只用于观察、不训练模型</span><h3>两个error监控值</h3><p><strong>class_error：</strong>看已经匹配到真值的查询有多少分类错误，只是观察分类准确率，不进入总Loss；当前训练日志也没有展示它。<br><strong>cardinality_error：</strong>比较“预测物体数量”和“真值物体数量”，同样不进入总Loss。它沿用旧DETR把最后一个类别当背景的算法，而当前使用sigmoid focal分类头、没有这种背景类别，因此这个值本身还可能算错。删除它们不会改变反向梯度。</p></div>
+              <div class="stage"><span>已决定 · 保留监控，整理日志</span><h3>两个error监控值与全Loss日志</h3><p><strong>class_error：</strong>看已经匹配到真值的查询有多少分类错误；<strong>cardinality_error：</strong>比较预测数量和真值数量。两者都不进入加权总Loss，但用户决定保留并与全部Loss一起写入正式日志。训练和验证均移除tqdm进度条，日志按配置周期输出加权总Loss、学习率及Loss字典全部原始值。cardinality沿用旧DETR背景类判断的语义风险仍保留，若修正应另立正确性改动。</p></div>
               <div class="stage"><span>优先10 · 相同网格不要每批重算</span><h3>位置编码缓存</h3><p>Transformer需要给特征图每个位置附上“我在第几行、第几列”的正弦/余弦坐标。固定384×1280输入时，各层特征图大小固定，这张坐标表每批都完全相同；现在仍每批重新执行累计、除法、sin和cos。可以第一次算好后按空间形状、设备和数据类型保存并复用。证据上位置编码约1.59ms/批。</p></div>
               <div class="stage"><span>靠后 · 先在CPU删掉填充行</span><h3>真值整理前移到CPU</h3><p>一个B16批次的真值先被补齐成相同长度，不足的位置用无效行填充。现在代码先把整块真值搬到GPU，再对16张图的8个字段逐一用掩码删除无效行，共产生每批128次CPU等待GPU。候选是在数据加载阶段先用CPU删掉无效行，只把每辆车真正有效的真值搬到GPU。Loss仍在GPU计算，真值也最终进入GPU；改变的只是“删除填充行”发生在哪里。由于这部分CPU工作目前会和上一批反向重叠，真实速度收益尚未验证。</p></div>
             </div>
@@ -2347,10 +2351,62 @@
             <p class="plain-note">两臂初始模型SHA256相同。每个速度臂只运行一次，约1%以内差异可能包含运行波动。用户审核后决定保留decoder_group_num=11修复；2D布局候选没有净速度收益且增加峰值保留显存，回退、不采用，也不继续扩展到3D路径。候选从未写入生产Transformer，实验结果继续留档。</p>
           </article>
         </section>
+
+        <section id="exp18" class="content-panel" aria-labelledby="exp18-title">
+          <article class="section-card">
+            <div class="section-head">
+              <div>
+                <span class="section-kicker">Experiment 18 · 08-10</span>
+                <h2 id="exp18-title">零mask与区域0/1图：构造更直接是否可测</h2>
+                <p class="section-subtitle">只减少常量张量、CPU到GPU搬运和同尺寸插值；不删除注意力mask，也不改变区域概率、特征增强或Loss。</p>
+              </div>
+              <span class="done-badge">已完成·不采用</span>
+            </div>
+            <div class="condition-grid">
+              <article class="condition-card">
+                <header><strong>A · 对照</strong><span>旧构造</span></header>
+                <dl><div><dt>三层mask</dt><dd>CPU零图→bool→GPU</dd></div><div><dt>第4层mask</dt><dd>再做同尺寸float插值</dd></div><div><dt>区域0/1图</dt><dd>where+全1+全0</dd></div></dl>
+              </article>
+              <article class="condition-card new">
+                <header><strong>B · 候选</strong><span>直接构造</span></header>
+                <dl><div><dt>四层mask</dt><dd>GPU直接创建bool零图</dd></div><div><dt>第4层插值</dt><dd>删除</dd></div><div><dt>区域0/1图</dt><dd>比较后转换dtype</dd></div></dl>
+              </article>
+            </div>
+          </article>
+
+          <article class="section-card">
+            <div class="section-head"><div><span class="section-kicker">Contract</span><h2>局部张量和完整前向均保持一致</h2></div></div>
+            <div class="metric-grid">
+              <div class="metric"><span>局部值与stride</span><strong>完全一致</strong><em>四层mask、插值mask、四层区域图</em></div>
+              <div class="metric"><span>完整输出与Loss</span><strong>零差异</strong><em>4个真实B16批次、64张图</em></div>
+              <div class="metric"><span>梯度相对L2</span><strong>0.00400%—0.00478%</strong><em>与旧路径自身波动同量级</em></div>
+            </div>
+            <p class="plain-note">环境守卫前两次都在任何模型batch执行前退出，原因是检查早于build_stack设置后端开关。将守卫移动到build_stack之后、首批之前，正确性重跑2成功；方法、数据和资源范围未改变。</p>
+          </article>
+
+          <article class="section-card">
+            <div class="section-head"><div><span class="section-kicker">One Epoch B16</span><h2>没有可测加速，单次结果慢约0.55%</h2></div></div>
+            <div class="table-wrap">
+              <table class="memory-table">
+                <thead><tr><th>指标</th><th>对照</th><th>候选</th><th>候选变化</th></tr></thead>
+                <tbody>
+                  <tr><td>完整一轮时间 ↓</td><td><strong>101.3153秒</strong></td><td>101.8750秒</td><td>慢0.552%</td></tr>
+                  <tr><td>吞吐 ↑</td><td><strong>36.6381图/秒</strong></td><td>36.4368图/秒</td><td>低0.549%</td></tr>
+                  <tr><td>峰值已分配显存 ↓</td><td>基准</td><td>少2KiB</td><td>可忽略</td></tr>
+                  <tr><td>峰值保留/整卡采样 ↓</td><td>基准</td><td>完全相同</td><td>无变化</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="callout warning" style="margin-top:14px">
+              <h4>没有触及主要mask成本</h4>
+              <p>候选只是更便宜地创建全False mask，注意力仍收到非空mask并执行masked_fill_，所以此前约6.52ms/批的主要mask开销仍在。每臂只跑一次，亚1%差异可能是运行波动。用户审核后认为基本无改善，三处生产清理和实验脚本均已回退，不采用。</p>
+            </div>
+          </article>
+        </section>
       </div>
     </div>
 
-    <footer class="footer">MonoDGP 实验总览 v2 · 序号01—17</footer>
+    <footer class="footer">MonoDGP 实验总览 v2 · 序号01—18</footer>
   </main>
 
   <script>

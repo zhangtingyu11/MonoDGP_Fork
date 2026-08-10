@@ -128,6 +128,9 @@ lr_scheduler:
 trainer:
   max_epoch: 250
   gpu_ids: '1'
+  # Emit a plain-text snapshot containing every loss value at this interval.
+  # The final batch of each epoch is always logged as well.
+  log_frequency: 30
   save_frequency: 1  # checkpoint save interval (in epoch)
   #resume_model: True
   #pretrain_model: path/to/ckpt
