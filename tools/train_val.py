@@ -21,6 +21,7 @@ from lib.helpers.trainer_helper import Trainer
 from lib.helpers.tester_helper import Tester
 from lib.helpers.utils_helper import create_logger
 from lib.helpers.utils_helper import set_random_seed
+from lib.helpers.swanlab_helper import SwanLabTracker
 
 
 parser = argparse.ArgumentParser(description='Monocular 3D Object Detection with Decoupled-Query and Geometry-Error Priors')
@@ -42,6 +43,12 @@ def main():
         output_path,
         'train.%s.log' % datetime.datetime.now().strftime('%Y%m%d_%H%M%S'))
     logger = create_logger(log_file)
+    tracker = SwanLabTracker(
+        cfg=cfg['trainer'].get('swanlab', {}),
+        run_config=cfg,
+        output_dir=output_path,
+        logger=logger,
+        model_name=model_name)
 
     # build dataloader
     train_loader, test_loader = build_dataloader(cfg['dataset'])
@@ -63,8 +70,13 @@ def main():
                         dataloader=test_loader,
                         logger=logger,
                         train_cfg=cfg['trainer'],
-                        model_name=model_name)
-        tester.test()
+                        model_name=model_name,
+                        criterion=loss,
+                        tracker=tracker)
+        try:
+            tester.test()
+        finally:
+            tracker.finish()
         return
     #ipdb.set_trace()
     #  build optimizer
@@ -81,14 +93,17 @@ def main():
                       warmup_lr_scheduler=warmup_lr_scheduler,
                       logger=logger,
                       loss=loss,
-                      model_name=model_name,)
+                      model_name=model_name,
+                      tracker=tracker)
 
     tester = Tester(cfg=cfg['tester'],
                     model=trainer.model,
                     dataloader=test_loader,
                     logger=logger,
                     train_cfg=cfg['trainer'],
-                    model_name=model_name)
+                    model_name=model_name,
+                    criterion=loss,
+                    tracker=tracker)
     if cfg['dataset']['test_split'] != 'test':
         trainer.tester = tester
 
@@ -96,16 +111,19 @@ def main():
     logger.info('Batch Size: %d' % (cfg['dataset']['batch_size']))
     logger.info('Learning Rate: %f' % (cfg['optimizer']['lr']))
 
-    trainer.train()
+    try:
+        trainer.train()
 
-    if cfg['dataset']['test_split'] == 'test':
-        return
+        if cfg['dataset']['test_split'] == 'test':
+            return
 
-    logger.info('###################  Testing  ##################')
-    logger.info('Batch Size: %d' % (cfg['dataset']['batch_size']))
-    logger.info('Split: %s' % (cfg['dataset']['test_split']))
+        logger.info('###################  Testing  ##################')
+        logger.info('Batch Size: %d' % (cfg['dataset']['batch_size']))
+        logger.info('Split: %s' % (cfg['dataset']['test_split']))
 
-    tester.test()
+        tester.test()
+    finally:
+        tracker.finish()
 
 
 if __name__ == '__main__':

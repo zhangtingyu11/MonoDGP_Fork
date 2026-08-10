@@ -6,3 +6,4 @@ scikit-image
 scikit-learn
 tqdm
 thop
+swanlab==0.8.0

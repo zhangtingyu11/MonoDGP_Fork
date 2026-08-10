@@ -185,7 +185,7 @@ class KITTI_Dataset(data.Dataset):
             })
         return annos
 
-    def eval(self, results, logger):
+    def eval(self, results, logger, return_metrics=False):
         logger.info("==> Loading detections and GTs...")
         img_ids = [int(id) for id in self.idx_list]
         dt_annos = self._decoded_predictions_to_annos(results)
@@ -195,11 +195,20 @@ class KITTI_Dataset(data.Dataset):
 
         logger.info('==> Evaluating (official) ...')
         car_moderate = 0
+        metrics = {}
         for category in self.writelist:
             results_str, results_dict, mAP3d_R40 = get_official_eval_result(gt_annos, dt_annos, test_id[category])
             if category == 'Car':
                 car_moderate = mAP3d_R40
+            metrics.update({
+                key: float(value) for key, value in results_dict.items()
+            })
             logger.info(results_str)
+        if return_metrics:
+            return {
+                'selection_score': float(car_moderate),
+                'metrics': metrics,
+            }
         return car_moderate
 
     def __len__(self):
@@ -320,6 +329,9 @@ class KITTI_Dataset(data.Dataset):
         size_2d = np.zeros((self.max_objs, 2), dtype=np.float32) 
         size_3d = np.zeros((self.max_objs, 3), dtype=np.float32)
         src_size_3d = np.zeros((self.max_objs, 3), dtype=np.float32)
+        depth_unit_scale = np.ones((self.max_objs, 1), dtype=np.float32)
+        projective_rotation_y = np.zeros(
+            (self.max_objs, 1), dtype=np.float32)
         boxes = np.zeros((self.max_objs, 4), dtype=np.float32)
         boxes_3d = np.zeros((self.max_objs, 6), dtype=np.float32)
 
@@ -413,18 +425,22 @@ class KITTI_Dataset(data.Dataset):
             # encoding depth
             if self.depth_scale == 'normal':
                 depth[i] = objects[i].pos[-1] * crop_scale
+                depth_unit_scale[i] = crop_scale
             
             elif self.depth_scale == 'inverse':
                 depth[i] = objects[i].pos[-1] / crop_scale
+                depth_unit_scale[i] = 1.0 / crop_scale
             
             elif self.depth_scale == 'none':
                 depth[i] = objects[i].pos[-1]
+                depth_unit_scale[i] = 1.0
 
             # encoding heading angle
             heading_angle = calib.ry2alpha(objects[i].ry, (objects[i].box2d[0] + objects[i].box2d[2]) / 2)
             if heading_angle > np.pi:  heading_angle -= 2 * np.pi  # check range
             if heading_angle < -np.pi: heading_angle += 2 * np.pi
             heading_bin[i], heading_res[i] = angle2class(heading_angle)
+            projective_rotation_y[i] = objects[i].ry
 
             # encoding size_3d
             src_size_3d[i] = np.array([objects[i].h, objects[i].w, objects[i].l], dtype=np.float32)
@@ -526,12 +542,15 @@ class KITTI_Dataset(data.Dataset):
                     # encoding depth
                     if self.depth_scale == 'normal':
                         depth[i + object_num] = objects[i].pos[-1] * crop_scale
+                        depth_unit_scale[i + object_num] = crop_scale
                     
                     elif self.depth_scale == 'inverse':
                         depth[i + object_num] = objects[i].pos[-1] / crop_scale
+                        depth_unit_scale[i + object_num] = 1.0 / crop_scale
                     
                     elif self.depth_scale == 'none':
                         depth[i + object_num] = objects[i].pos[-1]
+                        depth_unit_scale[i + object_num] = 1.0
         
                     # encoding heading angle
                     #heading_angle = objects[i].alpha
@@ -539,6 +558,7 @@ class KITTI_Dataset(data.Dataset):
                     if heading_angle > np.pi:  heading_angle -= 2 * np.pi  # check range
                     if heading_angle < -np.pi: heading_angle += 2 * np.pi
                     heading_bin[i + object_num], heading_res[i + object_num] = angle2class(heading_angle)
+                    projective_rotation_y[i + object_num] = objects[i].ry
 
                     #offset_3d[i + object_num] = center_3d - center_heatmap
                     src_size_3d[i + object_num] = np.array([objects[i].h, objects[i].w, objects[i].l], dtype=np.float32)
@@ -553,6 +573,15 @@ class KITTI_Dataset(data.Dataset):
         # collect return data
         inputs = img
         
+        affine_h = np.eye(3, dtype=np.float32)
+        affine_h[:2] = trans.astype(np.float32, copy=False)
+        projection_h = np.eye(3, dtype=np.float32)
+        if random_flip_flag and not self.aug_calib:
+            projection_h[0, 0] = -1.0
+            projection_h[0, 2] = float(img_size[0])
+        projective_image_effective_calib = (
+            affine_h @ projection_h @ calib.P2).astype(np.float32)
+
         targets = {
                    'calibs': calibs,
                    'indices': indices,
@@ -564,6 +593,12 @@ class KITTI_Dataset(data.Dataset):
                    'size_2d': size_2d,
                    'size_3d': size_3d,
                    'src_size_3d': src_size_3d,
+                   'depth_unit_scale': depth_unit_scale,
+                   'projective_rotation_y': projective_rotation_y,
+                   'projective_image_effective_calib': (
+                       projective_image_effective_calib),
+                   'projective_input_size': self.resolution.astype(
+                       np.float32, copy=True),
                    'heading_bin': heading_bin,
                    'heading_res': heading_res,
                    'mask_2d': mask_2d,

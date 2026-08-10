@@ -540,22 +540,22 @@
       <h1>实验总览 v2</h1>
       <p>实验总账的可视化索引。每项实验单独记录目的、对比条件、执行过程和客观结果，方便后续持续追加。</p>
       <div class="hero-meta">
-        <span class="pill"><span class="status-dot"></span>16 项实验已记录</span>
+        <span class="pill"><span class="status-dot"></span>20 项实验已记录</span>
         <span class="pill">数据来源：实验总账v2</span>
-        <span class="pill">更新日期：2026-08-10</span>
+        <span class="pill">更新日期：2026-08-11</span>
       </div>
     </header>
 
     <section class="top-grid" aria-label="全局摘要">
       <article class="summary-card">
         <span class="label">正式实验</span>
-        <strong>16 项</strong>
+        <strong>20 项</strong>
         <small>从 v2 重新编号</small>
       </article>
       <article class="summary-card">
         <span class="label">已完成</span>
-        <strong>16 项</strong>
-        <small>序号16已审核，不采用</small>
+        <strong>20 项</strong>
+        <small>序号20已审核，作为监控基线</small>
       </article>
       <article class="summary-card">
         <span class="label">实验类型</span>
@@ -564,7 +564,7 @@
       </article>
       <article class="summary-card">
         <span class="label">当前编号</span>
-        <strong>01—16</strong>
+        <strong>01—20</strong>
         <small>后续实验继续追加</small>
       </article>
     </section>
@@ -652,6 +652,14 @@
           <span class="nav-index">18</span>
           <span class="nav-copy"><strong>零mask与区域图构造</strong><small>等价清理与B16单轮速度</small></span>
         </button>
+        <button class="nav-button" data-target="exp19" type="button">
+          <span class="nav-index">19</span>
+          <span class="nav-copy"><strong>CPU真值整理</strong><small>完整合同与B16单轮速度</small></span>
+        </button>
+        <button class="nav-button" data-target="exp20" type="button">
+          <span class="nav-index">20</span>
+          <span class="nav-copy"><strong>可行区间监控基线</strong><small>SwanLab、Loss与梯度</small></span>
+        </button>
       </nav>
 
       <div>
@@ -725,6 +733,41 @@
                 <h3>删除没有消费者的深度计算</h3>
                 <p>保留真正使用的深度图logits和深度特征，只停止计算没有接入输出或Loss的加权深度与深度位置嵌入。</p>
               </div>
+              <div class="truth">
+                <span class="number">13</span>
+                <h3>cuDNN固定形状自动调优</h3>
+                <p>比较固定输入形状下cuDNN算法搜索的首轮成本、第二轮稳态速度和峰值显存。</p>
+              </div>
+              <div class="truth">
+                <span class="number">14</span>
+                <h3>局部torch.compile可行性扫描</h3>
+                <p>诊断区域头、ResNet主体和深度头的完整图捕获边界、动态图版本与跨轮缓存复用。</p>
+              </div>
+              <div class="truth">
+                <span class="number">15</span>
+                <h3>区域头局部torch.compile</h3>
+                <p>对区域头做完整数值合同与连续两轮B16速度对比，评估稳态收益和数值偏差。</p>
+              </div>
+              <div class="truth">
+                <span class="number">16</span>
+                <h3>channels-last卷积布局</h3>
+                <p>将四维卷积状态和图像输入切换为channels-last，比较完整结果、梯度、速度与显存。</p>
+              </div>
+              <div class="truth">
+                <span class="number">17</span>
+                <h3>11组decoder修复与2D查询布局</h3>
+                <p>先恢复六层decoder的11组配置，再独立测试2D无DN查询分组重排是否有净收益。</p>
+              </div>
+              <div class="truth">
+                <span class="number">18</span>
+                <h3>零mask与区域0/1图构造</h3>
+                <p>清理常量mask、同尺寸插值与区域二值图构造，并做完整合同和B16单轮速度对比。</p>
+              </div>
+              <div class="truth">
+                <span class="number">19</span>
+                <h3>真值整理前移到CPU</h3>
+                <p>在CPU压缩逐物体字段，锁页后按字段异步搬运，并在GPU按每图物体数重建视图。</p>
+              </div>
             </div>
           </article>
 
@@ -784,10 +827,38 @@
                 <h3>实验 12：对照序号11累计代码</h3>
                 <p>旧路径与删除死计算后的候选各训练一轮；另用4个真实B16批次比较全部输出、Loss和梯度。</p>
               </div>
+              <div class="mini-card good">
+                <h3>实验 13：对照序号12累计代码</h3>
+                <p>只切换cuDNN固定形状自动调优；两臂各连续训练2轮，分开观察首次搜索和稳态表现。</p>
+              </div>
+              <div class="mini-card good">
+                <h3>实验 14：分析序号12累计代码</h3>
+                <p>不是正式速度A/B；分别诊断三个局部模块的完整图捕获、动态图版本和缓存复用。</p>
+              </div>
+              <div class="mini-card good">
+                <h3>实验 15：对照序号12累计代码</h3>
+                <p>只编译区域头，比较完整输出、Loss、梯度以及未编译和已编译各连续2轮训练。</p>
+              </div>
+              <div class="mini-card good">
+                <h3>实验 16：对照序号12累计代码</h3>
+                <p>只改变卷积张量布局，转换成本计入总时间；Transformer序列路径和训练方法不变。</p>
+              </div>
+              <div class="mini-card good">
+                <h3>实验 17：共同基线先修复11组</h3>
+                <p>两臂都使用修复后的11组decoder；候选仅改2D无DN查询的分组和还原布局。</p>
+              </div>
+              <div class="mini-card good">
+                <h3>实验 18：对照序号17累计代码</h3>
+                <p>只清理零mask、同尺寸插值和区域0/1图构造；注意力mask与全部训练语义不变。</p>
+              </div>
+              <div class="mini-card good">
+                <h3>实验 19：对照序号17累计代码</h3>
+                <p>只改变逐物体真值删除填充行和H2D搬运的时机；模型、匹配、Loss和稠密区域图不变。</p>
+              </div>
             </div>
             <div class="callout warning" style="margin-top:14px">
               <h4>每项实验只和自己明确的对照比</h4>
-              <p>序号1是B8完整运行栈对比；序号2是B16单组基准；序号3对照序号2；序号4对照序号3累计代码；序号5对照序号4；序号6对照已合并序号5后的当前代码；序号7对照序号6累计代码；序号8对照序号7；序号9对照已合并序号8后的当前代码；序号10对照序号9累计代码；序号11分析序号10已采用的累计代码；序号12对照序号11已审核代码。</p>
+              <p>序号1是B8完整运行栈对比；序号2是B16单组基准；序号3—10依次对照上一项已审核累计代码；序号11分析序号10累计代码；序号12、13分别测试死深度计算和cuDNN自动调优；序号14只诊断局部编译边界；序号15、16分别测试区域头编译和channels-last；序号17在共同修复11组decoder后测试2D查询布局；序号18、19分别对照序号17累计代码测试零mask构造和CPU真值整理。</p>
             </div>
           </article>
         </section>
@@ -1926,17 +1997,17 @@
               <p>序号11已经系统覆盖真实B16训练主路径，但验证、AP、checkpoint、外部监控和GPU硬件计数器没有全部实测。下面按现有证据列候选，并把尚未封口的范围单独写清楚。</p>
             </div>
             <div class="stage-grid">
-              <div class="stage"><span>序号12已完成 · 等价但速度不可分辨</span><h3>删除无消费者的深度计算</h3><p>全部输出与Loss逐元素零差异，梯度变化未超过旧路径自身波动。完整一轮时间差仅0.04%，不能声称提速；峰值保留/整卡显存分别少10/16MiB。等待用户决定是否采用。</p></div>
-              <div class="stage"><span>优先2 · 直接打卷积热点</span><h3>cuDNN固定形状自动调优</h3><p>当前benchmark关闭，而B16和图像尺寸固定。保持deterministic开启，比较第2轮稳态；主干前向约79.47ms，卷积反向也很重。</p></div>
-              <div class="stage"><span>优先3 · 原始实现问题，已暂停纯提速</span><h3>数据增强黑边没有进入mask</h3><p>固定384×1280只保证没有“批次尺寸补齐”，不保证图像内没有黑边。随机缩放和平移会用原图外内容填充图像边缘，但现有NestedTensor mask只看张量尺寸，仍然全False，所以模型会把增强黑边当普通像素。后续先统计触发率、面积和方向，再设计与仿射变换同步的有效像素mask；在此之前不直接传None删除掩码。</p></div>
-              <div class="stage"><span>序号15已测区域头 · 不采用</span><h3>局部torch.compile融合</h3><p>区域头、ResNet主体和深度头均能被完整捕获且后续轮次不再编译。序号15区域头第2轮稳态约快0.98%，但两轮合计只快0.25%，且完整梯度相对差最高0.2706%。用户审核后认为收益太小，已回退。</p></div>
-              <div class="stage"><span>优先5 · 卷积布局</span><h3>channels_last真实B16 A/B</h3><p>只在ResNet、区域头和深度卷积分支试；必须把布局转换成本算进去，并验证前向、Loss、梯度与完整一轮。</p></div>
-              <div class="stage"><span>优先6 · 不删除11组，只减少搬运</span><h3>11组查询的张量布局</h3><p>训练仍使用11组×50个查询，匹配和Loss也按11组计算，所以11组本身不是废代码、不能删除。候选只减少每层反复的repeat、split、cat和contiguous，保持完全相同的11组结果。use_dn=False仅表示没有额外的加噪去噪查询。</p></div>
-              <div class="stage"><span>优先7 · 每批答案相同却重复计算</span><h3>固定几何元数据缓存</h3><p>B16和图像尺寸固定时，spatial shapes、level starts、valid ratios和reference points每批结果相同，可以按形状、设备和dtype复用。这与11组查询是两件独立的事。</p></div>
-              <div class="stage"><span>优先8 · 少造内容完全确定的张量</span><h3>第4层零掩码和区域0/1图</h3><p><strong>第4层零掩码：</strong>额外特征层目前仍在CPU创建全0图、搬到GPU，并对同尺寸零图做无效缩放。这项与“数据增强黑边应如何表示”分开处理，不再宣称所有图像位置都有效。<br><strong>区域0/1图：</strong>当前为了把区域概率变成0或1，先创建一张全1图和一张全0图，再用where选择；可以直接用“概率&gt;0.5”的布尔结果转成浮点数，输出逐像素相同。</p></div>
-              <div class="stage"><span>已决定 · 保留监控，整理日志</span><h3>两个error监控值与全Loss日志</h3><p><strong>class_error：</strong>看已经匹配到真值的查询有多少分类错误；<strong>cardinality_error：</strong>比较预测数量和真值数量。两者都不进入加权总Loss，但用户决定保留并与全部Loss一起写入正式日志。训练和验证均移除tqdm进度条，日志按配置周期输出加权总Loss、学习率及Loss字典全部原始值。cardinality沿用旧DETR背景类判断的语义风险仍保留，若修正应另立正确性改动。</p></div>
-              <div class="stage"><span>优先10 · 相同网格不要每批重算</span><h3>位置编码缓存</h3><p>Transformer需要给特征图每个位置附上“我在第几行、第几列”的正弦/余弦坐标。固定384×1280输入时，各层特征图大小固定，这张坐标表每批都完全相同；现在仍每批重新执行累计、除法、sin和cos。可以第一次算好后按空间形状、设备和数据类型保存并复用。证据上位置编码约1.59ms/批。</p></div>
-              <div class="stage"><span>靠后 · 先在CPU删掉填充行</span><h3>真值整理前移到CPU</h3><p>一个B16批次的真值先被补齐成相同长度，不足的位置用无效行填充。现在代码先把整块真值搬到GPU，再对16张图的8个字段逐一用掩码删除无效行，共产生每批128次CPU等待GPU。候选是在数据加载阶段先用CPU删掉无效行，只把每辆车真正有效的真值搬到GPU。Loss仍在GPU计算，真值也最终进入GPU；改变的只是“删除填充行”发生在哪里。由于这部分CPU工作目前会和上一批反向重叠，真实速度收益尚未验证。</p></div>
+              <div class="stage"><span>序号12已完成 · 已采用</span><h3>删除无消费者的深度计算</h3><p>全部输出与Loss逐元素零差异，梯度变化未超过旧路径自身波动。完整一轮时间差仅0.04%，不能声称提速；峰值保留/整卡显存分别少10/16MiB。用户已批准采用并推送。</p></div>
+              <div class="stage"><span>序号13已完成 · 不采用</span><h3>cuDNN固定形状自动调优</h3><p>第二轮稳态约快0.63%，但首次算法搜索令PyTorch峰值显存增加约7—8GiB，整卡采样峰值也增加989MiB。用户审核后已回退。</p></div>
+              <div class="stage"><span>待专项诊断 · 原始实现问题</span><h3>数据增强黑边没有进入mask</h3><p>固定384×1280只保证没有“批次尺寸补齐”，不保证图像内没有黑边。随机缩放和平移会用原图外内容填充图像边缘，但现有NestedTensor mask只看张量尺寸，仍然全False，所以模型会把增强黑边当普通像素。后续先统计触发率、面积和方向，再设计与仿射变换同步的有效像素mask；在此之前不直接传None删除掩码。</p></div>
+              <div class="stage"><span>序号14诊断、15实测 · 未采用</span><h3>局部torch.compile融合</h3><p>区域头、ResNet主体和深度头均能被完整捕获且后续轮次不再编译。序号15区域头第2轮稳态约快0.98%，但两轮合计只快0.25%，且完整梯度相对差最高0.2706%。用户审核后认为收益太小，已回退。</p></div>
+              <div class="stage"><span>序号16已完成 · 不采用</span><h3>channels_last真实B16 A/B</h3><p>完整两轮合计慢0.58%，峰值已分配显存增加约95MiB；卷积内核还引入了高于普通自重复的数值差异。用户审核后已回退。</p></div>
+              <div class="stage"><span>序号17已完成 · 仅保留组数修复</span><h3>11组查询的张量布局</h3><p>六层decoder的11组配置传递已修复并保留。2D无DN查询布局候选两轮合计慢0.18%且峰值保留显存增加480MiB，已回退；11组训练本身不删除。</p></div>
+              <div class="stage"><span>待验证 · 每批答案相同</span><h3>固定几何元数据缓存</h3><p>B16和图像尺寸固定时，spatial shapes、level starts、valid ratios和reference points每批结果相同，可以按形状、设备和dtype复用。这与11组查询是两件独立的事。</p></div>
+              <div class="stage"><span>序号18已完成 · 不采用</span><h3>第4层零掩码和区域0/1图</h3><p>局部张量、完整输出和Loss合同通过，但完整一轮没有可测加速，候选慢0.552%，显存变化可忽略。用户审核后已回退。</p></div>
+              <div class="stage"><span>已完成 · 已采用</span><h3>两个error监控值与全Loss日志</h3><p><strong>class_error：</strong>看已经匹配到真值的查询有多少分类错误；<strong>cardinality_error：</strong>比较预测数量和真值数量。两者都不进入加权总Loss，但已保留并与全部Loss一起写入正式日志。训练和验证均移除tqdm进度条，日志文件以<code>.log</code>结尾。</p></div>
+              <div class="stage"><span>已暂停 · 等待mask语义确定</span><h3>位置编码缓存</h3><p>位置编码不是只看特征图形状：代码会先对<code>~mask</code>沿高、宽累计并归一化。当前mask全False时结果碰巧固定；后续若正确表示随机增强黑边，mask和位置编码都会随样本变化，按形状缓存就会复用错误结果。因此先完成mask设计与验证，现阶段不改。</p></div>
+              <div class="stage"><span>序号19已完成 · 不采用</span><h3>真值整理前移到CPU</h3><p>逐字段targets、完整输出与Loss合同通过。单次完整一轮快0.950%、吞吐高0.959%，但峰值保留和整卡显存均增加480MiB。用户审核后已回退。</p></div>
             </div>
             <div class="callout warning" style="margin-top:14px">
               <h4>不优先或高风险</h4>
@@ -1947,7 +2018,7 @@
                 <thead><tr><th>范围</th><th>现在查到什么程度</th><th>还缺什么</th></tr></thead>
                 <tbody>
                   <tr><td>真实B16训练主路径</td><td><strong>已实测</strong>：数据、搬运、真值、前向、全部Loss、反向、优化器、GPU时间线、显存</td><td>二维Transformer的23次同步还没逐行分账</td></tr>
-                  <tr><td>代码级候选</td><td><strong>死深度计算已完成序号12</strong>；零掩码、区域嵌入、固定元数据和11组布局仍只做过静态审计</td><td>其余候选尚未做独立合同和A/B</td></tr>
+                  <tr><td>代码级候选</td><td><strong>序号12—19均已记录</strong>；死深度计算和11组配置修复已采用，其余已测候选按用户结论回退</td><td>固定几何元数据尚未做独立合同和A/B；位置编码缓存等待mask语义确定</td></tr>
                   <tr><td>GPU内核细节</td><td>已知kernel数量、持续时间和流空档</td><td>SM利用率、带宽、occupancy和stall被权限阻止</td></tr>
                   <tr><td>验证与AP</td><td>序号11没有覆盖</td><td>推理、CPU解码、GPU KITTI AP需要单独测</td></tr>
                   <tr><td>训练外围</td><td>序号11没有覆盖</td><td>checkpoint保存/恢复、W&amp;B或其他监控的墙钟与I/O</td></tr>
@@ -2403,10 +2474,96 @@
             </div>
           </article>
         </section>
+
+        <section id="exp19" class="content-panel" aria-labelledby="exp19-title">
+          <article class="section-card">
+            <div class="section-head">
+              <div>
+                <span class="section-kicker">Experiment 19 · 08-11</span>
+                <h2 id="exp19-title">真值整理前移CPU：少传填充行、避免GPU动态切片</h2>
+                <p class="section-subtitle">不改模型或Loss；只把删除逐物体填充行的时机从GPU搬运后移到DataLoader collate阶段。</p>
+              </div>
+              <span class="done-badge">已完成·不采用</span>
+            </div>
+            <div class="condition-grid">
+              <article class="condition-card">
+                <header><strong>A · 对照</strong><span>GPU逐字段筛选</span></header>
+                <dl><div><dt>CPU</dt><dd>保留固定长度填充</dd></div><div><dt>H2D</dt><dd>整块targets字典</dd></div><div><dt>GPU</dt><dd>16图×8字段布尔索引</dd></div></dl>
+              </article>
+              <article class="condition-card new">
+                <header><strong>B · 候选</strong><span>CPU打包、GPU视图</span></header>
+                <dl><div><dt>CPU</dt><dd>每字段压成连续张量</dd></div><div><dt>H2D</dt><dd>锁页后每字段一次异步复制</dd></div><div><dt>GPU</dt><dd>按物体数narrow成每图视图</dd></div></dl>
+              </article>
+            </div>
+          </article>
+
+          <article class="section-card">
+            <div class="section-head"><div><span class="section-kicker">Numerical Contract</span><h2>targets、输出和Loss均保持一致</h2></div></div>
+            <div class="metric-grid">
+              <div class="metric"><span>真实合同</span><strong>4×B16</strong><em>64张图，包含空目标图</em></div>
+              <div class="metric"><span>targets / 输出 / Loss</span><strong>零差异</strong><em>值、shape、dtype、stride均检查</em></div>
+              <div class="metric"><span>梯度相对L2</span><strong>0.00398%—0.00455%</strong><em>与旧路径自身波动同量级</em></div>
+            </div>
+            <p class="plain-note">targets总H2D字节只少约1.32%，因为稠密obj_region占主要体积。候选主要消除的是GPU动态布尔索引及其CPU等待，不是传输带宽。首次正确性运行因两边迭代器种子时点不同而在首个模型batch前退出；修正相同shuffle控制后，正确性重跑1通过。</p>
+          </article>
+
+          <article class="section-card">
+            <div class="section-head"><div><span class="section-kicker">One Epoch B16</span><h2>单次快约0.95%，但保留显存增加480MiB</h2></div></div>
+            <div class="table-wrap">
+              <table class="memory-table">
+                <thead><tr><th>指标</th><th>对照</th><th>候选</th><th>候选变化</th></tr></thead>
+                <tbody>
+                  <tr><td>完整一轮时间 ↓</td><td>100.8908秒</td><td><strong>99.9324秒</strong></td><td>快0.950%</td></tr>
+                  <tr><td>吞吐 ↑</td><td>36.7923图/秒</td><td><strong>37.1451图/秒</strong></td><td>高0.959%</td></tr>
+                  <tr><td>峰值已分配显存 ↓</td><td><strong>基准</strong></td><td>增加约0.81MiB</td><td>基本持平</td></tr>
+                  <tr><td>峰值保留/整卡采样 ↓</td><td><strong>基准</strong></td><td>各增加480MiB</td><td>更高</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="callout warning" style="margin-top:14px">
+              <h4>用户决定回退</h4>
+              <p>两臂初始模型SHA256相同，但每臂只运行一次，约1%的速度变化可能包含运行间波动。候选结果等价，速度略有改善，同时峰值保留与整卡显存增加480MiB。用户审核后决定不采用，生产代码与专用实验脚本已恢复。</p>
+            </div>
+          </article>
+        </section>
+
+        <section id="exp20" class="content-panel" aria-labelledby="exp20-title">
+          <article class="section-card">
+            <div class="section-head">
+              <div>
+                <span class="section-kicker">Experiment 20 · 08-11</span>
+                <h2 id="exp20-title">可行深度区间、SwanLab与梯度监控基线</h2>
+                <p class="section-subtitle">区间只做观测，不进入优化目标；训练完整覆盖11组匹配预测，验证按正式推理输出统计。</p>
+              </div>
+              <span class="done-badge">已完成·作为监控基线</span>
+            </div>
+            <div class="condition-grid">
+              <article class="condition-card"><header><strong>几何口径</strong><span>正式解码路径</span></header><dl><div><dt>方向</dt><dd>alpha + 预测二维框中心射线</dd></div><div><dt>区间搜索</dt><dd>固定yaw，22步二分</dd></div><div><dt>P2分母</dt><dd>暂保留当前约定</dd></div></dl></article>
+              <article class="condition-card new"><header><strong>观测口径</strong><span>不参与反向</span></header><dl><div><dt>训练</dt><dd>11组全部匹配预测</dd></div><div><dt>验证</dt><dd>推理实际查询组</dd></div><div><dt>记录</dt><dd>Loss、区间、AP、梯度</dd></div></dl></article>
+            </div>
+          </article>
+          <article class="section-card">
+            <div class="section-head"><div><span class="section-kicker">B16 Timing</span><h2>完整训练与验证耗时</h2></div></div>
+            <div class="metric-grid">
+              <div class="metric"><span>训练一轮</span><strong>109.329秒</strong><em>3712图 / 232批</em></div>
+              <div class="metric"><span>验证模型+42项Loss+区间</span><strong>53.156秒</strong><em>3769图 / 236批</em></div>
+              <div class="metric"><span>验证含GPU AP</span><strong>58.843秒</strong><em>AP部分5.687秒</em></div>
+            </div>
+          </article>
+          <article class="section-card">
+            <div class="section-head"><div><span class="section-kicker">Monitoring Contract</span><h2>区间核心减半，监控保持只读</h2></div></div>
+            <div class="metric-grid">
+              <div class="metric"><span>区间核心</span><strong>70.870→36.154ms</strong><em>每批减少48.985%</em></div>
+              <div class="metric"><span>梯度监控</span><strong>约0.562秒/轮</strong><em>不改写梯度张量</em></div>
+              <div class="metric"><span>正式调度</span><strong>B16 · 250轮</strong><em>第120轮开始验证</em></div>
+            </div>
+            <p class="plain-note">训练车辆数使用去重真值计数，匹配预测数保留11组全部结果，两者不再混称。SwanLab采用中文完整指标名，记录每项Loss、区间内外数量与比例、AP和梯度趋势。</p>
+          </article>
+        </section>
       </div>
     </div>
 
-    <footer class="footer">MonoDGP 实验总览 v2 · 序号01—18</footer>
+    <footer class="footer">MonoDGP 实验总览 v2 · 序号01—20</footer>
   </main>
 
   <script>

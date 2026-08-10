@@ -5,7 +5,7 @@ dataset:
   root_dir: '../data/kitti'
   train_split: 'train'
   test_split: 'val'
-  batch_size: 8
+  batch_size: 16
   # Pinned host tensors let dedicated CUDA streams overlap transfers with the
   # current training or validation batch computation.
   train_pin_memory: True
@@ -92,6 +92,16 @@ model:
   # Gather matched indices and target fields once per output layer so all
   # object losses can reuse them.
   use_post_match_cache: True
+  # Passive GT-conditioned feasible-depth interval monitor.  It uses the
+  # current projection convention and never contributes to optimization.
+  geometry_interval_monitoring:
+    enabled: True
+    car_class_id: 1
+    iou_threshold: 0.7
+    decode_mean_sizes:
+      - [0.0, 0.0, 0.0]
+      - [0.0, 0.0, 0.0]
+      - [0.0, 0.0, 0.0]
   3dcenter_loss_coef: 10
   dim_loss_coef: 1
   angle_loss_coef: 1
@@ -131,7 +141,16 @@ trainer:
   # Emit a plain-text snapshot containing every loss value at this interval.
   # The final batch of each epoch is always logged as well.
   log_frequency: 30
+  swanlab_batch_interval: 5
+  gradient_monitoring:
+    enabled: True
+    # Global norm is observed every batch; module-level norms and
+    # grad/parameter ratios are sampled at this interval and on the last batch.
+    module_interval: 30
   save_frequency: 1  # checkpoint save interval (in epoch)
+  # Epochs 1-119 only train and save the latest checkpoint. Starting after
+  # epoch 120, run the full validation/loss/interval/AP pipeline every epoch.
+  validation_start_epoch: 120
   #resume_model: True
   #pretrain_model: path/to/ckpt
   save_path: 'outputs/'
@@ -146,6 +165,19 @@ trainer:
   label_noise_scale: 0.2
   box_noise_scale: 0.4
   num_patterns: 0
+  # Online tracking writes live dashboards to the configured workspace.
+  # Tracking does not change the optimization objective.
+  swanlab:
+    enabled: True
+    required: True
+    project: 'MonoDGP'
+    workspace: 'Grapymage'
+    experiment_name: 'monodgp-optimized-baseline'
+    description: 'Optimized native baseline for feasible-interval comparisons'
+    group: 'feasible-interval-study'
+    projection_geometry_version: 'current'
+    tags: ['baseline', 'kitti', 'feasible-interval-reference']
+    mode: 'online'
 
 tester:
   type: *dataset_type

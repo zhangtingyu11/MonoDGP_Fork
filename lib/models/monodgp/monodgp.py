@@ -18,6 +18,8 @@ from .region_seg_head import RegionSegHead
 from .depth_predictor import DepthPredictor
 from .depth_predictor.ddn_loss import DDNLoss
 from lib.losses.focal_loss import sigmoid_focal_loss
+from lib.losses.asymmetric_interval_depth_loss import (
+    asymmetric_interval_and_uncertainty_loss)
 from .position_encoding import PositionEmbeddingCamRay
 
 
@@ -405,6 +407,7 @@ class SetCriterion(nn.Module):
     """
     def __init__(self, num_classes, matcher, weight_dict, focal_alpha, losses,
                  inter_losses, group_num=11,
+                 geometry_interval_monitoring=None,
                  use_vectorized_ddn_rasterization=False,
                  use_aligned_giou_loss=False,
                  use_post_match_cache=False):
@@ -431,6 +434,18 @@ class SetCriterion(nn.Module):
         self.group_num = group_num
         self.use_aligned_giou_loss = bool(use_aligned_giou_loss)
         self.use_post_match_cache = bool(use_post_match_cache)
+        monitor_cfg = geometry_interval_monitoring or {}
+        self.geometry_interval_monitoring_enabled = bool(
+            monitor_cfg.get('enabled', False))
+        self.geometry_interval_monitoring_car_class_id = int(
+            monitor_cfg.get('car_class_id', 1))
+        self.geometry_interval_monitoring_iou_threshold = float(
+            monitor_cfg.get('iou_threshold', 0.7))
+        self.geometry_interval_monitoring_decode_means = tuple(
+            tuple(float(component) for component in row)
+            for row in monitor_cfg.get(
+                'decode_mean_sizes', ((0.0, 0.0, 0.0),) * 3))
+        self.geometry_conditioned_interval_depth_receipts = {}
 
     def loss_labels(self, outputs, targets, indices, num_boxes, log=True,
                     matched_cache=None):
@@ -690,6 +705,7 @@ class SetCriterion(nn.Module):
              targets: list of dicts, such that len(targets) == batch_size.
                       The expected keys in each dict depends on the losses applied, see each loss' doc
         """
+        self.geometry_conditioned_interval_depth_receipts = {}
         group_num = self.group_num if self.training else 1
         # Compute the average number of target boxes accross all nodes, for normalization purposes
         num_boxes = sum(len(t["labels"]) for t in targets) * group_num
@@ -727,6 +743,16 @@ class SetCriterion(nn.Module):
             losses.update(self.get_loss(
                 loss, outputs, targets, indices, num_boxes,
                 matched_cache=matched_cache))
+        if self.geometry_interval_monitoring_enabled:
+            with torch.no_grad():
+                _, _, receipt = asymmetric_interval_and_uncertainty_loss(
+                    outputs, targets, indices, num_boxes,
+                    car_class_id=self.geometry_interval_monitoring_car_class_id,
+                    iou_threshold=(
+                        self.geometry_interval_monitoring_iou_threshold),
+                    decode_mean_sizes=(
+                        self.geometry_interval_monitoring_decode_means))
+            self.geometry_conditioned_interval_depth_receipts['final'] = receipt
 
         # In case of auxiliary losses, we repeat this process with the output of each intermediate layer.
         if 'aux_outputs' in outputs:
@@ -830,6 +856,8 @@ def build(cfg):
         losses=losses,
         inter_losses=inter_losses,
         group_num=cfg['group_num'],
+        geometry_interval_monitoring=cfg.get(
+            'geometry_interval_monitoring'),
         use_vectorized_ddn_rasterization=cfg.get(
             'use_vectorized_ddn_rasterization', False),
         use_aligned_giou_loss=cfg.get('use_aligned_giou_loss', False),

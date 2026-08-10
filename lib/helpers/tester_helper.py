@@ -6,6 +6,8 @@ from lib.helpers.save_helper import load_checkpoint
 from lib.helpers.decode_helper import extract_dets_from_outputs
 from lib.helpers.decode_helper import decode_detections
 import time
+from lib.helpers.swanlab_helper import ScalarMeanAccumulator
+from lib.helpers.swanlab_helper import GeometryIntervalAccumulator
 
 
 class CudaEvalBatchPrefetcher:
@@ -91,7 +93,8 @@ class CudaEvalBatchPrefetcher:
 
 
 class Tester(object):
-    def __init__(self, cfg, model, dataloader, logger, train_cfg=None, model_name='monodgp'):
+    def __init__(self, cfg, model, dataloader, logger, train_cfg=None,
+                 model_name='monodgp', criterion=None, tracker=None):
         self.cfg = cfg
         self.model = model
         self.dataloader = dataloader
@@ -103,6 +106,11 @@ class Tester(object):
         self.logger = logger
         self.train_cfg = train_cfg
         self.model_name = model_name
+        self.criterion = criterion
+        self.tracker = tracker
+        self.last_loss_summary = None
+        self.last_geometry_interval_summary = None
+        self.last_inference_stats = None
         self.use_cuda_eval_prefetch = bool(
             train_cfg.get('use_cuda_eval_prefetch', False))
         if self.use_cuda_eval_prefetch and self.device.type != 'cuda':
@@ -153,8 +161,12 @@ class Tester(object):
     def inference(self):
         torch.set_grad_enabled(False)
         self.model.eval()
+        if self.criterion is not None:
+            self.criterion.eval()
 
         results = {}
+        loss_accumulator = ScalarMeanAccumulator()
+        geometry_interval_accumulator = GeometryIntervalAccumulator()
         validation_start = time.time()
         self.logger.info(
             'Validation inference started: batches=%d, images=%d',
@@ -180,6 +192,40 @@ class Tester(object):
                 outputs = self.model(inputs, calibs, targets, img_sizes, dn_args = 0)
                 ###
 
+                if self.criterion is not None:
+                    device_targets = {
+                        key: (value.to(self.device, non_blocking=True)
+                              if torch.is_tensor(value) else value)
+                        for key, value in targets.items()
+                    }
+                    mask = device_targets['mask_2d']
+                    prepared_targets = []
+                    key_list = {
+                        'labels', 'boxes', 'calibs', 'depth', 'size_3d',
+                        'heading_bin', 'heading_res', 'boxes_3d',
+                        'src_size_3d', 'depth_unit_scale',
+                        'projective_rotation_y'}
+                    for batch_index in range(inputs.shape[0]):
+                        item = {}
+                        for key, value in device_targets.items():
+                            if key in key_list:
+                                item[key] = value[batch_index][mask[batch_index]]
+                            elif key in ('depth_map', 'obj_region'):
+                                item[key] = value[batch_index]
+                            elif key in (
+                                    'img_size',
+                                    'projective_input_size',
+                                    'projective_image_effective_calib'):
+                                item[key] = value[batch_index]
+                        prepared_targets.append(item)
+                    loss_dict = self.criterion(
+                        outputs, prepared_targets, mask_dict=None)
+                    loss_accumulator.add(loss_dict)
+                    geometry_interval_accumulator.add(getattr(
+                        self.criterion,
+                        'geometry_conditioned_interval_depth_receipts', {}
+                    ).get('final'))
+
                 dets = extract_dets_from_outputs(outputs=outputs, K=self.max_objs, topk=self.cfg['topk'])
 
                 dets = dets.detach().cpu().numpy()
@@ -202,6 +248,15 @@ class Tester(object):
 
         validation_seconds = time.time() - validation_start
         image_count = len(self.dataloader.dataset)
+        self.last_loss_summary = loss_accumulator.finalize()
+        self.last_geometry_interval_summary = (
+            geometry_interval_accumulator.finalize())
+        self.last_inference_stats = {
+            'seconds': validation_seconds,
+            'images_per_second': image_count / validation_seconds,
+            'images': image_count,
+            'batches': len(self.dataloader),
+        }
         self.logger.info(
             'Validation inference completed: batches=%d, images=%d, '
             'seconds=%.3f, images_per_second=%.3f',
@@ -237,6 +292,8 @@ class Tester(object):
                 f.write('\n')
             f.close()
 
-    def evaluate(self, results):
-        result = self.dataloader.dataset.eval(results=results, logger=self.logger)
+    def evaluate(self, results, return_metrics=False):
+        result = self.dataloader.dataset.eval(
+            results=results, logger=self.logger,
+            return_metrics=return_metrics)
         return result
