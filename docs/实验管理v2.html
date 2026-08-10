@@ -540,7 +540,7 @@
       <h1>实验总览 v2</h1>
       <p>实验总账的可视化索引。每项实验单独记录目的、对比条件、执行过程和客观结果，方便后续持续追加。</p>
       <div class="hero-meta">
-        <span class="pill"><span class="status-dot"></span>9 项实验已记录</span>
+        <span class="pill"><span class="status-dot"></span>10 项实验已记录</span>
         <span class="pill">数据来源：实验总账v2</span>
         <span class="pill">更新日期：2026-08-10</span>
       </div>
@@ -549,13 +549,13 @@
     <section class="top-grid" aria-label="全局摘要">
       <article class="summary-card">
         <span class="label">正式实验</span>
-        <strong>9 项</strong>
+        <strong>10 项</strong>
         <small>从 v2 重新编号</small>
       </article>
       <article class="summary-card">
         <span class="label">已完成</span>
-        <strong>9 项</strong>
-        <small>序号9已审核通过</small>
+        <strong>10 项</strong>
+        <small>序号10已审核通过</small>
       </article>
       <article class="summary-card">
         <span class="label">实验类型</span>
@@ -564,7 +564,7 @@
       </article>
       <article class="summary-card">
         <span class="label">当前编号</span>
-        <strong>01—09</strong>
+        <strong>01—10</strong>
         <small>后续实验继续追加</small>
       </article>
     </section>
@@ -611,6 +611,10 @@
         <button class="nav-button" data-target="exp9" type="button">
           <span class="nav-index">09</span>
           <span class="nav-copy"><strong>同图匹配代价批量化</strong><small>B16单轮对照</small></span>
+        </button>
+        <button class="nav-button" data-target="exp10" type="button">
+          <span class="nav-index">10</span>
+          <span class="nav-copy"><strong>矩阵乘法TF32</strong><small>梯度与B16速度</small></span>
         </button>
       </nav>
 
@@ -670,6 +674,11 @@
                 <h3>B16同图匹配代价批量计算</h3>
                 <p>只计算同一图片内部的预测与真值组合，不再生成跨图片的无效匹配代价。</p>
               </div>
+              <div class="truth">
+                <span class="number">10</span>
+                <h3>B16矩阵乘法启用TF32</h3>
+                <p>卷积TF32保持不变，只比较矩阵乘法TF32开关对Loss、梯度、速度和显存的影响。</p>
+              </div>
             </div>
           </article>
 
@@ -717,10 +726,14 @@
                 <h3>实验 9：对照序号8代码</h3>
                 <p>两边各训练一轮，唯一变量是匹配代价按全批次跨图组合计算，还是只按同图批量计算。</p>
               </div>
+              <div class="mini-card good">
+                <h3>实验 10：对照序号9代码</h3>
+                <p>两边各训练一轮，唯一变量是矩阵乘法是否允许TF32；另用4个真实B16批次测Loss和梯度偏差。</p>
+              </div>
             </div>
             <div class="callout warning" style="margin-top:14px">
               <h4>每项实验只和自己明确的对照比</h4>
-              <p>序号1是B8完整运行栈对比；序号2是B16单组基准；序号3对照序号2；序号4对照序号3累计代码；序号5对照序号4；序号6对照已合并序号5后的当前代码；序号7对照序号6累计代码；序号8对照序号7；序号9对照已合并序号8后的当前代码。</p>
+              <p>序号1是B8完整运行栈对比；序号2是B16单组基准；序号3对照序号2；序号4对照序号3累计代码；序号5对照序号4；序号6对照已合并序号5后的当前代码；序号7对照序号6累计代码；序号8对照序号7；序号9对照已合并序号8后的当前代码；序号10对照序号9累计代码。</p>
             </div>
           </article>
         </section>
@@ -1553,10 +1566,98 @@
             </details>
           </article>
         </section>
+
+        <section id="exp10" class="content-panel" aria-labelledby="exp10-title">
+          <article class="section-card">
+            <div class="section-head">
+              <div>
+                <span class="section-kicker">Experiment 10 · 08-10</span>
+                <h2 id="exp10-title">B16矩阵乘法启用TF32的梯度与速度对比</h2>
+                <p class="section-subtitle">卷积TF32两边都开，只改变线性层、注意力等矩阵乘法是否允许使用TF32。</p>
+              </div>
+              <span class="done-badge">已完成·已采用</span>
+            </div>
+            <div class="condition-common">
+              <strong>两边完全相同</strong>
+              <span>序号9累计代码、RTX 4090、PyTorch 2.8.0+cu129、cuDNN 9.10.2、B16、4个数据进程、种子444、相同初始模型、3712张KITTI训练图；cudnn.allow_tf32均为True。</span>
+            </div>
+            <div class="condition-grid">
+              <article class="condition-card">
+                <header><strong>A · 矩阵乘法TF32关闭</strong><span>当前默认</span></header>
+                <dl>
+                  <div><dt>开关</dt><dd>cuda.matmul.allow_tf32=False</dd></div>
+                  <div><dt>一轮训练</dt><dd>232批，109.0229秒</dd></div>
+                  <div><dt>吞吐</dt><dd>34.0479图/秒</dd></div>
+                </dl>
+              </article>
+              <article class="condition-card new">
+                <header><strong>B · 矩阵乘法TF32开启</strong><span>候选组</span></header>
+                <dl>
+                  <div><dt>开关</dt><dd>cuda.matmul.allow_tf32=True</dd></div>
+                  <div><dt>一轮训练</dt><dd>232批，103.8995秒</dd></div>
+                  <div><dt>吞吐</dt><dd>35.7268图/秒</dd></div>
+                </dl>
+              </article>
+            </div>
+          </article>
+
+          <article class="section-card">
+            <div class="section-head"><div><span class="section-kicker">Numerics</span><h2>真实B16的Loss和梯度变化</h2></div></div>
+            <div class="truth-grid">
+              <div class="truth"><span class="number">01</span><h3>检查范围</h3><p>4个真实B16批次、64张图；每批关闭重复2次、开启重复2次，模型、输入和随机种子相同。</p></div>
+              <div class="truth"><span class="number">02</span><h3>整体梯度方向</h3><p>跨模式相对二范数误差平均0.4016%，余弦相似度平均0.99999194。</p></div>
+              <div class="truth"><span class="number">03</span><h3>符号翻转的分量很小</h3><p>0.3608%的非零元素变号，但它们只占总梯度能量约0.00000762%，主要是接近零的梯度。</p></div>
+            </div>
+            <div class="table-wrap" style="margin-top:14px">
+              <table class="memory-table">
+                <thead><tr><th>比较</th><th>梯度相对二范数误差</th><th>梯度余弦相似度</th><th>加权总Loss相对差异</th></tr></thead>
+                <tbody>
+                  <tr><td>关闭TF32自身重复</td><td>平均0.00293%</td><td>0.9999999996</td><td>0</td></tr>
+                  <tr><td>开启TF32自身重复</td><td>平均0.00432%</td><td>0.9999999991</td><td>0</td></tr>
+                  <tr><td>关闭 vs 开启</td><td>平均0.40157%</td><td>0.9999919441</td><td>平均0.01844%，最大0.05456%</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </article>
+
+          <article class="section-card">
+            <div class="section-head"><div><span class="section-kicker">Performance</span><h2>真实B16完整一轮结果</h2></div></div>
+            <div class="metric-grid">
+              <div class="metric"><span>关闭TF32</span><strong>109.023 秒</strong><em>↓ 越低越好</em></div>
+              <div class="metric"><span>开启TF32</span><strong>103.900 秒</strong><em>↓ 4.70%</em></div>
+              <div class="metric"><span>吞吐提高</span><strong>4.93%</strong><em>↑ 越高越好</em></div>
+            </div>
+            <div class="table-wrap">
+              <table class="memory-table">
+                <thead><tr><th>指标</th><th>关闭TF32</th><th>开启TF32</th><th>变化</th></tr></thead>
+                <tbody>
+                  <tr><td>一轮时间 ↓</td><td>109.0229秒</td><td><strong>103.8995秒</strong></td><td><strong>-4.70%</strong></td></tr>
+                  <tr><td>训练吞吐 ↑</td><td>34.0479图/秒</td><td><strong>35.7268图/秒</strong></td><td><strong>+4.93%</strong></td></tr>
+                  <tr><td>峰值已分配显存 ↓</td><td>15,062,113,792字节</td><td>15,062,113,792字节</td><td>不变</td></tr>
+                  <tr><td>峰值已保留显存 ↓</td><td>16,141,778,944字节</td><td>16,141,778,944字节</td><td>不变</td></tr>
+                  <tr><td>整卡峰值 ↓</td><td>16,523 MiB</td><td>16,521 MiB</td><td>-2 MiB，可视为不变</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="callout warning" style="margin-top:14px">
+              <h4>长期AP仍需在后续统一基准中观察</h4>
+              <p>这一轮只说明局部梯度变化较小且单轮速度更快。用户审核后批准默认开启，后续所有实验统一使用该基准，避免新旧数值设置混用。</p>
+            </div>
+            <details>
+              <summary>展开执行与产物口径</summary>
+              <div><ul>
+                <li>两个速度组的初始模型SHA256完全一致。</li>
+                <li>首次汇总因无GPU沙箱提前导入GPU评测器而失败；改为延迟导入后只重跑汇总，两组训练数据没有重跑或改变。</li>
+                <li>实验目录只保留 result.json；没有checkpoint、预测文件或运行日志。</li>
+                <li>用户已审核通过，并批准默认开启、提交、合并和推送。</li>
+              </ul></div>
+            </details>
+          </article>
+        </section>
       </div>
     </div>
 
-    <footer class="footer">MonoDGP 实验总览 v2 · 序号01—09</footer>
+    <footer class="footer">MonoDGP 实验总览 v2 · 序号01—10</footer>
   </main>
 
   <script>
