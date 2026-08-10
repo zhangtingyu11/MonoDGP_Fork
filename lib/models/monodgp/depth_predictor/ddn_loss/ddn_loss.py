@@ -3,7 +3,7 @@ import torch.nn as nn
 import math
 import numpy as np
 
-from .balancer import Balancer
+from .balancer import Balancer, pad_flat_by_batch, padded_box_coverage
 from .focalloss import FocalLoss
 
 from scipy.ndimage import gaussian_filter1d
@@ -20,7 +20,8 @@ class DDNLoss(nn.Module):
                  gamma=2.0,
                  fg_weight=13,
                  bg_weight=1,
-                 downsample_factor=1):
+                 downsample_factor=1,
+                 use_vectorized_rasterization=False):
         """
         Initializes DDNLoss module
         Args:
@@ -37,7 +38,10 @@ class DDNLoss(nn.Module):
         self.balancer = Balancer(
             downsample_factor=downsample_factor,
             fg_weight=fg_weight,
-            bg_weight=bg_weight)
+            bg_weight=bg_weight,
+            use_vectorized_rasterization=use_vectorized_rasterization)
+        self.use_vectorized_rasterization = bool(
+            use_vectorized_rasterization)
 
         # Set loss function
         self.alpha = alpha
@@ -48,6 +52,9 @@ class DDNLoss(nn.Module):
         self.loss_func = FocalLoss(alpha=self.alpha, gamma=self.gamma, reduction="none")
 
     def build_target_depth_from_3dcenter(self, depth_logits, gt_boxes2d, gt_center_depth, num_gt_per_img):
+        if self.use_vectorized_rasterization:
+            return self.build_target_depth_from_3dcenter_vectorized(
+                depth_logits, gt_boxes2d, gt_center_depth, num_gt_per_img)
         B, _, H, W = depth_logits.shape
         depth_maps = torch.zeros((B, H, W), device=depth_logits.device, dtype=depth_logits.dtype)
 
@@ -69,6 +76,46 @@ class DDNLoss(nn.Module):
                 depth_maps[b, v1:v2, u1:u2] = center_depth_per_batch[n]
 
         return depth_maps
+
+    def build_target_depth_from_3dcenter_vectorized(
+            self, depth_logits, gt_boxes2d, gt_center_depth,
+            num_gt_per_img):
+        batch_size, _, height, width = depth_logits.shape
+        depth_maps = torch.zeros(
+            (batch_size, height, width), device=depth_logits.device,
+            dtype=depth_logits.dtype)
+
+        # Match the legacy path's in-place floor/ceil mutation exactly because
+        # Balancer consumes the same box tensor immediately afterwards.
+        gt_boxes2d[:, :2] = torch.floor(gt_boxes2d[:, :2])
+        gt_boxes2d[:, 2:] = torch.ceil(gt_boxes2d[:, 2:])
+        padded_boxes, valid = pad_flat_by_batch(
+            gt_boxes2d.long(), depth_maps.shape, num_gt_per_img)
+        padded_depths, _ = pad_flat_by_batch(
+            gt_center_depth, depth_maps.shape, num_gt_per_img)
+        max_gt = int(padded_boxes.shape[1])
+        if max_gt == 0:
+            return depth_maps
+
+        sorted_depths, sorted_indices = torch.sort(
+            padded_depths, dim=1, descending=True)
+        sorted_valid = torch.gather(valid, 1, sorted_indices)
+        sorted_boxes = torch.gather(
+            padded_boxes, 1,
+            sorted_indices[..., None].expand(-1, -1, 4))
+        coverage = padded_box_coverage(
+            sorted_boxes, sorted_valid, height, width)
+        covered = coverage.any(dim=1)
+
+        # Legacy code writes far boxes first and near boxes last. Selecting the
+        # final covering rank reproduces that overwrite rule without a loop.
+        reverse_first = coverage.flip(1).to(torch.uint8).argmax(dim=1)
+        last_rank = max_gt - 1 - reverse_first
+        selected_depths = torch.gather(
+            sorted_depths, 1, last_rank.reshape(batch_size, -1))
+        selected_depths = selected_depths.reshape(
+            batch_size, height, width).to(depth_maps.dtype)
+        return torch.where(covered, selected_depths, depth_maps)
 
     def gaussian_kernel(self, size: int, sigma: float):
         """Function to create a 1D Gaussian kernel."""

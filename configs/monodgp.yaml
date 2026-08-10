@@ -45,6 +45,8 @@ model:
   num_depth_bins: 80
   depth_min: 1e-3
   depth_max: 60.0
+  # Generate dense depth targets and foreground masks in parallel on the GPU.
+  use_vectorized_ddn_rasterization: True
 
   # Transformer
   with_box_refine: True

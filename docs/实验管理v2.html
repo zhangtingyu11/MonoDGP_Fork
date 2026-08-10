@@ -1,0 +1,1005 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>MonoDGP 实验总览 v2</title>
+  <style>
+    :root {
+      --ink: #172033;
+      --muted: #677084;
+      --line: #dce2ec;
+      --paper: #ffffff;
+      --canvas: #f3f6fa;
+      --navy: #172a46;
+      --blue: #3478f6;
+      --blue-soft: #eaf2ff;
+      --green: #16835b;
+      --green-soft: #e7f7f0;
+      --amber: #a65b00;
+      --amber-soft: #fff4df;
+      --red: #b54343;
+      --red-soft: #fff0ef;
+      --purple: #7357d8;
+      --shadow: 0 18px 45px rgba(33, 49, 75, .09);
+      --radius: 20px;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      min-width: 320px;
+      background:
+        radial-gradient(circle at 93% 3%, rgba(52, 120, 246, .12), transparent 24rem),
+        var(--canvas);
+      color: var(--ink);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+        "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      line-height: 1.6;
+    }
+
+    button, summary { font: inherit; }
+    button { color: inherit; }
+    a { color: inherit; }
+
+    .shell {
+      width: min(1220px, calc(100% - 36px));
+      margin: 0 auto;
+      padding: 34px 0 64px;
+    }
+
+    .hero {
+      position: relative;
+      overflow: hidden;
+      min-height: 258px;
+      padding: 34px 38px;
+      border-radius: 28px;
+      background: linear-gradient(132deg, #12223b 0%, #183a68 72%, #275d9b 100%);
+      color: #fff;
+      box-shadow: var(--shadow);
+    }
+
+    .hero::after {
+      content: "";
+      position: absolute;
+      width: 330px;
+      height: 330px;
+      right: -110px;
+      top: -135px;
+      border: 1px solid rgba(255,255,255,.16);
+      border-radius: 50%;
+      box-shadow: 0 0 0 54px rgba(255,255,255,.035), 0 0 0 108px rgba(255,255,255,.025);
+    }
+
+    .eyebrow {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 18px;
+      color: #bad3fb;
+      font-weight: 750;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      font-size: 13px;
+    }
+
+    .eyebrow::before {
+      content: "";
+      width: 28px;
+      height: 3px;
+      border-radius: 2px;
+      background: #66a1ff;
+    }
+
+    h1 {
+      position: relative;
+      z-index: 1;
+      margin: 0 0 12px;
+      font-size: clamp(32px, 5vw, 54px);
+      line-height: 1.08;
+      letter-spacing: -.035em;
+    }
+
+    .hero p {
+      position: relative;
+      z-index: 1;
+      max-width: 680px;
+      margin: 0;
+      color: #dbe8fa;
+      font-size: 16px;
+    }
+
+    .hero-meta {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 27px;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 34px;
+      padding: 6px 12px;
+      border: 1px solid rgba(255,255,255,.18);
+      border-radius: 999px;
+      background: rgba(255,255,255,.08);
+      color: #f5f9ff;
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #57d7a2;
+      box-shadow: 0 0 0 4px rgba(87,215,162,.14);
+    }
+
+    .top-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 14px;
+      margin: -27px 22px 0;
+      position: relative;
+      z-index: 2;
+    }
+
+    .summary-card {
+      min-height: 132px;
+      padding: 21px 21px 18px;
+      border: 1px solid rgba(220,226,236,.9);
+      border-radius: 18px;
+      background: rgba(255,255,255,.96);
+      box-shadow: 0 12px 26px rgba(34, 52, 83, .07);
+    }
+
+    .summary-card .label {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 750;
+      letter-spacing: .04em;
+    }
+
+    .summary-card strong {
+      display: block;
+      margin-top: 9px;
+      font-size: 27px;
+      line-height: 1.15;
+      letter-spacing: -.03em;
+    }
+
+    .summary-card small {
+      display: block;
+      margin-top: 7px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .workspace {
+      display: grid;
+      grid-template-columns: 270px minmax(0, 1fr);
+      gap: 22px;
+      margin-top: 30px;
+      align-items: start;
+    }
+
+    .sidebar {
+      position: sticky;
+      top: 18px;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: rgba(255,255,255,.92);
+      box-shadow: 0 10px 28px rgba(37, 51, 75, .06);
+    }
+
+    .nav-title {
+      padding: 8px 10px 12px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: .07em;
+    }
+
+    .nav-button {
+      width: 100%;
+      display: grid;
+      grid-template-columns: 38px 1fr;
+      gap: 10px;
+      align-items: center;
+      padding: 12px 10px;
+      margin: 2px 0;
+      border: 0;
+      border-radius: 14px;
+      background: transparent;
+      text-align: left;
+      cursor: pointer;
+      transition: background .18s ease, color .18s ease;
+    }
+
+    .nav-button:hover { background: #f2f6fc; }
+    .nav-button.active { background: var(--blue-soft); color: #1855b4; }
+    .nav-button:focus-visible { outline: 3px solid rgba(52,120,246,.25); }
+
+    .nav-index {
+      display: grid;
+      place-items: center;
+      width: 38px;
+      height: 38px;
+      border-radius: 11px;
+      background: #eef2f7;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 850;
+    }
+
+    .nav-button.active .nav-index { background: var(--blue); color: #fff; }
+    .nav-copy strong { display: block; font-size: 14px; line-height: 1.35; }
+    .nav-copy small { color: var(--muted); font-size: 11px; }
+
+    .content-panel { display: none; animation: reveal .25s ease-out; }
+    .content-panel.active { display: block; }
+    @keyframes reveal { from { opacity: 0; transform: translateY(5px); } }
+
+    .section-card {
+      padding: 28px;
+      margin-bottom: 18px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--paper);
+      box-shadow: 0 8px 24px rgba(35, 51, 78, .045);
+    }
+
+    .section-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 20px;
+      margin-bottom: 22px;
+    }
+
+    .section-kicker {
+      display: block;
+      margin-bottom: 5px;
+      color: var(--blue);
+      font-size: 12px;
+      font-weight: 850;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+
+    h2, h3, h4 { margin: 0; line-height: 1.3; }
+    h2 { font-size: clamp(23px, 3vw, 32px); letter-spacing: -.025em; }
+    h3 { font-size: 19px; }
+    h4 { font-size: 15px; }
+    .section-subtitle { margin: 7px 0 0; color: var(--muted); font-size: 14px; }
+
+    .done-badge {
+      flex: 0 0 auto;
+      padding: 6px 11px;
+      border-radius: 999px;
+      background: var(--green-soft);
+      color: var(--green);
+      font-size: 12px;
+      font-weight: 850;
+    }
+
+    .truth-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 14px;
+    }
+
+    .truth {
+      padding: 19px;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: #fbfcfe;
+    }
+
+    .truth .number {
+      display: grid;
+      place-items: center;
+      width: 30px;
+      height: 30px;
+      margin-bottom: 13px;
+      border-radius: 9px;
+      background: var(--navy);
+      color: #fff;
+      font-size: 12px;
+      font-weight: 850;
+    }
+
+    .truth p { margin: 6px 0 0; color: var(--muted); font-size: 13px; }
+
+    .metric-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin-bottom: 22px;
+    }
+
+    .metric {
+      padding: 17px;
+      border-radius: 15px;
+      background: #f6f8fb;
+    }
+
+    .metric span { display: block; color: var(--muted); font-size: 12px; }
+    .metric strong { display: block; margin-top: 4px; font-size: 25px; letter-spacing: -.025em; }
+    .metric em { display: block; margin-top: 3px; color: var(--green); font-size: 12px; font-style: normal; font-weight: 800; }
+
+    .compare-list { display: grid; gap: 17px; }
+    .compare-row {
+      display: grid;
+      grid-template-columns: minmax(160px, 1.15fr) minmax(240px, 2fr) 90px;
+      gap: 16px;
+      align-items: center;
+    }
+
+    .compare-label strong { display: block; font-size: 13px; }
+    .compare-label small { color: var(--muted); font-size: 11px; }
+    .bars { display: grid; gap: 6px; }
+    .bar-line { display: grid; grid-template-columns: 42px 1fr 76px; gap: 8px; align-items: center; }
+    .bar-name { color: var(--muted); font-size: 11px; font-weight: 700; }
+    .bar-track { height: 9px; overflow: hidden; border-radius: 999px; background: #e9edf3; }
+    .bar-fill { height: 100%; border-radius: inherit; background: #9faabc; }
+    .bar-fill.new { background: linear-gradient(90deg, #3478f6, #65a2ff); }
+    .bar-value { text-align: right; color: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }
+    .delta { color: var(--green); font-size: 13px; font-weight: 850; text-align: right; }
+
+    .callout {
+      padding: 18px 20px;
+      border-left: 4px solid var(--blue);
+      border-radius: 0 14px 14px 0;
+      background: var(--blue-soft);
+    }
+    .callout.warning { border-left-color: #e59425; background: var(--amber-soft); }
+    .callout.danger { border-left-color: var(--red); background: var(--red-soft); }
+    .callout p { margin: 5px 0 0; color: #4e5a6c; font-size: 13px; }
+
+    .stage-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 13px; }
+    .stage {
+      position: relative;
+      padding: 20px;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 17px;
+      background: #fbfcfe;
+    }
+    .stage::before {
+      content: "";
+      position: absolute;
+      inset: 0 auto 0 0;
+      width: 4px;
+      background: var(--blue);
+    }
+    .stage:nth-child(2)::before { background: var(--purple); }
+    .stage:nth-child(3)::before { background: var(--green); }
+    .stage .stage-time { margin: 11px 0 3px; font-size: 27px; font-weight: 850; letter-spacing: -.03em; }
+    .stage p { margin: 3px 0; color: var(--muted); font-size: 12px; }
+
+    .memory-table {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0;
+      font-size: 13px;
+    }
+    .table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 14px; }
+    th, td { padding: 12px 14px; text-align: right; white-space: nowrap; border-bottom: 1px solid var(--line); }
+    th { background: #f5f7fa; color: var(--muted); font-size: 11px; }
+    th:first-child, td:first-child { text-align: left; }
+    tr:last-child td { border-bottom: 0; }
+    td strong { color: var(--navy); }
+
+    .legend-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 14px; }
+    .legend-item { padding: 14px; border-radius: 13px; background: #f6f8fb; font-size: 12px; color: var(--muted); }
+    .legend-item strong { display: block; margin-bottom: 4px; color: var(--ink); }
+
+    details {
+      margin-top: 16px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: #fbfcfe;
+    }
+    summary {
+      padding: 15px 17px;
+      cursor: pointer;
+      font-weight: 800;
+      font-size: 13px;
+    }
+    details > div { padding: 0 18px 17px; color: var(--muted); font-size: 13px; }
+    details ul { margin: 5px 0; padding-left: 19px; }
+    details li + li { margin-top: 6px; }
+
+    .two-column { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .mini-card { padding: 18px; border: 1px solid var(--line); border-radius: 15px; }
+    .mini-card p { margin: 7px 0 0; color: var(--muted); font-size: 13px; }
+    .mini-card.good { background: var(--green-soft); border-color: #cbeadb; }
+    .mini-card.warn { background: var(--amber-soft); border-color: #f0ddb9; }
+
+    .condition-common {
+      display: grid;
+      grid-template-columns: 150px 1fr;
+      gap: 12px;
+      padding: 14px 16px;
+      margin-bottom: 14px;
+      border: 1px solid #cfe0fb;
+      border-radius: 14px;
+      background: var(--blue-soft);
+      font-size: 13px;
+    }
+    .condition-common strong { color: #1d5dbd; }
+    .condition-common span { color: #47566c; }
+
+    .condition-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+    }
+
+    .condition-card {
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: #fbfcfe;
+    }
+
+    .condition-card header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      padding: 14px 17px;
+      background: #eef1f5;
+    }
+
+    .condition-card.new header { background: var(--blue-soft); }
+    .condition-card header strong { font-size: 15px; }
+    .condition-card header span { color: var(--muted); font-size: 11px; font-weight: 750; }
+    .condition-card dl { margin: 0; }
+    .condition-card dl > div {
+      display: grid;
+      grid-template-columns: 95px 1fr;
+      gap: 12px;
+      padding: 11px 17px;
+      border-top: 1px solid var(--line);
+      font-size: 12px;
+    }
+    .condition-card dt { color: var(--muted); font-weight: 750; }
+    .condition-card dd { margin: 0; color: var(--ink); }
+
+    .scope-strip {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 13px;
+    }
+
+    .scope-strip span {
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: #eef2f7;
+      color: #536176;
+      font-size: 11px;
+      font-weight: 750;
+    }
+
+    .footer {
+      margin-top: 26px;
+      padding: 18px;
+      color: var(--muted);
+      text-align: center;
+      font-size: 12px;
+    }
+
+    @media (max-width: 980px) {
+      .top-grid { grid-template-columns: repeat(2, 1fr); }
+      .workspace { grid-template-columns: 1fr; }
+      .sidebar { position: static; display: grid; grid-template-columns: repeat(3, 1fr); }
+      .nav-title { display: none; }
+      .truth-grid, .stage-grid { grid-template-columns: 1fr; }
+      .compare-row { grid-template-columns: 1fr; gap: 8px; }
+      .delta { text-align: left; }
+    }
+
+    @media (max-width: 650px) {
+      .shell { width: min(100% - 20px, 1220px); padding-top: 10px; }
+      .hero { padding: 26px 22px 58px; border-radius: 20px; }
+      .top-grid { margin: -32px 10px 0; grid-template-columns: 1fr 1fr; gap: 9px; }
+      .summary-card { min-height: 116px; padding: 16px; }
+      .summary-card strong { font-size: 21px; }
+      .sidebar { grid-template-columns: 1fr; }
+      .nav-button { grid-template-columns: 34px 1fr; }
+      .nav-index { width: 34px; height: 34px; }
+      .section-card { padding: 20px 17px; }
+      .section-head { flex-direction: column; gap: 10px; }
+      .metric-grid, .two-column, .legend-grid { grid-template-columns: 1fr; }
+      .condition-grid { grid-template-columns: 1fr; }
+      .condition-common { grid-template-columns: 1fr; gap: 3px; }
+      .bar-line { grid-template-columns: 38px 1fr 65px; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      *, *::before, *::after { animation: none !important; transition: none !important; }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <header class="hero">
+      <div class="eyebrow">MonoDGP · Experiment Ledger</div>
+      <h1>实验总览 v2</h1>
+      <p>实验总账的可视化索引。每项实验单独记录目的、对比条件、执行过程和客观结果，方便后续持续追加。</p>
+      <div class="hero-meta">
+        <span class="pill"><span class="status-dot"></span>3 项实验均已完成</span>
+        <span class="pill">数据来源：实验总账v2</span>
+        <span class="pill">更新日期：2026-08-10</span>
+      </div>
+    </header>
+
+    <section class="top-grid" aria-label="全局摘要">
+      <article class="summary-card">
+        <span class="label">正式实验</span>
+        <strong>3 项</strong>
+        <small>从 v2 重新编号</small>
+      </article>
+      <article class="summary-card">
+        <span class="label">已完成</span>
+        <strong>3 项</strong>
+        <small>暂无进行中实验</small>
+      </article>
+      <article class="summary-card">
+        <span class="label">实验类型</span>
+        <strong>工程基准</strong>
+        <small>速度、显存与评测链路</small>
+      </article>
+      <article class="summary-card">
+        <span class="label">当前编号</span>
+        <strong>01—03</strong>
+        <small>后续实验继续追加</small>
+      </article>
+    </section>
+
+    <div class="workspace">
+      <nav class="sidebar" aria-label="页面导航">
+        <div class="nav-title">快速切换</div>
+        <button class="nav-button active" data-target="overview" type="button">
+          <span class="nav-index">总</span>
+          <span class="nav-copy"><strong>实验索引</strong><small>全部记录</small></span>
+        </button>
+        <button class="nav-button" data-target="exp1" type="button">
+          <span class="nav-index">01</span>
+          <span class="nav-copy"><strong>B8 新旧完整流程</strong><small>速度、显存、评测</small></span>
+        </button>
+        <button class="nav-button" data-target="exp2" type="button">
+          <span class="nav-index">02</span>
+          <span class="nav-copy"><strong>B16 资源基准</strong><small>一轮训练 + 完整验证</small></span>
+        </button>
+        <button class="nav-button" data-target="exp3" type="button">
+          <span class="nav-index">03</span>
+          <span class="nav-copy"><strong>深度标签批量化</strong><small>B16对照实验</small></span>
+        </button>
+      </nav>
+
+      <div>
+        <section id="overview" class="content-panel active" aria-labelledby="overview-title">
+          <article class="section-card">
+            <div class="section-head">
+              <div>
+                <span class="section-kicker">Overview</span>
+                <h2 id="overview-title">实验索引</h2>
+                <p class="section-subtitle">这里只做导航，不跨实验汇总判断。</p>
+              </div>
+            </div>
+            <div class="truth-grid">
+              <div class="truth">
+                <span class="number">01</span>
+                <h3>B8旧完整流程与新完整流程对比</h3>
+                <p>对比注意力实现、软件环境和KITTI评测器变化后的速度、吞吐与显存。</p>
+              </div>
+              <div class="truth">
+                <span class="number">02</span>
+                <h3>修改后B16资源基准</h3>
+                <p>记录标准第0轮初始化下一轮真实训练、完整验证和GPU AP计算的资源数据。</p>
+              </div>
+              <div class="truth">
+                <span class="number">03</span>
+                <h3>B16深度图标签批量生成</h3>
+                <p>只改训练阶段的稠密深度目标图和前景掩码生成，并与序号2做同口径对比。</p>
+              </div>
+            </div>
+          </article>
+
+          <article class="section-card">
+            <div class="section-head">
+              <div>
+                <span class="section-kicker">Catalog</span>
+                <h2>当前两项实验的关系</h2>
+              </div>
+            </div>
+            <div class="two-column">
+              <div class="mini-card good">
+                <h3>实验 1：A/B对比</h3>
+                <p>旧完整流程和新完整流程各自真实训练2轮，再跑完整验证；比较两套完整运行栈的资源表现。</p>
+              </div>
+              <div class="mini-card good">
+                <h3>实验 2：单组基准测量</h3>
+                <p>不是A/B实验。只测修改后的当前流程在B16下跑一轮训练和完整验证的时间、吞吐与显存。</p>
+              </div>
+            </div>
+            <div class="callout warning" style="margin-top:14px">
+              <h4>两项实验的测量对象不同</h4>
+              <p>序号1比较两套B8完整流程；序号2只建立新版B16单组基准。不能把序号1的B8数字与序号2的B16数字直接相减。</p>
+            </div>
+          </article>
+        </section>
+
+        <section id="exp1" class="content-panel" aria-labelledby="exp1-title">
+          <article class="section-card">
+            <div class="section-head">
+              <div>
+                <span class="section-kicker">Experiment 01 · 08-10</span>
+                <h2 id="exp1-title">B8 旧完整流程 vs 新完整流程</h2>
+                <p class="section-subtitle">真实训练2轮 + 3769张验证图；只比较工程性能，不评价检测方法。</p>
+              </div>
+              <span class="done-badge">已完成</span>
+            </div>
+            <h3 style="margin-bottom:12px">两边到底怎么比</h3>
+            <div class="condition-common">
+              <strong>两边完全相同</strong>
+              <span>同一KITTI训练集与验证集、同一随机种子、同一B8训练配置、同一初始模型参数、都真实训练2轮、都对3769张验证图运行完整验证。</span>
+            </div>
+            <div class="condition-grid">
+              <article class="condition-card">
+                <header><strong>A · 旧完整流程</strong><span>对照组</span></header>
+                <dl>
+                  <div><dt>代码提交</dt><dd>7f86acf</dd></div>
+                  <div><dt>注意力</dt><dd>原始实现，生成注意力权重（need_weights=True）</dd></div>
+                  <div><dt>Python</dt><dd>3.10.20</dd></div>
+                  <div><dt>PyTorch</dt><dd>2.4.1 + CUDA 12.4</dd></div>
+                  <div><dt>torchvision</dt><dd>0.19.1 + CUDA 12.4</dd></div>
+                  <div><dt>cuDNN</dt><dd>9.1.0</dd></div>
+                  <div><dt>TF32开关</dt><dd>cuDNN开；矩阵乘关</dd></div>
+                  <div><dt>KITTI评测</dt><dd>CPU回退评测器</dd></div>
+                  <div><dt>训练规模</dt><dd>B8，真实训练2轮</dd></div>
+                </dl>
+              </article>
+              <article class="condition-card new">
+                <header><strong>B · 新完整流程</strong><span>实验组</span></header>
+                <dl>
+                  <div><dt>代码提交</dt><dd>ab9e2a4</dd></div>
+                  <div><dt>注意力</dt><dd>不生成未使用权重（need_weights=False）</dd></div>
+                  <div><dt>Python</dt><dd>3.10.20</dd></div>
+                  <div><dt>PyTorch</dt><dd>2.8.0 + CUDA 12.9</dd></div>
+                  <div><dt>torchvision</dt><dd>0.23.0 + CUDA 12.9</dd></div>
+                  <div><dt>cuDNN</dt><dd>9.10.2 默认配置</dd></div>
+                  <div><dt>TF32开关</dt><dd>cuDNN开；矩阵乘关</dd></div>
+                  <div><dt>KITTI评测</dt><dd>官方GPU几何评测器</dd></div>
+                  <div><dt>训练规模</dt><dd>B8，真实训练2轮</dd></div>
+                </dl>
+              </article>
+            </div>
+            <div class="callout warning" style="margin:14px 0 22px">
+              <h4>重要：这不是只改一个变量的消融实验</h4>
+              <p>注意力实现、PyTorch/cuDNN环境和AP评测器同时发生变化。因此它比较的是“旧完整运行栈”和“新完整运行栈”，不能把全部速度差单独归因于need_weights=False。</p>
+            </div>
+            <div class="metric-grid">
+              <div class="metric"><span>训练总时间</span><strong>297.12 秒</strong><em>↓ 8.11% · 越低越好</em></div>
+              <div class="metric"><span>训练吞吐</span><strong>25.06 图/秒</strong><em>↑ 9.14% · 越高越好</em></div>
+              <div class="metric"><span>训练分配显存</span><strong>7.34 GiB</strong><em>↓ 38.44% · 越低越好</em></div>
+            </div>
+            <div class="compare-list" aria-label="新旧流程关键指标对比">
+              <div class="compare-row">
+                <div class="compare-label"><strong>2轮训练时间</strong><small>越低越好</small></div>
+                <div class="bars">
+                  <div class="bar-line"><span class="bar-name">旧版</span><span class="bar-track"><span class="bar-fill" style="display:block;width:100%"></span></span><span class="bar-value">323.33 秒</span></div>
+                  <div class="bar-line"><span class="bar-name">新版</span><span class="bar-track"><span class="bar-fill new" style="display:block;width:91.9%"></span></span><span class="bar-value">297.12 秒</span></div>
+                </div>
+                <div class="delta">少 26.21 秒</div>
+              </div>
+              <div class="compare-row">
+                <div class="compare-label"><strong>训练峰值已分配显存</strong><small>越低越好</small></div>
+                <div class="bars">
+                  <div class="bar-line"><span class="bar-name">旧版</span><span class="bar-track"><span class="bar-fill" style="display:block;width:100%"></span></span><span class="bar-value">11.93 GiB</span></div>
+                  <div class="bar-line"><span class="bar-name">新版</span><span class="bar-track"><span class="bar-fill new" style="display:block;width:61.5%"></span></span><span class="bar-value">7.34 GiB</span></div>
+                </div>
+                <div class="delta">少 4.59 GiB</div>
+              </div>
+              <div class="compare-row">
+                <div class="compare-label"><strong>纯模型验证时间</strong><small>越低越好</small></div>
+                <div class="bars">
+                  <div class="bar-line"><span class="bar-name">旧版</span><span class="bar-track"><span class="bar-fill" style="display:block;width:100%"></span></span><span class="bar-value">38.63 秒</span></div>
+                  <div class="bar-line"><span class="bar-name">新版</span><span class="bar-track"><span class="bar-fill new" style="display:block;width:93.8%"></span></span><span class="bar-value">36.25 秒</span></div>
+                </div>
+                <div class="delta">快 6.16%</div>
+              </div>
+              <div class="compare-row">
+                <div class="compare-label"><strong>预热后AP计算</strong><small>越低越好</small></div>
+                <div class="bars">
+                  <div class="bar-line"><span class="bar-name">CPU</span><span class="bar-track"><span class="bar-fill" style="display:block;width:100%"></span></span><span class="bar-value">2.57 秒</span></div>
+                  <div class="bar-line"><span class="bar-name">GPU</span><span class="bar-track"><span class="bar-fill new" style="display:block;width:61.1%"></span></span><span class="bar-value">1.57 秒</span></div>
+                </div>
+                <div class="delta">快 38.82%</div>
+              </div>
+            </div>
+          </article>
+
+          <article class="section-card">
+            <div class="section-head"><div><span class="section-kicker">Full Results</span><h2>完整对比数字</h2></div></div>
+            <div class="table-wrap">
+              <table class="memory-table">
+                <thead><tr><th>指标</th><th>旧版</th><th>新版</th><th>变化</th></tr></thead>
+                <tbody>
+                  <tr><td>2轮训练总时间 ↓</td><td>323.33秒</td><td><strong>297.12秒</strong></td><td><strong>-8.11%</strong></td></tr>
+                  <tr><td>平均训练吞吐 ↑</td><td>22.97图/秒</td><td><strong>25.06图/秒</strong></td><td><strong>+9.14%</strong></td></tr>
+                  <tr><td>训练已分配显存 ↓</td><td>11.93 GiB</td><td><strong>7.34 GiB</strong></td><td><strong>-38.44%</strong></td></tr>
+                  <tr><td>训练已保留显存 ↓</td><td>13.78 GiB</td><td><strong>7.66 GiB</strong></td><td><strong>-44.39%</strong></td></tr>
+                  <tr><td>纯模型验证时间 ↓</td><td>38.63秒</td><td><strong>36.25秒</strong></td><td><strong>-6.16%</strong></td></tr>
+                  <tr><td>生成全部预测文件 ↓</td><td>54.59秒</td><td><strong>52.62秒</strong></td><td><strong>-3.61%</strong></td></tr>
+                  <tr><td>验证已分配显存 ↓</td><td>2.49 GiB</td><td><strong>1.34 GiB</strong></td><td><strong>-46.05%</strong></td></tr>
+                  <tr><td>AP首次运行 ↓</td><td>CPU 5.73秒</td><td><strong>GPU 5.24秒</strong></td><td><strong>-8.63%</strong></td></tr>
+                  <tr><td>AP预热后平均 ↓</td><td>CPU 2.57秒</td><td><strong>GPU 1.57秒</strong></td><td><strong>-38.82%</strong></td></tr>
+                  <tr><td>完整验证首次评测 ↓</td><td>60.33秒</td><td><strong>57.63秒</strong></td><td><strong>-4.47%</strong></td></tr>
+                </tbody>
+              </table>
+            </div>
+          </article>
+
+          <article class="section-card">
+            <div class="two-column">
+              <div class="mini-card good">
+                <h3>本实验测量了什么</h3>
+                <p>两套完整运行栈在相同B8训练任务上的耗时、吞吐、显存，以及各自完整验证流程的耗时。</p>
+              </div>
+              <div class="mini-card warn">
+                <h3>口径限制</h3>
+                <p>不能把CPU AP 22.4183与GPU AP 22.4980的差异说成模型精度变化。两种评测器的几何计算不同，CPU回退结果不再作为精度基准。</p>
+              </div>
+            </div>
+            <div class="callout warning" style="margin-top:14px">
+              <h4>新旧预测的GPU AP仍有 -0.0158 差异</h4>
+              <p>旧预测22.4980，新预测22.4822。总账将它归因于PyTorch/cuDNN数值路径变化量级；本实验没有把它当作检测方法改变。</p>
+            </div>
+            <details>
+              <summary>展开执行口径与保留产物</summary>
+              <div>
+                <ul>
+                  <li>相同KITTI数据、随机种子、B8、训练配置和初始模型；初始模型SHA256完全一致。</li>
+                  <li>旧版保留普通注意力；新版设置 need_weights=False，不再计算未使用的注意力权重。</li>
+                  <li>旧版使用PyTorch 2.4.1和CPU KITTI评测；新版使用PyTorch 2.8.0+cu129、cuDNN 9.10.2和GPU KITTI评测。</li>
+                  <li>首次旧版运行因兼容导入错误没有产生性能数据；修复兼容名称后进行了正确性重跑1，未改变实验方法。</li>
+                  <li>中间预测文件和运行日志已按要求删除；保留 result.json 与可复现脚本。</li>
+                </ul>
+              </div>
+            </details>
+          </article>
+        </section>
+
+        <section id="exp2" class="content-panel" aria-labelledby="exp2-title">
+          <article class="section-card">
+            <div class="section-head">
+              <div>
+                <span class="section-kicker">Experiment 02 · 08-10</span>
+                <h2 id="exp2-title">B16 一轮训练与完整验证资源基准</h2>
+                <p class="section-subtitle">固定当前完整流程的速度与显存，以后所有工程优化都和它同口径比较。</p>
+              </div>
+              <span class="done-badge">已完成</span>
+            </div>
+            <h3 style="margin-bottom:12px">这项基准在什么条件下测的</h3>
+            <div class="condition-grid" style="margin-bottom:16px">
+              <article class="condition-card new">
+                <header><strong>代码与软件</strong><span>固定条件</span></header>
+                <dl>
+                  <div><dt>代码提交</dt><dd>main · 571893d</dd></div>
+                  <div><dt>Python</dt><dd>3.10.20</dd></div>
+                  <div><dt>PyTorch</dt><dd>2.8.0 + CUDA 12.9</dd></div>
+                  <div><dt>torchvision</dt><dd>0.23.0 + CUDA 12.9</dd></div>
+                  <div><dt>cuDNN</dt><dd>9.10.2</dd></div>
+                  <div><dt>数值开关</dt><dd>cuDNN TF32开；矩阵乘TF32关</dd></div>
+                </dl>
+              </article>
+              <article class="condition-card">
+                <header><strong>数据与运行方式</strong><span>固定条件</span></header>
+                <dl>
+                  <div><dt>数据</dt><dd>KITTI训练3712张，验证3769张</dd></div>
+                  <div><dt>批大小</dt><dd>B16</dd></div>
+                  <div><dt>数据进程</dt><dd>4个</dd></div>
+                  <div><dt>随机种子</dt><dd>444</dd></div>
+                  <div><dt>初始化</dt><dd>ImageNet预训练骨干 + 随机检测头</dd></div>
+                  <div><dt>执行流程</dt><dd>训练1轮 → 全验证推理 → GPU AP</dd></div>
+                </dl>
+              </article>
+            </div>
+            <div class="callout warning" style="margin-bottom:18px">
+              <h4>序号2没有对照组</h4>
+              <p>它只记录当前新版流程在B16下的单次资源基准。以后某项优化若要和它对比，必须保持上述条件一致。</p>
+            </div>
+            <div class="stage-grid">
+              <div class="stage">
+                <h3>训练 1 轮</h3>
+                <div class="stage-time">136.17 秒</div>
+                <p>232个批次 · 27.26图/秒</p>
+                <p>整卡峰值 15.93 GiB</p>
+              </div>
+              <div class="stage">
+                <h3>验证推理</h3>
+                <div class="stage-time">50.66 秒</div>
+                <p>236个批次 · 74.40图/秒</p>
+                <p>活跃张量峰值 2.99 GiB</p>
+              </div>
+              <div class="stage">
+                <h3>GPU AP计算</h3>
+                <div class="stage-time">5.81 秒</div>
+                <p>预测只在内存传递</p>
+                <p>不生成预测文件</p>
+              </div>
+            </div>
+            <div class="callout" style="margin-top:16px">
+              <h4>完整验证 = 50.66秒推理 + 5.81秒AP = 56.47秒</h4>
+              <p>全流程正常完成，没有显存不足；整卡监测到的最高占用是15.96 GiB。</p>
+            </div>
+          </article>
+
+          <article class="section-card">
+            <div class="section-head">
+              <div><span class="section-kicker">Memory</span><h2>三种显存数字分别在说什么</h2></div>
+            </div>
+            <div class="table-wrap">
+              <table class="memory-table">
+                <thead><tr><th>阶段</th><th>活跃张量</th><th>PyTorch保留</th><th>整卡实际</th></tr></thead>
+                <tbody>
+                  <tr><td><strong>训练1轮</strong></td><td>14.26 GiB</td><td>14.88 GiB</td><td><strong>15.93 GiB</strong></td></tr>
+                  <tr><td><strong>验证推理</strong></td><td>2.99 GiB</td><td>14.88 GiB</td><td><strong>15.94 GiB</strong></td></tr>
+                  <tr><td><strong>GPU AP</strong></td><td>0.64 GiB</td><td>14.88 GiB</td><td><strong>15.96 GiB</strong></td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="legend-grid">
+              <div class="legend-item"><strong>活跃张量</strong>这一阶段真正正在使用的模型、特征和计算中间结果。</div>
+              <div class="legend-item"><strong>PyTorch保留</strong>训练后留下、准备给下一轮复用的缓存，不代表验证需要这么多。</div>
+              <div class="legend-item"><strong>整卡实际</strong>驱动看到的全部占用，包含PyTorch、CUDA上下文和少量其他进程。</div>
+            </div>
+            <div class="callout warning" style="margin-top:14px">
+              <h4>验证时保留14.88 GiB不是泄漏</h4>
+              <p>连续训练时保留缓存是有意行为：下一轮可直接复用，也避免显存被别的进程抢走。这里不应该主动清空。</p>
+            </div>
+          </article>
+
+          <article class="section-card">
+            <div class="two-column">
+              <div class="mini-card good">
+                <h3>测量范围</h3>
+                <p>当前软件环境和代码下，B16一轮训练、验证推理和GPU AP计算的时间、吞吐及三种显存口径。</p>
+              </div>
+              <div class="mini-card warn">
+                <h3>测量范围之外</h3>
+                <p>第1轮Moderate 3D AP_R40只有0.000372，只能说明评测链路正常，不能说明模型最终效果差，也不能比较方法优劣。</p>
+              </div>
+            </div>
+            <details>
+              <summary>展开固定配置与测量限制</summary>
+              <div>
+                <ul>
+                  <li>代码：main提交 571893d；Python 3.10.20、PyTorch 2.8.0+cu129、torchvision 0.23.0+cu129、cuDNN 9.10.2。</li>
+                  <li>cudnn.allow_tf32=True，cuda.matmul.allow_tf32=False；KITTI训练3712张、验证3769张；B16；4个数据加载进程；种子444。</li>
+                  <li>标准第0轮初始化：ImageNet预训练骨干 + 随机检测头。</li>
+                  <li>不保存checkpoint、不导出预测文件，只保留最终 result.json。</li>
+                  <li>本实验只运行1次，未估计随机波动；整卡显存每秒采样，可能漏过不足1秒的瞬时尖峰。</li>
+                </ul>
+              </div>
+            </details>
+          </article>
+        </section>
+
+        <section id="exp3" class="content-panel" aria-labelledby="exp3-title">
+          <article class="section-card">
+            <div class="section-head">
+              <div>
+                <span class="section-kicker">Experiment 03 · 08-10</span>
+                <h2 id="exp3-title">B16深度图标签批量生成性能对比</h2>
+                <p class="section-subtitle">对照是序号2；候选只改变训练时生成稠密深度监督标签的执行方式。</p>
+              </div>
+              <span class="done-badge">已完成并采用</span>
+            </div>
+            <div class="condition-common">
+              <strong>两边完全相同</strong>
+              <span>相同代码基线、Python/PyTorch/CUDA/cuDNN、KITTI划分、B16、4个数据进程、种子444、初始模型、训练232步和完整验证流程。</span>
+            </div>
+            <div class="condition-grid">
+              <article class="condition-card">
+                <header><strong>A · 序号2对照</strong><span>原始循环</span></header>
+                <dl>
+                  <div><dt>深度目标图</dt><dd>逐张图、逐辆车切片写入</dd></div>
+                  <div><dt>前景掩码</dt><dd>逐张图、逐辆车切片写入</dd></div>
+                  <div><dt>重叠规则</dt><dd>远车先写，近车后写并覆盖</dd></div>
+                  <div><dt>训练规模</dt><dd>B16，3712张图，232步</dd></div>
+                </dl>
+              </article>
+              <article class="condition-card new">
+                <header><strong>B · 序号3候选</strong><span>PyTorch批量生成</span></header>
+                <dl>
+                  <div><dt>深度目标图</dt><dd>一次构造所有车辆的像素覆盖关系</dd></div>
+                  <div><dt>前景掩码</dt><dd>由同一批覆盖关系并行生成</dd></div>
+                  <div><dt>重叠规则</dt><dd>逐元素复现远车先写、近车覆盖</dd></div>
+                  <div><dt>训练规模</dt><dd>B16，3712张图，232步</dd></div>
+                </dl>
+              </article>
+            </div>
+            <div class="scope-strip">
+              <span>初始模型SHA完全相同</span><span>不改网络</span><span>不改损失公式</span><span>不进入验证路径</span>
+            </div>
+          </article>
+
+          <article class="section-card">
+            <div class="section-head"><div><span class="section-kicker">Correctness</span><h2>真实KITTI全训练集严格对齐</h2><p class="section-subtitle">冻结同一个模型，遍历3712张训练图、232个B16批次和16285个真实物体。</p></div></div>
+            <div class="truth-grid">
+              <div class="truth"><span class="number">01</span><h3>目标图与掩码</h3><p>深度目标图、前景掩码及原地修改后的框，不同元素全部为0。</p></div>
+              <div class="truth"><span class="number">02</span><h3>全部232批损失</h3><p>每一批都用同一预测logits计算新旧损失，不同批次数为0。</p></div>
+              <div class="truth"><span class="number">03</span><h3>8批完整梯度</h3><p>均匀抽取整轮8个位置，梯度不同元素为0，最大绝对误差为0。</p></div>
+            </div>
+            <div class="callout" style="margin-top:14px"><h4>真实数据包含511个越界框</h4><p>这些物体的二维框至少有一个端点超出深度图边界，因此复核不只是覆盖了正常框，也实际检验了真实越界切片语义。</p></div>
+          </article>
+
+          <article class="section-card">
+            <div class="section-head"><div><span class="section-kicker">Performance</span><h2>与序号2同口径比较</h2></div></div>
+            <div class="metric-grid">
+              <div class="metric"><span>训练一轮</span><strong>133.22 秒</strong><em>↓ 2.17% · 越低越好</em></div>
+              <div class="metric"><span>训练吞吐</span><strong>27.86 图/秒</strong><em>↑ 2.21% · 越高越好</em></div>
+              <div class="metric"><span>训练整卡峰值</span><strong>16317 MiB</strong><em>与对照相同</em></div>
+            </div>
+            <div class="table-wrap">
+              <table class="memory-table">
+                <thead><tr><th>指标</th><th>序号2对照</th><th>序号3候选</th><th>变化</th></tr></thead>
+                <tbody>
+                  <tr><td>训练一轮时间 ↓</td><td>136.1651秒</td><td><strong>133.2169秒</strong></td><td><strong>-2.17%</strong></td></tr>
+                  <tr><td>训练吞吐 ↑</td><td>27.2610图/秒</td><td><strong>27.8643图/秒</strong></td><td><strong>+2.21%</strong></td></tr>
+                  <tr><td>已分配显存峰值 ↓</td><td>15,312,812,032字节</td><td>15,312,812,032字节</td><td>完全相同</td></tr>
+                  <tr><td>已保留显存峰值 ↓</td><td>15,980,298,240字节</td><td>15,980,298,240字节</td><td>完全相同</td></tr>
+                  <tr><td>整卡训练峰值 ↓</td><td>16317 MiB</td><td>16317 MiB</td><td>完全相同</td></tr>
+                  <tr><td>验证推理时间 ↓</td><td>50.6577秒</td><td>52.3538秒</td><td>+3.35%</td></tr>
+                  <tr><td>GPU AP时间 ↓</td><td>5.8074秒</td><td>5.8069秒</td><td>-0.01%</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="callout warning" style="margin-top:14px">
+              <h4>验证慢3.35%不归因于这个改动</h4>
+              <p>深度标签只在训练损失中生成，验证根本不会调用这段代码。两边均只测一次，因此验证差异保留为测量波动。</p>
+            </div>
+          </article>
+        </section>
+      </div>
+    </div>
+
+    <footer class="footer">MonoDGP 实验总览 v2 · 第一版 · 等待补充</footer>
+  </main>
+
+  <script>
+    (() => {
+      const buttons = [...document.querySelectorAll('.nav-button')];
+      const panels = [...document.querySelectorAll('.content-panel')];
+      const validTargets = new Set(panels.map((panel) => panel.id));
+
+      function activate(target, updateHash = true) {
+        const safeTarget = validTargets.has(target) ? target : 'overview';
+        buttons.forEach((button) => button.classList.toggle('active', button.dataset.target === safeTarget));
+        panels.forEach((panel) => panel.classList.toggle('active', panel.id === safeTarget));
+        if (updateHash) history.pushState(null, '', `#${safeTarget}`);
+        window.scrollTo({ top: document.querySelector('.workspace').offsetTop - 12, behavior: 'smooth' });
+      }
+
+      buttons.forEach((button) => button.addEventListener('click', () => activate(button.dataset.target)));
+      window.addEventListener('hashchange', () => activate(location.hash.slice(1), false));
+      activate(location.hash.slice(1) || 'overview', false);
+    })();
+  </script>
+</body>
+</html>
