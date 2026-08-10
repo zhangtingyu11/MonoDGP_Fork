@@ -1,7 +1,7 @@
 pyyaml
 scipy
 opencv-python
-numba
+numba-cuda[cu12]==0.30.4
 scikit-image
 scikit-learn
 tqdm

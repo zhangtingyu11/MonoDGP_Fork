@@ -118,14 +118,13 @@ All categories:
     git clone https://github.com/PuFanqi23/MonoDGP.git
     cd MonoDGP
 
-    conda create -n monodgp python=3.8
+    conda create -n monodgp python=3.10
     conda activate monodgp
     ```
     
-2. Install pytorch and torchvision matching your CUDA version:
+2. Install the tested PyTorch and torchvision build for CUDA 12.9:
     ```bash
-    # For example, We adopt torch 1.9.0+cu111
-    pip install torch==1.9.0+cu111 torchvision==0.10.0+cu111 torchaudio==0.9.0 -f https://download.pytorch.org/whl/torch_stable.html
+    pip install torch==2.8.0 torchvision==0.23.0 --index-url https://download.pytorch.org/whl/cu129
     ```
     
 3. Install requirements and compile the deformable attention:
@@ -133,7 +132,7 @@ All categories:
     pip install -r requirements.txt
 
     cd lib/models/monodgp/ops/
-    bash make.sh
+    CUDA_HOME=/usr/local/cuda-12.9 bash make.sh
     
     cd ../../../..
     ```
