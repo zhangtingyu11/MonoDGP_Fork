@@ -72,9 +72,6 @@ class DepthPredictor(nn.Module):
         # Apply the threshold: set values below the median to zero
         #thresholded_logits = torch.where(depth_logits >= median_values, depth_logits,  torch.tensor(-float('inf')).to(depth_logits.device))
              
-        depth_probs = F.softmax(depth_logits, dim=1)
-        weighted_depth = (depth_probs * self.depth_bin_values.reshape(1, -1, 1, 1)).sum(dim=1)
-        
         # depth embeddings with depth positional encodings
         B, C, H, W = src.shape
         src = src.flatten(2).permute(2, 0, 1)
@@ -84,10 +81,10 @@ class DepthPredictor(nn.Module):
         depth_embed = self.depth_encoder(src, mask, pos)
         depth_embed = depth_embed.permute(1, 2, 0).reshape(B, C, H, W)
         
-        depth_pos_embed_ip = self.interpolate_depth_embed(weighted_depth)
-        depth_embed = depth_embed #+ depth_pos_embed_ip
-        
-        return depth_logits, depth_embed, weighted_depth
+        # Keep depth_bin_values and depth_pos_embed registered for historical
+        # checkpoint compatibility.  The weighted-depth branch that used them
+        # was not consumed by MonoDGP, so executing it only added dead work.
+        return depth_logits, depth_embed
 
 
     def interpolate_depth_embed(self, depth):

@@ -252,7 +252,8 @@ class MonoDGP(nn.Module):
             query_embeds = self.query_embed.weight[:self.num_queries]
 
         srcs = enhanced_srcs
-        pred_depth_map_logits, depth_pos_embed, weighted_depth = self.depth_predictor(srcs, masks[1], seg_embed[1] + pos[1])
+        pred_depth_map_logits, depth_pos_embed = self.depth_predictor(
+            srcs, masks[1], seg_embed[1] + pos[1])
         
         #pos_3d = []
         # for l, feat in enumerate(features):
