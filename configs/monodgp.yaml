@@ -101,6 +101,9 @@ optimizer:
   type: 'adamw'
   lr: 0.0002
   weight_decay: 0.0001
+  # Batch the historical custom AdamW tensor updates without changing its
+  # update equation or optimizer state.
+  use_foreach_adamw: True
 
 
 lr_scheduler:

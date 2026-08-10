@@ -1,4 +1,6 @@
 import math
+from collections import defaultdict
+
 import torch
 import torch.optim as optim
 from torch.optim.optimizer import Optimizer
@@ -13,117 +15,160 @@ def build_optimizer(cfg_optimizer, model):
             weights += [param]
 
     parameters = [{'params': biases, 'weight_decay': 0},
-                  {'params': weights, 'weight_decay': cfg_optimizer['weight_decay']}]
+                  {'params': weights,
+                   'weight_decay': cfg_optimizer['weight_decay']}]
 
     if cfg_optimizer['type'] == 'sgd':
-        optimizer = optim.SGD(parameters, lr=cfg_optimizer['lr'], momentum=0.9)
+        optimizer = optim.SGD(
+            parameters, lr=cfg_optimizer['lr'], momentum=0.9)
     elif cfg_optimizer['type'] == 'adam':
         optimizer = optim.Adam(parameters, lr=cfg_optimizer['lr'])
     elif cfg_optimizer['type'] == 'adamw':
-        optimizer = AdamW(parameters, lr=cfg_optimizer['lr'])
+        optimizer = AdamW(
+            parameters, lr=cfg_optimizer['lr'],
+            foreach=bool(cfg_optimizer.get('use_foreach_adamw', False)))
     else:
-        raise NotImplementedError("%s optimizer is not supported" % cfg_optimizer['type'])
+        raise NotImplementedError(
+            "%s optimizer is not supported" % cfg_optimizer['type'])
 
     return optimizer
 
 
 class AdamW(Optimizer):
-    """Implements Adam algorithm.
-    It has been proposed in `Adam: A Method for Stochastic Optimization`_.
-    Arguments:
-        params (iterable): iterable of parameters to optimize or dicts defining
-            parameter groups
-        lr (float, optional): learning rate (default: 1e-3)
-        betas (Tuple[float, float], optional): coefficients used for computing
-            running averages of gradient and its square (default: (0.9, 0.999))
-        eps (float, optional): term added to the denominator to improve
-            numerical stability (default: 1e-8)
-        weight_decay (float, optional): weight decay (L2 penalty) (default: 0)
-        amsgrad (boolean, optional): whether to use the AMSGrad variant of this
-            algorithm from the paper `On the Convergence of Adam and Beyond`_
-    .. _Adam\: A Method for Stochastic Optimization:
-        https://arxiv.org/abs/1412.6980
-    .. _On the Convergence of Adam and Beyond:
-        https://openreview.net/forum?id=ryQu7f-RZ
-    """
+    """Historical MonoDGP AdamW with an optional batched execution path."""
 
     def __init__(self, params, lr=1e-3, betas=(0.9, 0.999), eps=1e-8,
-                 weight_decay=0, amsgrad=False):
+                 weight_decay=0, amsgrad=False, foreach=False):
         if not 0.0 <= lr:
             raise ValueError("Invalid learning rate: {}".format(lr))
         if not 0.0 <= eps:
             raise ValueError("Invalid epsilon value: {}".format(eps))
         if not 0.0 <= betas[0] < 1.0:
-            raise ValueError("Invalid beta parameter at index 0: {}".format(betas[0]))
+            raise ValueError(
+                "Invalid beta parameter at index 0: {}".format(betas[0]))
         if not 0.0 <= betas[1] < 1.0:
-            raise ValueError("Invalid beta parameter at index 1: {}".format(betas[1]))
+            raise ValueError(
+                "Invalid beta parameter at index 1: {}".format(betas[1]))
         defaults = dict(lr=lr, betas=betas, eps=eps,
                         weight_decay=weight_decay, amsgrad=amsgrad)
-        super(AdamW, self).__init__(params, defaults)
+        super().__init__(params, defaults)
+        # This is an execution switch, not part of the optimizer state or
+        # update equation.
+        self.use_foreach = bool(foreach)
 
     def __setstate__(self, state):
-        super(AdamW, self).__setstate__(state)
+        super().__setstate__(state)
+        self.use_foreach = bool(getattr(self, 'use_foreach', False))
         for group in self.param_groups:
             group.setdefault('amsgrad', False)
 
+    @staticmethod
+    def _initialize_state(param, state, amsgrad):
+        if state:
+            return
+        state['step'] = 0
+        state['exp_avg'] = torch.zeros_like(param.data)
+        state['exp_avg_sq'] = torch.zeros_like(param.data)
+        if amsgrad:
+            state['max_exp_avg_sq'] = torch.zeros_like(param.data)
+
+    @staticmethod
+    def _single_tensor_update(param, grad, state, group):
+        exp_avg = state['exp_avg']
+        exp_avg_sq = state['exp_avg_sq']
+        beta1, beta2 = group['betas']
+        state['step'] += 1
+
+        exp_avg.mul_(beta1).add_(1 - beta1, grad)
+        exp_avg_sq.mul_(beta2).addcmul_(1 - beta2, grad, grad)
+        if group['amsgrad']:
+            max_exp_avg_sq = state['max_exp_avg_sq']
+            torch.max(max_exp_avg_sq, exp_avg_sq, out=max_exp_avg_sq)
+            denom = max_exp_avg_sq.sqrt().add_(group['eps'])
+        else:
+            denom = exp_avg_sq.sqrt().add_(group['eps'])
+
+        bias_correction1 = 1 - beta1 ** state['step']
+        bias_correction2 = 1 - beta2 ** state['step']
+        step_size = (group['lr'] * math.sqrt(bias_correction2)
+                     / bias_correction1)
+        param.data.add_(
+            -step_size,
+            torch.mul(param.data, group['weight_decay']).addcdiv_(
+                1, exp_avg, denom))
+
+    @staticmethod
+    def _foreach_bucket_update(entries, group):
+        params = [entry[0].data for entry in entries]
+        grads = [entry[1] for entry in entries]
+        states = [entry[2] for entry in entries]
+        exp_avgs = [state['exp_avg'] for state in states]
+        exp_avg_sqs = [state['exp_avg_sq'] for state in states]
+        beta1, beta2 = group['betas']
+
+        for state in states:
+            state['step'] += 1
+        step = states[0]['step']
+        torch._foreach_mul_(exp_avgs, beta1)
+        torch._foreach_add_(exp_avgs, grads, alpha=1 - beta1)
+        torch._foreach_mul_(exp_avg_sqs, beta2)
+        torch._foreach_addcmul_(
+            exp_avg_sqs, grads, grads, value=1 - beta2)
+        if group['amsgrad']:
+            max_exp_avg_sqs = [
+                state['max_exp_avg_sq'] for state in states]
+            torch._foreach_maximum_(max_exp_avg_sqs, exp_avg_sqs)
+            denom = torch._foreach_sqrt(max_exp_avg_sqs)
+        else:
+            denom = torch._foreach_sqrt(exp_avg_sqs)
+        torch._foreach_add_(denom, group['eps'])
+
+        bias_correction1 = 1 - beta1 ** step
+        bias_correction2 = 1 - beta2 ** step
+        step_size = (group['lr'] * math.sqrt(bias_correction2)
+                     / bias_correction1)
+        updates = torch._foreach_mul(params, group['weight_decay'])
+        torch._foreach_addcdiv_(updates, exp_avgs, denom, value=1)
+        torch._foreach_add_(params, updates, alpha=-step_size)
+
+    def _foreach_group_step(self, group):
+        buckets = defaultdict(list)
+        for param in group['params']:
+            if param.grad is None:
+                continue
+            grad = param.grad.data
+            if grad.is_sparse:
+                raise RuntimeError(
+                    'Adam does not support sparse gradients, please '
+                    'consider SparseAdam instead')
+            state = self.state[param]
+            self._initialize_state(param, state, group['amsgrad'])
+            # Different shapes are allowed in one foreach call. Device, dtype
+            # and state step must agree; missing gradients can split the step.
+            key = (param.device, param.dtype, state['step'])
+            buckets[key].append((param, grad, state))
+        for entries in buckets.values():
+            self._foreach_bucket_update(entries, group)
+
     def step(self, closure=None):
-        """Performs a single optimization step.
-        Arguments:
-            closure (callable, optional): A closure that reevaluates the model
-                and returns the loss.
-        """
         loss = None
         if closure is not None:
             loss = closure()
 
         for group in self.param_groups:
-            for p in group['params']:
-                if p.grad is None:
+            if self.use_foreach:
+                self._foreach_group_step(group)
+                continue
+            for param in group['params']:
+                if param.grad is None:
                     continue
-                grad = p.grad.data
+                grad = param.grad.data
                 if grad.is_sparse:
-                    raise RuntimeError('Adam does not support sparse gradients, please consider SparseAdam instead')
-                amsgrad = group['amsgrad']
-
-                state = self.state[p]
-
-                # State initialization
-                if len(state) == 0:
-                    state['step'] = 0
-                    # Exponential moving average of gradient values
-                    state['exp_avg'] = torch.zeros_like(p.data)
-                    # Exponential moving average of squared gradient values
-                    state['exp_avg_sq'] = torch.zeros_like(p.data)
-                    if amsgrad:
-                        # Maintains max of all exp. moving avg. of sq. grad. values
-                        state['max_exp_avg_sq'] = torch.zeros_like(p.data)
-
-                exp_avg, exp_avg_sq = state['exp_avg'], state['exp_avg_sq']
-                if amsgrad:
-                    max_exp_avg_sq = state['max_exp_avg_sq']
-                beta1, beta2 = group['betas']
-
-                state['step'] += 1
-
-                # if group['weight_decay'] != 0:
-                #     grad = grad.add(group['weight_decay'], p.data)
-
-                # Decay the first and second moment running average coefficient
-                exp_avg.mul_(beta1).add_(1 - beta1, grad)
-                exp_avg_sq.mul_(beta2).addcmul_(1 - beta2, grad, grad)
-                if amsgrad:
-                    # Maintains the maximum of all 2nd moment running avg. till now
-                    torch.max(max_exp_avg_sq, exp_avg_sq, out=max_exp_avg_sq)
-                    # Use the max. for normalizing running avg. of gradient
-                    denom = max_exp_avg_sq.sqrt().add_(group['eps'])
-                else:
-                    denom = exp_avg_sq.sqrt().add_(group['eps'])
-
-                bias_correction1 = 1 - beta1 ** state['step']
-                bias_correction2 = 1 - beta2 ** state['step']
-                step_size = group['lr'] * math.sqrt(bias_correction2) / bias_correction1
-
-                # p.data.addcdiv_(-step_size, exp_avg, denom)
-                p.data.add_(-step_size,  torch.mul(p.data, group['weight_decay']).addcdiv_(1, exp_avg, denom))
+                    raise RuntimeError(
+                        'Adam does not support sparse gradients, please '
+                        'consider SparseAdam instead')
+                state = self.state[param]
+                self._initialize_state(param, state, group['amsgrad'])
+                self._single_tensor_update(param, grad, state, group)
 
         return loss
