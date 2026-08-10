@@ -6,6 +6,10 @@ dataset:
   train_split: 'train'
   test_split: 'val'
   batch_size: 8
+  # Pinned host tensors allow the training prefetch stream to overlap CPU-to-GPU
+  # copies with computation. Validation remains unchanged.
+  train_pin_memory: True
+  test_pin_memory: False
   use_3d_center: True
   class_merging: False
   use_dontcare: False
@@ -114,6 +118,8 @@ trainer:
   #pretrain_model: path/to/ckpt
   save_path: 'outputs/'
   save_all: False  # False for only savng the best and latest ckpts
+  # Keep one future training batch on the GPU using one persistent CUDA stream.
+  use_cuda_batch_prefetch: True
   use_dn: False
   scalar: 5
   label_noise_scale: 0.2

@@ -540,7 +540,7 @@
       <h1>实验总览 v2</h1>
       <p>实验总账的可视化索引。每项实验单独记录目的、对比条件、执行过程和客观结果，方便后续持续追加。</p>
       <div class="hero-meta">
-        <span class="pill"><span class="status-dot"></span>3 项实验均已完成</span>
+        <span class="pill"><span class="status-dot"></span>4 项实验已记录</span>
         <span class="pill">数据来源：实验总账v2</span>
         <span class="pill">更新日期：2026-08-10</span>
       </div>
@@ -549,13 +549,13 @@
     <section class="top-grid" aria-label="全局摘要">
       <article class="summary-card">
         <span class="label">正式实验</span>
-        <strong>3 项</strong>
+        <strong>4 项</strong>
         <small>从 v2 重新编号</small>
       </article>
       <article class="summary-card">
         <span class="label">已完成</span>
-        <strong>3 项</strong>
-        <small>暂无进行中实验</small>
+        <strong>4 项</strong>
+        <small>序号4已审核通过</small>
       </article>
       <article class="summary-card">
         <span class="label">实验类型</span>
@@ -564,7 +564,7 @@
       </article>
       <article class="summary-card">
         <span class="label">当前编号</span>
-        <strong>01—03</strong>
+        <strong>01—04</strong>
         <small>后续实验继续追加</small>
       </article>
     </section>
@@ -587,6 +587,10 @@
         <button class="nav-button" data-target="exp3" type="button">
           <span class="nav-index">03</span>
           <span class="nav-copy"><strong>深度标签批量化</strong><small>B16对照实验</small></span>
+        </button>
+        <button class="nav-button" data-target="exp4" type="button">
+          <span class="nav-index">04</span>
+          <span class="nav-copy"><strong>训练批次CUDA预取</strong><small>B16两轮对照</small></span>
         </button>
       </nav>
 
@@ -616,6 +620,11 @@
                 <h3>B16深度图标签批量生成</h3>
                 <p>只改训练阶段的稠密深度目标图和前景掩码生成，并与序号2做同口径对比。</p>
               </div>
+              <div class="truth">
+                <span class="number">04</span>
+                <h3>B16训练批次CUDA预取</h3>
+                <p>在序号3累计代码上，比较普通同步搬运与单批异步预取的速度、显存和数值一致性。</p>
+              </div>
             </div>
           </article>
 
@@ -623,7 +632,7 @@
             <div class="section-head">
               <div>
                 <span class="section-kicker">Catalog</span>
-                <h2>当前两项实验的关系</h2>
+                <h2>各实验的对照关系</h2>
               </div>
             </div>
             <div class="two-column">
@@ -635,10 +644,18 @@
                 <h3>实验 2：单组基准测量</h3>
                 <p>不是A/B实验。只测修改后的当前流程在B16下跑一轮训练和完整验证的时间、吞吐与显存。</p>
               </div>
+              <div class="mini-card good">
+                <h3>实验 3：对照序号2</h3>
+                <p>只改深度图标签生成，使用B16一轮训练与完整验证对比。</p>
+              </div>
+              <div class="mini-card good">
+                <h3>实验 4：对照序号3代码</h3>
+                <p>两臂各从第0轮训练2轮，唯一工程变量是训练数据是否锁页并用独立CUDA流预取。</p>
+              </div>
             </div>
             <div class="callout warning" style="margin-top:14px">
-              <h4>两项实验的测量对象不同</h4>
-              <p>序号1比较两套B8完整流程；序号2只建立新版B16单组基准。不能把序号1的B8数字与序号2的B16数字直接相减。</p>
+              <h4>每项实验只和自己明确的对照比</h4>
+              <p>序号1是B8完整运行栈对比；序号2是B16单组基准；序号3对照序号2；序号4则对照已合并序号3后的当前代码。</p>
             </div>
           </article>
         </section>
@@ -976,10 +993,99 @@
             </div>
           </article>
         </section>
+
+        <section id="exp4" class="content-panel" aria-labelledby="exp4-title">
+          <article class="section-card">
+            <div class="section-head">
+              <div>
+                <span class="section-kicker">Experiment 04 · 08-10</span>
+                <h2 id="exp4-title">B16训练批次CUDA预取性能对比</h2>
+                <p class="section-subtitle">对照是序号3合并后的累计代码；候选只改变CPU到GPU的训练数据搬运时序。</p>
+              </div>
+              <span class="done-badge">已完成·已采用</span>
+            </div>
+            <div class="condition-common">
+              <strong>两边完全相同</strong>
+              <span>序号3累计代码、Python 3.10.20、PyTorch 2.8.0+cu129、cuDNN 9.10.2、KITTI划分、B16、4个数据进程、种子444、初始模型、两轮训练和完整验证流程。</span>
+            </div>
+            <div class="condition-grid">
+              <article class="condition-card">
+                <header><strong>A · 普通搬运</strong><span>对照组</span></header>
+                <dl>
+                  <div><dt>CPU内存</dt><dd>普通内存</dd></div>
+                  <div><dt>GPU搬运</dt><dd>进入当前batch后同步执行 .to(cuda)</dd></div>
+                  <div><dt>数据与计算</dt><dd>搬运完成后再计算</dd></div>
+                  <div><dt>训练规模</dt><dd>2轮 × 232个B16批次</dd></div>
+                </dl>
+              </article>
+              <article class="condition-card new">
+                <header><strong>B · CUDA预取</strong><span>候选组</span></header>
+                <dl>
+                  <div><dt>CPU内存</dt><dd>锁页内存</dd></div>
+                  <div><dt>GPU搬运</dt><dd>独立CUDA流 + non_blocking=True</dd></div>
+                  <div><dt>数据与计算</dt><dd>计算当前批时提前搬下一批</dd></div>
+                  <div><dt>流生命期</dt><dd>两个epoch复用同一条流</dd></div>
+                </dl>
+              </article>
+            </div>
+            <div class="scope-strip">
+              <span>不改模型</span><span>不改Loss</span><span>不改优化器</span><span>不改验证路径</span>
+            </div>
+          </article>
+
+          <article class="section-card">
+            <div class="section-head"><div><span class="section-kicker">Performance</span><h2>两轮真实训练速度</h2></div></div>
+            <div class="metric-grid">
+              <div class="metric"><span>两轮合计</span><strong>242.73 秒</strong><em>↓ 9.21% · 计算时间</em></div>
+              <div class="metric"><span>等价吞吐提升</span><strong>10.15%</strong><em>↑ 越高越好</em></div>
+              <div class="metric"><span>额外保留显存</span><strong>224 MiB</strong><em>两轮稳定</em></div>
+            </div>
+            <div class="table-wrap">
+              <table class="memory-table">
+                <thead><tr><th>指标</th><th>普通搬运</th><th>CUDA预取</th><th>变化</th></tr></thead>
+                <tbody>
+                  <tr><td>第1轮时间 ↓</td><td>134.9816秒</td><td><strong>121.8602秒</strong></td><td><strong>吞吐 +10.77%</strong></td></tr>
+                  <tr><td>第2轮时间 ↓</td><td>132.3845秒</td><td><strong>120.8720秒</strong></td><td><strong>吞吐 +9.52%</strong></td></tr>
+                  <tr><td>2轮总时间 ↓</td><td>267.3660秒</td><td><strong>242.7322秒</strong></td><td><strong>时间 -9.21%</strong></td></tr>
+                  <tr><td>峰值已保留显存 ↓</td><td>14.8828 GiB</td><td>15.1016 GiB</td><td>+224 MiB</td></tr>
+                  <tr><td>轮末活跃显存 ↓</td><td>0.6392 GiB</td><td>0.6392 GiB</td><td>基本一致</td></tr>
+                  <tr><td>完整验证时间 ↓</td><td>57.5340秒</td><td>56.8783秒</td><td>单次波动</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="callout warning" style="margin-top:14px">
+              <h4>“时间减少9.21%”和“吞吐提高10.15%”不矛盾</h4>
+              <p>前者以对照时间为分母；后者是同样图像数在更短时间内处理，计算方式为对照时间除以候选时间再减1。</p>
+            </div>
+          </article>
+
+          <article class="section-card">
+            <div class="section-head"><div><span class="section-kicker">Correctness</span><h2>搬运和原子加噪声分开验证</h2></div></div>
+            <div class="truth-grid">
+              <div class="truth"><span class="number">01</span><h3>真实全训练集顺序与搬运</h3><p>普通与预取都是3712张图、232批，图片编号序列哈希完全一致；73.05亿个CPU源元素与GPU还原元素的差异为0。</p></div>
+              <div class="truth"><span class="number">02</span><h3>固定B16前向</h3><p>普通两次与预取一次的总Loss完全相同：178.240814。</p></div>
+              <div class="truth"><span class="number">03</span><h3>反向梯度</h3><p>预取相对普通的梯度相对L2差异2.790e-5，低于普通路径自身重复的2.936e-5。</p></div>
+            </div>
+            <div class="callout warning" style="margin-top:14px">
+              <h4>最终模型哈希不同不等于预取改了数学</h4>
+              <p>用户指出后核查确认，可变形注意力的CUDA反向在特征、采样位置和注意力权重梯度上都使用 atomicAdd。即使普通路径自己重复运行，梯度也不会逐位相同；预取差异没有超出这个原生波动。</p>
+            </div>
+            <details>
+              <summary>展开产物与AP口径</summary>
+              <div>
+                <ul>
+                  <li>实验目录只保留 result.json；没有checkpoint、KITTI预测文件或运行日志。</li>
+                  <li>两轮后Moderate 3D AP_R40为0.002131与0.006242，都是未收敛早期模型，不用于评价最终检测精度。</li>
+                  <li>用户已审核通过，并批准提交、合并和推送。</li>
+                </ul>
+              </div>
+            </details>
+          </article>
+        </section>
       </div>
     </div>
 
-    <footer class="footer">MonoDGP 实验总览 v2 · 第一版 · 等待补充</footer>
+    <footer class="footer">MonoDGP 实验总览 v2 · 序号01—04</footer>
   </main>
 
   <script>
