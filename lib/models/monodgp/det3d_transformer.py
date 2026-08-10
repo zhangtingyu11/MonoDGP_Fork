@@ -310,5 +310,6 @@ def build_det3d_transformer(cfg):
         return_intermediate_dec=cfg['return_intermediate_dec'],
         num_feature_levels=cfg['num_feature_levels'],
         dec_n_points=cfg['dec_n_points'],
+        group_num=cfg.get('decoder_group_num', 1),
         use_memory_efficient_mha=cfg.get(
             'use_memory_efficient_mha', False))

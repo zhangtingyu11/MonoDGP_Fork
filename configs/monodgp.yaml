@@ -67,6 +67,9 @@ model:
   use_memory_efficient_mha: True
   num_queries: 50
   group_num: 11
+  # Keep decoder self-attention aligned with the 11 independent matching
+  # groups.  A value of 1 leaves all 550 training queries globally connected.
+  decoder_group_num: 11
   enc_n_points: 4
   dec_n_points: 4
   # DN

@@ -397,5 +397,6 @@ def build_det2d_transformer(cfg):
         num_feature_levels=cfg['num_feature_levels'],
         dec_n_points=cfg['dec_n_points'],
         enc_n_points=cfg['enc_n_points'],
+        group_num=cfg.get('decoder_group_num', 1),
         use_memory_efficient_mha=cfg.get(
             'use_memory_efficient_mha', False))

@@ -540,7 +540,7 @@
       <h1>实验总览 v2</h1>
       <p>实验总账的可视化索引。每项实验单独记录目的、对比条件、执行过程和客观结果，方便后续持续追加。</p>
       <div class="hero-meta">
-        <span class="pill"><span class="status-dot"></span>12 项实验已记录</span>
+        <span class="pill"><span class="status-dot"></span>16 项实验已记录</span>
         <span class="pill">数据来源：实验总账v2</span>
         <span class="pill">更新日期：2026-08-10</span>
       </div>
@@ -549,13 +549,13 @@
     <section class="top-grid" aria-label="全局摘要">
       <article class="summary-card">
         <span class="label">正式实验</span>
-        <strong>12 项</strong>
+        <strong>16 项</strong>
         <small>从 v2 重新编号</small>
       </article>
       <article class="summary-card">
         <span class="label">已完成</span>
-        <strong>12 项</strong>
-        <small>序号12等待审核</small>
+        <strong>16 项</strong>
+        <small>序号16已审核，不采用</small>
       </article>
       <article class="summary-card">
         <span class="label">实验类型</span>
@@ -564,7 +564,7 @@
       </article>
       <article class="summary-card">
         <span class="label">当前编号</span>
-        <strong>01—12</strong>
+        <strong>01—16</strong>
         <small>后续实验继续追加</small>
       </article>
     </section>
@@ -575,6 +575,10 @@
         <button class="nav-button active" data-target="overview" type="button">
           <span class="nav-index">总</span>
           <span class="nav-copy"><strong>实验索引</strong><small>全部记录</small></span>
+        </button>
+        <button class="nav-button" data-target="todos" type="button">
+          <span class="nav-index">待</span>
+          <span class="nav-copy"><strong>待办事项</strong><small>1项待专项诊断</small></span>
         </button>
         <button class="nav-button" data-target="exp1" type="button">
           <span class="nav-index">01</span>
@@ -623,6 +627,26 @@
         <button class="nav-button" data-target="exp12" type="button">
           <span class="nav-index">12</span>
           <span class="nav-copy"><strong>删除无用深度计算</strong><small>数值合同与B16速度</small></span>
+        </button>
+        <button class="nav-button" data-target="exp13" type="button">
+          <span class="nav-index">13</span>
+          <span class="nav-copy"><strong>cuDNN自动调优</strong><small>B16两轮对照</small></span>
+        </button>
+        <button class="nav-button" data-target="exp14" type="button">
+          <span class="nav-index">14</span>
+          <span class="nav-copy"><strong>局部torch.compile</strong><small>边界与重复编译诊断</small></span>
+        </button>
+        <button class="nav-button" data-target="exp15" type="button">
+          <span class="nav-index">15</span>
+          <span class="nav-copy"><strong>编译区域头</strong><small>数值合同与B16两轮速度</small></span>
+        </button>
+        <button class="nav-button" data-target="exp16" type="button">
+          <span class="nav-index">16</span>
+          <span class="nav-copy"><strong>channels-last卷积布局</strong><small>数值合同与B16两轮速度</small></span>
+        </button>
+        <button class="nav-button" data-target="exp17" type="button">
+          <span class="nav-index">17</span>
+          <span class="nav-copy"><strong>2D查询分组布局</strong><small>11组修复、合同与速度</small></span>
         </button>
       </nav>
 
@@ -760,6 +784,49 @@
             <div class="callout warning" style="margin-top:14px">
               <h4>每项实验只和自己明确的对照比</h4>
               <p>序号1是B8完整运行栈对比；序号2是B16单组基准；序号3对照序号2；序号4对照序号3累计代码；序号5对照序号4；序号6对照已合并序号5后的当前代码；序号7对照序号6累计代码；序号8对照序号7；序号9对照已合并序号8后的当前代码；序号10对照序号9累计代码；序号11分析序号10已采用的累计代码；序号12对照序号11已审核代码。</p>
+            </div>
+          </article>
+        </section>
+
+        <section id="todos" class="content-panel" aria-labelledby="todos-title">
+          <article class="section-card">
+            <div class="section-head">
+              <div>
+                <span class="section-kicker">Todo 01 · Correctness First</span>
+                <h2 id="todos-title">数据增强黑边没有进入注意力mask</h2>
+                <p class="section-subtitle">原始实现问题；待独立诊断，暂未修复，也暂不做直接删除mask的纯提速。</p>
+              </div>
+              <span class="done-badge">待诊断</span>
+            </div>
+
+            <div class="condition-grid">
+              <article class="condition-card">
+                <header><strong>已确认的事实</strong><span>来自现有代码数据流</span></header>
+                <dl>
+                  <div><dt>增强</dt><dd>随机缩放和平移会采样到原图外区域</dd></div>
+                  <div><dt>输出尺寸</dt><dd>每张图最终都是384×1280</dd></div>
+                  <div><dt>现有mask</dt><dd>只按张量尺寸判断批次补齐，因此全False</dd></div>
+                  <div><dt>结果</dt><dd>增强黑边被当作普通图像位置</dd></div>
+                </dl>
+              </article>
+              <article class="condition-card new">
+                <header><strong>还不能下的结论</strong><span>需要实验证据</span></header>
+                <dl>
+                  <div><dt>触发率</dt><dd>尚未统计有多少训练样本出现黑边</dd></div>
+                  <div><dt>面积</dt><dd>尚未统计黑边占图像比例</dd></div>
+                  <div><dt>精度</dt><dd>尚不能声称它已造成AP下降</dd></div>
+                  <div><dt>修复方式</dt><dd>不能直接套用只支持右/下补齐的valid ratio</dd></div>
+                </dl>
+              </article>
+            </div>
+          </article>
+
+          <article class="section-card">
+            <div class="section-head"><div><span class="section-kicker">Required Work</span><h2>后续要做什么</h2></div></div>
+            <div class="stage-grid">
+              <div class="stage"><span>1 · 先量化</span><h3>统计真实增强黑边</h3><p>让一张全有效的白色掩码跟图像执行完全相同的仿射变换，统计黑边触发率、面积、方向和可视化样例。</p></div>
+              <div class="stage"><span>2 · 再设计</span><h3>区分像素mask与valid ratio</h3><p>像素mask可以精确表示四边无效区；Deformable DETR的valid ratio默认假设无效区位于右边和下边，需要单独处理左边和上边。</p></div>
+              <div class="stage"><span>3 · 后验证</span><h3>正确性与速度分开对照</h3><p>先比较原实maski和几何正确mask对训练与AP的影响；只有证明黑边不应屏蔽时，才重新考虑传None的速度快路径。</p></div>
             </div>
           </article>
         </section>
@@ -1857,12 +1924,12 @@
             <div class="stage-grid">
               <div class="stage"><span>序号12已完成 · 等价但速度不可分辨</span><h3>删除无消费者的深度计算</h3><p>全部输出与Loss逐元素零差异，梯度变化未超过旧路径自身波动。完整一轮时间差仅0.04%，不能声称提速；峰值保留/整卡显存分别少10/16MiB。等待用户决定是否采用。</p></div>
               <div class="stage"><span>优先2 · 直接打卷积热点</span><h3>cuDNN固定形状自动调优</h3><p>当前benchmark关闭，而B16和图像尺寸固定。保持deterministic开启，比较第2轮稳态；主干前向约79.47ms，卷积反向也很重。</p></div>
-              <div class="stage"><span>优先3 · 明确的掩码浪费</span><h3>无padding注意力快路径</h3><p>KITTI图像都已统一尺寸，padding mask实际全为False，但注意力仍执行约6.52ms/批的masked_fill。固定入口传None跳过它，同时保留可变尺寸的普通路径。</p></div>
-              <div class="stage"><span>优先4 · 直接打60ms空档</span><h3>局部torch.compile融合</h3><p>只编译稳定子图，重点覆盖冻结BN算术、区域头、深度头和Loss小算子；SciPy匹配、自定义可变形CUDA和动态目标边界留在外面。</p></div>
+              <div class="stage"><span>优先3 · 原始实现问题，已暂停纯提速</span><h3>数据增强黑边没有进入mask</h3><p>固定384×1280只保证没有“批次尺寸补齐”，不保证图像内没有黑边。随机缩放和平移会用原图外内容填充图像边缘，但现有NestedTensor mask只看张量尺寸，仍然全False，所以模型会把增强黑边当普通像素。后续先统计触发率、面积和方向，再设计与仿射变换同步的有效像素mask；在此之前不直接传None删除掩码。</p></div>
+              <div class="stage"><span>序号15已测区域头 · 不采用</span><h3>局部torch.compile融合</h3><p>区域头、ResNet主体和深度头均能被完整捕获且后续轮次不再编译。序号15区域头第2轮稳态约快0.98%，但两轮合计只快0.25%，且完整梯度相对差最高0.2706%。用户审核后认为收益太小，已回退。</p></div>
               <div class="stage"><span>优先5 · 卷积布局</span><h3>channels_last真实B16 A/B</h3><p>只在ResNet、区域头和深度卷积分支试；必须把布局转换成本算进去，并验证前向、Loss、梯度与完整一轮。</p></div>
               <div class="stage"><span>优先6 · 不删除11组，只减少搬运</span><h3>11组查询的张量布局</h3><p>训练仍使用11组×50个查询，匹配和Loss也按11组计算，所以11组本身不是废代码、不能删除。候选只减少每层反复的repeat、split、cat和contiguous，保持完全相同的11组结果。use_dn=False仅表示没有额外的加噪去噪查询。</p></div>
               <div class="stage"><span>优先7 · 每批答案相同却重复计算</span><h3>固定几何元数据缓存</h3><p>B16和图像尺寸固定时，spatial shapes、level starts、valid ratios和reference points每批结果相同，可以按形状、设备和dtype复用。这与11组查询是两件独立的事。</p></div>
-              <div class="stage"><span>优先8 · 少造内容完全确定的张量</span><h3>零掩码和区域0/1图</h3><p><strong>零掩码：</strong>所有训练图已经是相同尺寸，没有补边，因此每个位置都确定为“不是补边”。代码仍在CPU创建一张全0图、搬到GPU，部分位置还做一次不改变内容的缩放。可以直接在GPU创建，或在明确无补边的路径中不传掩码。<br><strong>区域0/1图：</strong>当前为了把区域概率变成0或1，先创建一张全1图和一张全0图，再用where选择；可以直接用“概率&gt;0.5”的布尔结果转成浮点数，输出逐像素相同。</p></div>
+              <div class="stage"><span>优先8 · 少造内容完全确定的张量</span><h3>第4层零掩码和区域0/1图</h3><p><strong>第4层零掩码：</strong>额外特征层目前仍在CPU创建全0图、搬到GPU，并对同尺寸零图做无效缩放。这项与“数据增强黑边应如何表示”分开处理，不再宣称所有图像位置都有效。<br><strong>区域0/1图：</strong>当前为了把区域概率变成0或1，先创建一张全1图和一张全0图，再用where选择；可以直接用“概率&gt;0.5”的布尔结果转成浮点数，输出逐像素相同。</p></div>
               <div class="stage"><span>优先9 · 只用于观察、不训练模型</span><h3>两个error监控值</h3><p><strong>class_error：</strong>看已经匹配到真值的查询有多少分类错误，只是观察分类准确率，不进入总Loss；当前训练日志也没有展示它。<br><strong>cardinality_error：</strong>比较“预测物体数量”和“真值物体数量”，同样不进入总Loss。它沿用旧DETR把最后一个类别当背景的算法，而当前使用sigmoid focal分类头、没有这种背景类别，因此这个值本身还可能算错。删除它们不会改变反向梯度。</p></div>
               <div class="stage"><span>优先10 · 相同网格不要每批重算</span><h3>位置编码缓存</h3><p>Transformer需要给特征图每个位置附上“我在第几行、第几列”的正弦/余弦坐标。固定384×1280输入时，各层特征图大小固定，这张坐标表每批都完全相同；现在仍每批重新执行累计、除法、sin和cos。可以第一次算好后按空间形状、设备和数据类型保存并复用。证据上位置编码约1.59ms/批。</p></div>
               <div class="stage"><span>靠后 · 先在CPU删掉填充行</span><h3>真值整理前移到CPU</h3><p>一个B16批次的真值先被补齐成相同长度，不足的位置用无效行填充。现在代码先把整块真值搬到GPU，再对16张图的8个字段逐一用掩码删除无效行，共产生每批128次CPU等待GPU。候选是在数据加载阶段先用CPU删掉无效行，只把每辆车真正有效的真值搬到GPU。Loss仍在GPU计算，真值也最终进入GPU；改变的只是“删除填充行”发生在哪里。由于这部分CPU工作目前会和上一批反向重叠，真实速度收益尚未验证。</p></div>
@@ -1908,7 +1975,7 @@
                 <h2 id="exp12-title">删除没有消费者的深度计算</h2>
                 <p class="section-subtitle">不改深度监督和3D Transformer输入，只停止执行算完后没有接入任何输出或Loss的深度支路。</p>
               </div>
-              <span class="done-badge">已完成·待审核</span>
+              <span class="done-badge">已完成·已采用</span>
             </div>
             <div class="condition-common">
               <strong>唯一变量</strong>
@@ -1964,10 +2031,326 @@
             </div>
           </article>
         </section>
+
+        <section id="exp13" class="content-panel" aria-labelledby="exp13-title">
+          <article class="section-card">
+            <div class="section-head">
+              <div>
+                <span class="section-kicker">Experiment 13 · 08-10</span>
+                <h2 id="exp13-title">cuDNN固定形状自动调优</h2>
+                <p class="section-subtitle">不改模型和Loss，只让cuDNN首次见到固定卷积形状时试选更快的算法。</p>
+              </div>
+              <span class="done-badge">已完成·不采用</span>
+            </div>
+            <div class="condition-common">
+              <strong>唯一变量</strong>
+              <span>对照cudnn.benchmark=False；候选改为True。两边deterministic都为True，B16、384×1280、初始模型、数据、种子和TF32设置相同，并分别使用新进程避免算法缓存串扰。</span>
+            </div>
+            <div class="condition-grid">
+              <article class="condition-card">
+                <header><strong>A · 对照</strong><span>不自动试选</span></header>
+                <dl><div><dt>benchmark</dt><dd>False</dd></div><div><dt>deterministic</dt><dd>True</dd></div><div><dt>训练</dt><dd>连续2轮真实B16</dd></div></dl>
+              </article>
+              <article class="condition-card new">
+                <header><strong>B · 候选</strong><span>首次试选卷积算法</span></header>
+                <dl><div><dt>benchmark</dt><dd>True</dd></div><div><dt>deterministic</dt><dd>True</dd></div><div><dt>训练</dt><dd>连续2轮真实B16</dd></div></dl>
+              </article>
+            </div>
+          </article>
+
+          <article class="section-card">
+            <div class="section-head"><div><span class="section-kicker">Numerical Contract</span><h2>答案和梯度有没有变</h2></div></div>
+            <div class="metric-grid">
+              <div class="metric"><span>真实数据</span><strong>4个B16批次</strong><em>64张KITTI图</em></div>
+              <div class="metric"><span>全部输出与Loss</span><strong>零差异</strong><em>逐元素一致</em></div>
+              <div class="metric"><span>候选梯度相对L2</span><strong>0.00405%—0.00479%</strong><em>与对照自身波动同量级</em></div>
+            </div>
+            <p class="plain-note">对照自己重复运行的梯度差异为0.00398%—0.00478%。候选没有引入超过可变形注意力atomicAdd反向本身的频外误差。</p>
+          </article>
+
+          <article class="section-card">
+            <div class="section-head"><div><span class="section-kicker">Two Epochs B16</span><h2>首轮搜索和第二轮稳态</h2></div></div>
+            <div class="table-wrap">
+              <table class="memory-table">
+                <thead><tr><th>指标</th><th>对照</th><th>候选</th><th>变化</th></tr></thead>
+                <tbody>
+                  <tr><td>第1轮时间 ↓</td><td><strong>103.8926秒</strong></td><td>108.0575秒</td><td>慢4.01%</td></tr>
+                  <tr><td>第2轮稳态时间 ↓</td><td>102.6117秒</td><td><strong>101.9633秒</strong></td><td>快0.63%</td></tr>
+                  <tr><td>峰值已分配显存 ↓</td><td><strong>14.018GiB</strong></td><td>21.838GiB</td><td>+7.82GiB</td></tr>
+                  <tr><td>峰值保留显存 ↓</td><td><strong>15.023GiB</strong></td><td>22.021GiB</td><td>+7.00GiB</td></tr>
+                  <tr><td>整卡采样峰值 ↓</td><td><strong>16,512MiB</strong></td><td>17,501MiB</td><td>+989MiB</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="callout warning" style="margin-top:14px">
+              <h4>很小的稳态收益，但首次搜索显存峰值很大</h4>
+              <p>第2轮只快0.63%，且每臂只跑一次，该差异可能部分是运行波动。自动调优在首次搜索算法时申请大workspace，PyTorch峰值和保留显存增加约7—8GiB，明显压缩了24GiB卡上的B16余量。</p>
+            </div>
+          </article>
+        </section>
+
+        <section id="exp14" class="content-panel" aria-labelledby="exp14-title">
+          <article class="section-card">
+            <div class="section-head">
+              <div>
+                <span class="section-kicker">Experiment 14 · 08-10</span>
+                <h2 id="exp14-title">局部torch.compile：先查会不会反复编译</h2>
+                <p class="section-subtitle">这一阶段只确认合理编译边界和图缓存行为，不拿首次调用时间冒充加速结果。</p>
+              </div>
+              <span class="done-badge">第一阶段完成·未采用</span>
+            </div>
+            <div class="condition-common">
+              <strong>为什么不直接编译整个模型</strong>
+              <span>整模型里面有动态真值、Python列表、SciPy匈牙利匹配和自定义可变形注意力。先把区域头、ResNet主体、深度头三个相对稳定的模块分别放进编译器，才能知道具体是谁触发新图。</span>
+            </div>
+            <div class="stage-grid">
+              <div class="stage"><span>候选1</span><h3>区域头</h3><p>卷积、上采样、激活和逐元素计算为主，是最干净的融合边界。</p></div>
+              <div class="stage"><span>候选2</span><h3>ResNet主体</h3><p>输入形状稳定、计算占比最大，但大卷积本来由cuDNN完成，是否提速必须实测。</p></div>
+              <div class="stage"><span>候选3</span><h3>深度头</h3><p>卷积外还包含注意力和mask，边界更复杂，因此单独检查。</p></div>
+            </div>
+          </article>
+
+          <article class="section-card">
+            <div class="section-head"><div><span class="section-kicker">Real Input Sequence</span><h2>具体怎么检查后续轮次</h2></div></div>
+            <div class="flow-row">
+              <div class="flow-step"><span>1</span><strong>训练B16</strong><small>首次建训练图</small></div>
+              <div class="flow-arrow">→</div>
+              <div class="flow-step"><span>2</span><strong>第二个B16</strong><small>应直接复用</small></div>
+              <div class="flow-arrow">→</div>
+              <div class="flow-step"><span>3</span><strong>验证B16</strong><small>关闭梯度</small></div>
+              <div class="flow-arrow">→</div>
+              <div class="flow-step"><span>4</span><strong>验证B9</strong><small>模拟最后一批</small></div>
+              <div class="flow-arrow">→</div>
+              <div class="flow-step"><span>5</span><strong>再走一遍</strong><small>检查是否继续编译</small></div>
+            </div>
+            <p class="plain-note">全部使用真实KITTI数据。训练调用包含完整模型前向、全部Loss和反向；B9来自真实B16批次切出的9张图，用来覆盖验证最后一批batch不足16的情况。所谓“后续轮次检查”是再次访问同样的训练和验证调用形状，专门检查编译缓存；它不是完整跑两轮训练的速度实验。</p>
+          </article>
+
+          <article class="section-card">
+            <div class="section-head"><div><span class="section-kicker">Compile Cache</span><h2>三个模块的编译行为完全一致</h2></div></div>
+            <div class="table-wrap">
+              <table class="memory-table">
+                <thead><tr><th>模块</th><th>首次训练B16</th><th>首次验证B16</th><th>首次验证B9</th><th>后续训练/验证</th></tr></thead>
+                <tbody>
+                  <tr><td>区域头</td><td>新图1个</td><td>新图1个</td><td>新图1个</td><td><strong>新图0个</strong></td></tr>
+                  <tr><td>ResNet主体</td><td>新图1个</td><td>新图1个</td><td>新图1个</td><td><strong>新图0个</strong></td></tr>
+                  <tr><td>深度头</td><td>新图1个</td><td>新图1个</td><td>新图1个</td><td><strong>新图0个</strong></td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="condition-grid" style="margin-top:14px">
+              <article class="condition-card">
+                <header><strong>为什么训练切验证会新编译</strong><span>正常且有限</span></header>
+                <dl><div><dt>守卫原因</dt><dd>grad_mode变化</dd></div><div><dt>直白解释</dt><dd>训练要记录梯度，验证不记录，计算规则不同</dd></div><div><dt>后续表现</dt><dd>两套图分别缓存并复用</dd></div></dl>
+              </article>
+              <article class="condition-card new">
+                <header><strong>为什么B16切B9会新编译</strong><span>最后一批形状变化</span></header>
+                <dl><div><dt>守卫原因</dt><dd>batch维16变9</dd></div><div><dt>编译器处理</dt><dd>将batch维推广成动态符号</dd></div><div><dt>后续表现</dt><dd>B16和B9重复验证均不再编译</dd></div></dl>
+              </article>
+            </div>
+            <div class="callout warning" style="margin-top:14px">
+              <h4>首次出现的几十次Triton试跑，不是几十次模型重编译</h4>
+              <p>区域头、骨干和深度头首次分别出现92、80、60次TRITON_AUTOTUNING事件，这是Inductor生成小kernel时比较不同实现。真正的顶层模型图都是3个。之前把所有回调混在一起会得到104、44一类误导数字，诊断脚本已经改成只把DYNAMO事件称为模型图编译。</p>
+            </div>
+            <div class="callout" style="margin-top:14px">
+              <h4>实验期间使用过持久编译缓存，正式入口已回退</h4>
+              <p>序号14、15实验期间使用<code>~/.cache/monodgp/torchinductor</code>做跨进程复测，约208MiB缓存已复制过去。用全新进程复查区域头后，冷缓存首次训练调用从约17.43秒降到2.49秒，Triton自动调优事件从92次降到10次。用户决定不采用区域头编译后，正式训练/验证入口中的默认缓存设置已经撤销；外部缓存目录未删除，保留为实验资产。</p>
+            </div>
+          </article>
+
+          <article class="section-card">
+            <div class="section-head"><div><span class="section-kicker">Boundary</span><h2>这一步证明了什么，还没证明什么</h2></div></div>
+            <div class="condition-grid">
+              <article class="condition-card new">
+                <header><strong>已经证明</strong><span>序号15已继续验证区域头</span></header>
+                <dl><div><dt>完整捕获</dt><dd>三个模块fullgraph均通过，无图断裂</dd></div><div><dt>状态安全</dt><dd>参数、buffer、state dict、优化器引用不变</dd></div><div><dt>缓存</dt><dd>没有逐轮持续产生新图</dd></div></dl>
+              </article>
+              <article class="condition-card">
+                <header><strong>还没有证明</strong><span>不能现在合入</span></header>
+                <dl><div><dt>数值</dt><dd>尚未做未编译/已编译同批输出和梯度合同</dd></div><div><dt>速度</dt><dd>尚未做对照/候选真实两轮B16</dd></div><div><dt>采用</dt><dd>当前没有生产模型改动</dd></div></dl>
+              </article>
+            </div>
+            <p class="plain-note">后续序号15已按该规则只测试区域头：完成数值合同以及未编译/已编译各连续2轮真实B16。骨干和深度头仍未做正式速度A/B，三个模块没有一起打开。</p>
+          </article>
+        </section>
+
+        <section id="exp15" class="content-panel" aria-labelledby="exp15-title">
+          <article class="section-card">
+            <div class="section-head">
+              <div>
+                <span class="section-kicker">Experiment 15 · 08-10</span>
+                <h2 id="exp15-title">只编译区域头：到底能快多少</h2>
+                <p class="section-subtitle">一次只改一个模块。对照正常执行区域头；候选只给区域头启用Inductor完整图编译。</p>
+              </div>
+              <span class="done-badge">已完成·不采用</span>
+            </div>
+            <div class="condition-grid">
+              <article class="condition-card">
+                <header><strong>A · 原版</strong><span>普通PyTorch执行</span></header>
+                <dl><div><dt>区域头</dt><dd>不编译</dd></div><div><dt>训练</dt><dd>真实KITTI、B16、连续2轮</dd></div><div><dt>缓存</dt><dd>不使用编译缓存</dd></div></dl>
+              </article>
+              <article class="condition-card new">
+                <header><strong>B · 编译版</strong><span>唯一变量</span></header>
+                <dl><div><dt>区域头</dt><dd>Inductor + fullgraph</dd></div><div><dt>训练</dt><dd>真实KITTI、B16、连续2轮</dd></div><div><dt>缓存</dt><dd>持久缓存已预热</dd></div></dl>
+              </article>
+            </div>
+            <p class="plain-note">两边初始模型哈希完全相同；骨干、深度头、Transformer、匹配、Loss、AdamW、数据和随机种子全部不变。不保存checkpoint、不生成预测文件、不运行AP。</p>
+          </article>
+
+          <article class="section-card">
+            <div class="section-head"><div><span class="section-kicker">Numerical Contract</span><h2>不是逐元素等价优化</h2></div></div>
+            <div class="metric-grid">
+              <div class="metric"><span>区域头自身相对差</span><strong>0.000121%</strong><em>最大绝对差8.32e-5</em></div>
+              <div class="metric"><span>完整梯度相对差</span><strong>最高0.2706%</strong><em>原版自身最高0.00480%</em></div>
+              <div class="metric"><span>Loss最大绝对差</span><strong>0.375</strong><em>4个真实B16批次</em></div>
+            </div>
+            <p class="plain-note">区域头内部极小的浮点差异经过后续Transformer被放大。用aot_eager复查也有同类现象，证明它不是Triton独有错误；区域头前后随机数状态完全相同，也不是Dropout随机序列错位。根因是编译图改变了浮点运算顺序。</p>
+            <div class="callout warning" style="margin-top:14px">
+              <h4>不能写成“答案完全一样”</h4>
+              <p>原版两次前向输出和Loss逐元素一致，反向梯度只有约0.004%—0.005%的原子加波动；编译版梯度差达到约0.18%—0.27%，明显更大。它可以作为带数值代价的性能选项评估，不能冒充纯等价重排。</p>
+            </div>
+          </article>
+
+          <article class="section-card">
+            <div class="section-head"><div><span class="section-kicker">Two Epochs B16</span><h2>第一轮付成本，第二轮稳态约快1%</h2></div></div>
+            <div class="table-wrap">
+              <table class="memory-table">
+                <thead><tr><th>指标</th><th>原版</th><th>编译版</th><th>编译版变化</th></tr></thead>
+                <tbody>
+                  <tr><td>第1轮时间 ↓</td><td><strong>103.5174秒</strong></td><td>104.0121秒</td><td>慢0.48%</td></tr>
+                  <tr><td>第2轮稳态时间 ↓</td><td>102.5362秒</td><td><strong>101.5340秒</strong></td><td>快0.98%</td></tr>
+                  <tr><td>两轮合计 ↓</td><td>206.0536秒</td><td><strong>205.5462秒</strong></td><td>快0.25%</td></tr>
+                  <tr><td>第2轮峰值已分配显存 ↓</td><td>约14.02GiB</td><td><strong>少约3.45MiB</strong></td><td>没有显存代价</td></tr>
+                  <tr><td>峰值保留显存 ↓</td><td>约15.02GiB</td><td><strong>少18MiB</strong></td><td>略低</td></tr>
+                  <tr><td>整卡采样峰值 ↓</td><td>16,483MiB</td><td><strong>16,467MiB</strong></td><td>少16MiB</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="condition-grid" style="margin-top:14px">
+              <article class="condition-card">
+                <header><strong>第1轮</strong><span>首次加载/编译</span></header>
+                <dl><div><dt>Dynamo新图</dt><dd>1个</dd></div><div><dt>Triton调优</dt><dd>4次</dd></div><div><dt>实际速度</dt><dd>反而慢0.48%</dd></div></dl>
+              </article>
+              <article class="condition-card new">
+                <header><strong>第2轮</strong><span>缓存稳态</span></header>
+                <dl><div><dt>Dynamo新图</dt><dd>0个</dd></div><div><dt>Triton调优</dt><dd>0次</dd></div><div><dt>实际速度</dt><dd>快0.98%</dd></div></dl>
+              </article>
+            </div>
+            <p class="plain-note">每个速度臂只跑一次，约1%的稳态差异尚未估计运行间波动。两轮平均Loss已经因为数值路径不同而分叉，但只训练2轮不能判断谁的AP更好。用户审核后认为收益太小，不足以抵偿数值差异和复杂度，决定回退、不采用。</p>
+          </article>
+        </section>
+
+        <section id="exp16" class="content-panel" aria-labelledby="exp16-title">
+          <article class="section-card">
+            <div class="section-head">
+              <div>
+                <span class="section-kicker">Experiment 16 · 08-10</span>
+                <h2 id="exp16-title">channels-last：卷积换布局能不能更快</h2>
+                <p class="section-subtitle">模型四维卷积状态和图像输入改用channels-last；Transformer序列路径、数据、Loss和优化器不变。</p>
+              </div>
+              <span class="done-badge">已完成·不采用</span>
+            </div>
+            <div class="condition-grid">
+              <article class="condition-card">
+                <header><strong>A · 对照</strong><span>NCHW连续布局</span></header>
+                <dl><div><dt>模型四维状态</dt><dd>普通连续格式</dd></div><div><dt>输入</dt><dd>普通连续格式</dd></div><div><dt>训练</dt><dd>真实B16连续2轮</dd></div></dl>
+              </article>
+              <article class="condition-card new">
+                <header><strong>B · 候选</strong><span>channels-last</span></header>
+                <dl><div><dt>模型四维状态</dt><dd>86项全部转换</dd></div><div><dt>输入</dt><dd>每批转换，成本计入</dd></div><div><dt>Transformer</dt><dd>三维序列布局不改</dd></div></dl>
+              </article>
+            </div>
+          </article>
+
+          <article class="section-card">
+            <div class="section-head"><div><span class="section-kicker">Numerical Contract</span><h2>转换不改值，但卷积内核答案不是bitwise一致</h2></div></div>
+            <div class="metric-grid">
+              <div class="metric"><span>首层卷积相对L2</span><strong>0.04156%</strong><em>输入和权重转换前后逐元素相同</em></div>
+              <div class="metric"><span>完整输出相对L2</span><strong>0.134%—0.139%</strong><em>最大绝对差0.2302</em></div>
+              <div class="metric"><span>完整梯度相对L2</span><strong>0.593%—0.678%</strong><em>自身重复仅0.0040%—0.0047%</em></div>
+            </div>
+            <p class="plain-note">两种布局各自重复时，全部输出和43项Loss都逐元素一致。最小定位确认官方to转换与实验输入转换得到相同值和stride，差异从ResNet第一层cuDNN卷积开始，不是把NCHW维度错误换成NHWC形状。</p>
+          </article>
+
+          <article class="section-card">
+            <div class="section-head"><div><span class="section-kicker">Two Epochs B16</span><h2>没有加速，第二轮反而慢约0.94%</h2></div></div>
+            <div class="table-wrap">
+              <table class="memory-table">
+                <thead><tr><th>指标</th><th>对照</th><th>channels-last</th><th>候选变化</th></tr></thead>
+                <tbody>
+                  <tr><td>第1轮时间 ↓</td><td><strong>103.9003秒</strong></td><td>104.1451秒</td><td>慢0.24%</td></tr>
+                  <tr><td>第2轮时间 ↓</td><td><strong>102.1047秒</strong></td><td>103.0611秒</td><td>慢0.94%</td></tr>
+                  <tr><td>两轮合计 ↓</td><td><strong>206.0049秒</strong></td><td>207.2063秒</td><td>慢0.58%</td></tr>
+                  <tr><td>峰值已分配显存 ↓</td><td><strong>基准</strong></td><td>增加约95MiB</td><td>更高</td></tr>
+                  <tr><td>峰值保留/整卡采样 ↓</td><td>基准</td><td><strong>各少约294MiB</strong></td><td>略低</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="callout warning" style="margin-top:14px">
+              <h4>没有达到预设采用门槛</h4>
+              <p>候选464次模型调用全部实际转换输入，单批转换约0.23—0.24ms，说明实验变量确实生效。结果既没有达到预设的至少2%稳态收益，实际上也没有任何加速；同时梯度数值差异明显高于自身反向波动。</p>
+            </div>
+            <p class="plain-note">每个速度臂只运行一次，约1%以内变化可能包含运行波动。两轮平均Loss已经分叉，但没有训练到收敛，也没有验证或AP，因此不能用短期Loss判断精度更好或更差。用户审核后认为候选没有加速且数值差异更大，决定回退、不采用。</p>
+          </article>
+        </section>
+
+        <section id="exp17" class="content-panel" aria-labelledby="exp17-title">
+          <article class="section-card">
+            <div class="section-head">
+              <div>
+                <span class="section-kicker">Experiment 17 · 08-10</span>
+                <h2 id="exp17-title">先补齐11组decoder，再测2D查询重排</h2>
+                <p class="section-subtitle">共同基线先恢复预期的11组decoder语义；候选只替换2D无DN路径的查询分组与还原写法，3D和DN路径不动。</p>
+              </div>
+              <span class="done-badge">组数修复保留·布局不采用</span>
+            </div>
+            <div class="condition-grid">
+              <article class="condition-card">
+                <header><strong>A · 修复后对照</strong><span>split + cat</span></header>
+                <dl><div><dt>2D decoder</dt><dd>3层均为11组</dd></div><div><dt>3D decoder</dt><dd>3层均为11组</dd></div><div><dt>分组实现</dt><dd>原始split+cat</dd></div></dl>
+              </article>
+              <article class="condition-card new">
+                <header><strong>B · 候选</strong><span>reshape + permute</span></header>
+                <dl><div><dt>改动范围</dt><dd>仅2D、训练、无DN</dd></div><div><dt>3D路径</dt><dd>完全不变</dd></div><div><dt>DN路径</dt><dd>严格回退旧实现</dd></div></dl>
+              </article>
+            </div>
+            <div class="callout warning" style="margin-top:14px">
+              <h4>首轮验证没有测到候选</h4>
+              <p>当前分支原先只配置了匹配用的group_num=11，构建器没有把decoder_group_num传给layer，六层实际仍是默认1组。因此首轮24次调用全部走回退路径，不能作为候选证据。补齐配置和两个构建器后做正确性重跑1，六层均确认收到11组。</p>
+            </div>
+          </article>
+
+          <article class="section-card">
+            <div class="section-head"><div><span class="section-kicker">Numerical Contract</span><h2>有效复测：输出与43项Loss逐元素一致</h2></div></div>
+            <div class="metric-grid">
+              <div class="metric"><span>布局合同</span><strong>值与stride一致</strong><em>[550,B,C] ↔ [50,11B,C]</em></div>
+              <div class="metric"><span>输出与Loss</span><strong>零差异</strong><em>4个真实B16批次</em></div>
+              <div class="metric"><span>梯度相对L2</span><strong>0.00405%—0.00481%</strong><em>与自身反向波动同量级</em></div>
+            </div>
+            <p class="plain-note">有效验证中3个2D decoder layer累计命中候选路径24次、回退0次。速度测试中累计命中1392次、回退0次，证明测到的是候选，不是旧实现。</p>
+          </article>
+
+          <article class="section-card">
+            <div class="section-head"><div><span class="section-kicker">Two Epochs B16</span><h2>第二轮略快，但两轮合计没有净收益</h2></div></div>
+            <div class="table-wrap">
+              <table class="memory-table">
+                <thead><tr><th>指标</th><th>对照</th><th>2D候选</th><th>候选变化</th></tr></thead>
+                <tbody>
+                  <tr><td>第1轮时间 ↓</td><td><strong>100.9450秒</strong></td><td>101.8240秒</td><td>慢0.87%</td></tr>
+                  <tr><td>第2轮时间 ↓</td><td>100.7405秒</td><td><strong>100.2283秒</strong></td><td>快0.51%</td></tr>
+                  <tr><td>两轮合计 ↓</td><td><strong>201.6855秒</strong></td><td>202.0524秒</td><td>慢0.18%</td></tr>
+                  <tr><td>峰值已分配显存 ↓</td><td><strong>基准</strong></td><td>增加约1.08MiB</td><td>基本持平</td></tr>
+                  <tr><td>峰值保留/整卡采样 ↓</td><td><strong>基准</strong></td><td>各增加480MiB</td><td>更高</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <p class="plain-note">两臂初始模型SHA256相同。每个速度臂只运行一次，约1%以内差异可能包含运行波动。用户审核后决定保留decoder_group_num=11修复；2D布局候选没有净速度收益且增加峰值保留显存，回退、不采用，也不继续扩展到3D路径。候选从未写入生产Transformer，实验结果继续留档。</p>
+          </article>
+        </section>
       </div>
     </div>
 
-    <footer class="footer">MonoDGP 实验总览 v2 · 序号01—12</footer>
+    <footer class="footer">MonoDGP 实验总览 v2 · 序号01—17</footer>
   </main>
 
   <script>
