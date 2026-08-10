@@ -38,7 +38,8 @@ class Det3DTransformer(nn.Module):
             return_intermediate_dec=False,
             num_feature_levels=4,
             dec_n_points=4,
-            group_num=1):
+            group_num=1,
+            use_memory_efficient_mha=False):
 
         super().__init__()
 
@@ -47,7 +48,9 @@ class Det3DTransformer(nn.Module):
         self.group_num = group_num
 
         decoder_layer = DepthAwareDecoderLayer(
-            d_model, dim_feedforward, dropout, activation, num_feature_levels, nhead, dec_n_points, group_num=group_num)
+            d_model, dim_feedforward, dropout, activation,
+            num_feature_levels, nhead, dec_n_points, group_num=group_num,
+            use_memory_efficient_mha=use_memory_efficient_mha)
         self.decoder = DepthAwareDecoder(decoder_layer, num_decoder_layers, return_intermediate_dec)
 
         self._reset_parameters()
@@ -110,7 +113,8 @@ class Det3DTransformer(nn.Module):
 class DepthAwareDecoderLayer(nn.Module):
     def __init__(self, d_model=256, d_ffn=1024,
                  dropout=0.1, activation="relu",
-                 n_levels=4, n_heads=8, n_points=4, group_num=1):
+                 n_levels=4, n_heads=8, n_points=4, group_num=1,
+                 use_memory_efficient_mha=False):
         super().__init__()
 
         # cross attention
@@ -125,6 +129,7 @@ class DepthAwareDecoderLayer(nn.Module):
 
         # self attention
         self.self_attn = nn.MultiheadAttention(d_model, n_heads, dropout=dropout)
+        self.use_memory_efficient_mha = bool(use_memory_efficient_mha)
         self.dropout2 = nn.Dropout(dropout)
         self.norm2 = nn.LayerNorm(d_model)
 
@@ -165,7 +170,8 @@ class DepthAwareDecoderLayer(nn.Module):
         tgt2 = self.cross_attn_depth(tgt.transpose(0, 1),
                                      depth_pos_embed,
                                      depth_pos_embed,
-                                     key_padding_mask=mask_depth)[0].transpose(0, 1)
+                                     key_padding_mask=mask_depth,
+                                     need_weights=not self.use_memory_efficient_mha)[0].transpose(0, 1)
        
         tgt = tgt + self.dropout_depth(tgt2)
         tgt = self.norm_depth(tgt)
@@ -194,7 +200,9 @@ class DepthAwareDecoderLayer(nn.Module):
             k = torch.cat([k_noise,k], dim=0)
             v = torch.cat([v_noise,v], dim=0)
         
-        tgt2 = self.self_attn(q, k, v)[0]
+        tgt2 = self.self_attn(
+            q, k, v,
+            need_weights=not self.use_memory_efficient_mha)[0]
         if self.training:
             tgt2 = torch.cat(tgt2.split(bs, dim=1), dim=0).transpose(0, 1)
             
@@ -301,4 +309,6 @@ def build_det3d_transformer(cfg):
         num_decoder_layers=cfg['dec_layers'],
         return_intermediate_dec=cfg['return_intermediate_dec'],
         num_feature_levels=cfg['num_feature_levels'],
-        dec_n_points=cfg['dec_n_points'])
+        dec_n_points=cfg['dec_n_points'],
+        use_memory_efficient_mha=cfg.get(
+            'use_memory_efficient_mha', False))

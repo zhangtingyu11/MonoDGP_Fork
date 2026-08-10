@@ -56,6 +56,9 @@ model:
   dim_feedforward: 256
   dropout: 0.1
   nheads: 8
+  # Attention weights are never consumed. Disabling their materialization
+  # lets PyTorch select its optimized scaled-dot-product attention kernels.
+  use_memory_efficient_mha: True
   num_queries: 50
   group_num: 11
   enc_n_points: 4

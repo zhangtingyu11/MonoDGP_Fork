@@ -47,7 +47,9 @@ class DepthPredictor(nn.Module):
         self.depth_classifier = nn.Conv2d(d_model, depth_num_bins + 1, kernel_size=(1, 1))
 
         depth_encoder_layer = TransformerEncoderLayer(
-            d_model, nhead=8, dim_feedforward=256, dropout=0.1)
+            d_model, nhead=8, dim_feedforward=256, dropout=0.1,
+            use_memory_efficient_mha=model_cfg.get(
+                "use_memory_efficient_mha", False))
         self.depth_encoder = TransformerEncoder(depth_encoder_layer, 1)
         
         self.depth_pos_embed = nn.Embedding(int(self.depth_max) + 1, d_model)

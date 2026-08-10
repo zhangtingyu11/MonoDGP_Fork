@@ -35,9 +35,11 @@ class TransformerEncoder(nn.Module):
 
 class TransformerEncoderLayer(nn.Module):
 
-    def __init__(self, d_model, nhead, dim_feedforward=2048, dropout=0.1, activation="relu"):
+    def __init__(self, d_model, nhead, dim_feedforward=2048, dropout=0.1,
+                 activation="relu", use_memory_efficient_mha=False):
         super().__init__()
         self.self_attn = nn.MultiheadAttention(d_model, nhead, dropout=dropout)
+        self.use_memory_efficient_mha = bool(use_memory_efficient_mha)
         #self.self_attn = LinearAttention(d_model, nhead, dropout=dropout)
         # Implementation of Feedforward model
         self.linear1 = nn.Linear(d_model, dim_feedforward)
@@ -56,7 +58,9 @@ class TransformerEncoderLayer(nn.Module):
 
     def forward(self, src, src_key_padding_mask, pos):
         q = k = self.with_pos_embed(src, pos)
-        src2 = self.self_attn(q, k, value=src, key_padding_mask=src_key_padding_mask)[0]
+        src2 = self.self_attn(
+            q, k, value=src, key_padding_mask=src_key_padding_mask,
+            need_weights=not self.use_memory_efficient_mha)[0]
         src = src + self.dropout1(src2)
         src = self.norm1(src)
         src2 = self.linear2(self.dropout(self.activation(self.linear1(src))))

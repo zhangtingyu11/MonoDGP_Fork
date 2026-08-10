@@ -39,7 +39,8 @@ class Det2DTransformer(nn.Module):
             num_feature_levels=4,
             dec_n_points=4,
             enc_n_points=4,
-            group_num=1):
+            group_num=1,
+            use_memory_efficient_mha=False):
 
         super().__init__()
 
@@ -52,7 +53,9 @@ class Det2DTransformer(nn.Module):
         self.encoder = VisualEncoder(encoder_layer, num_encoder_layers)
 
         decoder_layer = TransformerDecoderLayer(
-            d_model, dim_feedforward, dropout, activation, num_feature_levels, nhead, dec_n_points, group_num=group_num)
+            d_model, dim_feedforward, dropout, activation,
+            num_feature_levels, nhead, dec_n_points, group_num=group_num,
+            use_memory_efficient_mha=use_memory_efficient_mha)
         self.decoder = TransformerDecoder(decoder_layer, num_decoder_layers, return_intermediate_dec)
 
         self.level_embed = nn.Parameter(torch.Tensor(num_feature_levels, d_model))
@@ -220,11 +223,13 @@ class VisualEncoder(nn.Module):
 class TransformerDecoderLayer(nn.Module):
     def __init__(self, d_model=256, d_ffn=1024,
                  dropout=0.1, activation="relu",
-                 n_levels=4, n_heads=8, n_points=4, group_num=1):
+                 n_levels=4, n_heads=8, n_points=4, group_num=1,
+                 use_memory_efficient_mha=False):
         super().__init__()
         
         # self attention
         self.self_attn = nn.MultiheadAttention(d_model, n_heads, dropout=dropout)
+        self.use_memory_efficient_mha = bool(use_memory_efficient_mha)
         self.dropout1 = nn.Dropout(dropout)
         self.norm1 = nn.LayerNorm(d_model)
 
@@ -287,7 +292,9 @@ class TransformerDecoderLayer(nn.Module):
             k = torch.cat([k_noise,k], dim=0)
             v = torch.cat([v_noise,v], dim=0)
         
-        tgt2 = self.self_attn(q, k, v)[0]
+        tgt2 = self.self_attn(
+            q, k, v,
+            need_weights=not self.use_memory_efficient_mha)[0]
         if self.training:
             tgt2 = torch.cat(tgt2.split(bs, dim=1), dim=0).transpose(0, 1)
         else:
@@ -389,4 +396,6 @@ def build_det2d_transformer(cfg):
         return_intermediate_dec=cfg['return_intermediate_dec'],
         num_feature_levels=cfg['num_feature_levels'],
         dec_n_points=cfg['dec_n_points'],
-        enc_n_points=cfg['enc_n_points'])
+        enc_n_points=cfg['enc_n_points'],
+        use_memory_efficient_mha=cfg.get(
+            'use_memory_efficient_mha', False))
