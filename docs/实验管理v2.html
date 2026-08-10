@@ -540,7 +540,7 @@
       <h1>实验总览 v2</h1>
       <p>实验总账的可视化索引。每项实验单独记录目的、对比条件、执行过程和客观结果，方便后续持续追加。</p>
       <div class="hero-meta">
-        <span class="pill"><span class="status-dot"></span>10 项实验已记录</span>
+        <span class="pill"><span class="status-dot"></span>11 项实验已记录</span>
         <span class="pill">数据来源：实验总账v2</span>
         <span class="pill">更新日期：2026-08-10</span>
       </div>
@@ -549,13 +549,13 @@
     <section class="top-grid" aria-label="全局摘要">
       <article class="summary-card">
         <span class="label">正式实验</span>
-        <strong>10 项</strong>
+        <strong>11 项</strong>
         <small>从 v2 重新编号</small>
       </article>
       <article class="summary-card">
         <span class="label">已完成</span>
-        <strong>10 项</strong>
-        <small>序号10已审核通过</small>
+        <strong>11 项</strong>
+        <small>序号11等待审核</small>
       </article>
       <article class="summary-card">
         <span class="label">实验类型</span>
@@ -564,7 +564,7 @@
       </article>
       <article class="summary-card">
         <span class="label">当前编号</span>
-        <strong>01—10</strong>
+        <strong>01—11</strong>
         <small>后续实验继续追加</small>
       </article>
     </section>
@@ -615,6 +615,10 @@
         <button class="nav-button" data-target="exp10" type="button">
           <span class="nav-index">10</span>
           <span class="nav-copy"><strong>矩阵乘法TF32</strong><small>梯度与B16速度</small></span>
+        </button>
+        <button class="nav-button" data-target="exp11" type="button">
+          <span class="nav-index">11</span>
+          <span class="nav-copy"><strong>训练热点细分</strong><small>阶段、模块与算子</small></span>
         </button>
       </nav>
 
@@ -679,6 +683,11 @@
                 <h3>B16矩阵乘法启用TF32</h3>
                 <p>卷积TF32保持不变，只比较矩阵乘法TF32开关对Loss、梯度、速度和显存的影响。</p>
               </div>
+              <div class="truth">
+                <span class="number">11</span>
+                <h3>B16训练全流程细粒度耗时统计</h3>
+                <p>把当前训练拆到阶段、模块、Loss、同步调用、PyTorch算子和CUDA kernel，寻找剩余热点。</p>
+              </div>
             </div>
           </article>
 
@@ -730,10 +739,14 @@
                 <h3>实验 10：对照序号9代码</h3>
                 <p>两边各训练一轮，唯一变量是矩阵乘法是否允许TF32；另用4个真实B16批次测Loss和梯度偏差。</p>
               </div>
+              <div class="mini-card good">
+                <h3>实验 11：分析序号10累计代码</h3>
+                <p>不是A/B实验；完整一轮测绝对阶段耗时，另用12个有效Profiler批次定位模块、算子和同步热点。</p>
+              </div>
             </div>
             <div class="callout warning" style="margin-top:14px">
               <h4>每项实验只和自己明确的对照比</h4>
-              <p>序号1是B8完整运行栈对比；序号2是B16单组基准；序号3对照序号2；序号4对照序号3累计代码；序号5对照序号4；序号6对照已合并序号5后的当前代码；序号7对照序号6累计代码；序号8对照序号7；序号9对照已合并序号8后的当前代码；序号10对照序号9累计代码。</p>
+              <p>序号1是B8完整运行栈对比；序号2是B16单组基准；序号3对照序号2；序号4对照序号3累计代码；序号5对照序号4；序号6对照已合并序号5后的当前代码；序号7对照序号6累计代码；序号8对照序号7；序号9对照已合并序号8后的当前代码；序号10对照序号9累计代码；序号11分析序号10已采用的累计代码。</p>
             </div>
           </article>
         </section>
@@ -1654,10 +1667,229 @@
             </details>
           </article>
         </section>
+
+        <section id="exp11" class="content-panel" aria-labelledby="exp11-title">
+          <article class="section-card">
+            <div class="section-head">
+              <div>
+                <span class="section-kicker">Experiment 11 · 08-10</span>
+                <h2 id="exp11-title">B16训练全流程细粒度耗时与算子热点</h2>
+                <p class="section-subtitle">当前累计优化代码，不做方法A/B；先用轻量计时测正常训练速度，再用详细追踪查清时间具体花在哪些算子上。</p>
+              </div>
+              <span class="done-badge">扩展分析完成·待审核</span>
+            </div>
+            <div class="condition-common">
+              <strong>固定运行条件</strong>
+              <span>RTX 4090、Python 3.10.20、PyTorch 2.8.0+cu129、cuDNN 9.10.2、卷积和矩阵乘法TF32均开启、B16、4个数据进程、种子444、3712张KITTI训练图。</span>
+            </div>
+            <div class="condition-grid">
+              <article class="condition-card">
+                <header><strong>A · 轻量计时：测真实速度</strong><span>正常训练一整轮</span></header>
+                <dl>
+                  <div><dt>范围</dt><dd>232批、3712图、16365辆车</dd></div>
+                  <div><dt>怎么记录</dt><dd>只在取数据、前向、Loss、反向和参数更新前后记时间</dd></div>
+                  <div><dt>额外负担</dt><dd>很小，所以103.50秒接近正常训练速度</dd></div>
+                  <div><dt>用来回答</dt><dd>正常一轮多快，各大阶段真实要多久</dd></div>
+                </dl>
+              </article>
+              <article class="condition-card new">
+                <header><strong>B · 详细追踪：只找热点</strong><span>会明显拖慢训练</span></header>
+                <dl>
+                  <div><dt>范围</dt><dd>2步等待、3步预热、12步有效</dd></div>
+                  <div><dt>怎么记录</dt><dd>追踪每个模块、Loss、GPU同步、PyTorch算子和CUDA kernel</dd></div>
+                  <div><dt>额外负担</dt><dd>很大，记录行为本身会把训练拖慢</dd></div>
+                  <div><dt>用来回答</dt><dd>时间具体花在哪里；不能回答正常训练一轮多快</dd></div>
+                </dl>
+              </article>
+            </div>
+            <div class="callout warning" style="margin-top:14px">
+              <h4>最简单的理解：一个是秒表，一个是监控摄像头</h4>
+              <p><strong>轻量计时</strong>像秒表，只记几个大阶段，因此用它报告真实时间。<strong>详细追踪</strong>像监控摄像头，把每个细小动作都录下来，因此用它寻找热点，但它自己的记录开销会改变速度。网页中的103.50秒、各阶段P50和P95来自轻量计时；模块和算子百分比来自详细追踪。</p>
+            </div>
+          </article>
+
+          <article class="section-card">
+            <div class="section-head"><div><span class="section-kicker">Full Epoch</span><h2>真实B16完整一轮</h2></div></div>
+            <div class="metric-grid">
+              <div class="metric"><span>完整一轮</span><strong>103.500 秒</strong><em>↓ 绝对时间</em></div>
+              <div class="metric"><span>吞吐</span><strong>35.865 图/秒</strong><em>↑ 越高越好</em></div>
+              <div class="metric"><span>车辆总数</span><strong>16,365</strong><em>232个批次</em></div>
+            </div>
+            <div class="table-wrap">
+              <table class="memory-table">
+                <thead><tr><th>阶段</th><th>稳态P50</th><th>P95</th><th>和车辆数相关性</th></tr></thead>
+                <tbody>
+                  <tr><td>等待下一批数据</td><td><strong>0.58ms</strong></td><td>1.46ms</td><td>—</td></tr>
+                  <tr><td>真值整理，CPU墙钟</td><td>180.39ms</td><td>183.06ms</td><td>0.073</td></tr>
+                  <tr><td>模型前向</td><td>160.21ms</td><td>168.03ms</td><td>0.070</td></tr>
+                  <tr><td>匹配与全部Loss</td><td>24.11ms</td><td>41.02ms</td><td>0.167</td></tr>
+                  <tr><td>反向，CUDA时间线</td><td>239.91ms</td><td>256.25ms</td><td>0.052</td></tr>
+                  <tr><td>AdamW更新</td><td>4.24ms</td><td>4.27ms</td><td>0.072</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="callout warning" style="margin-top:14px">
+              <h4>180ms真值整理不能直接当作可节省时间</h4>
+              <p>CPU整理下一批真值时，GPU还在执行上一批约240ms的反向。两者有重叠，因此减少CPU同步可能改善调度，但绝不会简单地每批省180ms，必须做真实A/B。</p>
+            </div>
+          </article>
+
+          <article class="section-card">
+            <div class="section-head"><div><span class="section-kicker">Forward Modules</span><h2>前向时间花在哪里</h2></div></div>
+            <div class="table-wrap">
+              <table class="memory-table">
+                <thead><tr><th>模块</th><th>占前向包含式设备算子时间</th><th>判断</th></tr></thead>
+                <tbody>
+                  <tr><td>骨干网络</td><td><strong>51.80%</strong></td><td>最大单一前向热点</td></tr>
+                  <tr><td>二维Transformer</td><td><strong>24.78%</strong></td><td>第二热点，包含11组查询；当前未启用DN</td></tr>
+                  <tr><td>三维Transformer</td><td>8.21%</td><td>中等</td></tr>
+                  <tr><td>深度预测器</td><td>7.00%</td><td>中等</td></tr>
+                  <tr><td>区域头</td><td>6.12%</td><td>中等</td></tr>
+                  <tr><td>输入投影</td><td>1.35%</td><td>较小</td></tr>
+                  <tr><td>全部预测小头</td><td>&lt;1%</td><td>不值得优先</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </article>
+
+          <article class="section-card">
+            <div class="section-head"><div><span class="section-kicker">Synchronization</span><h2>每批都在等什么</h2></div></div>
+            <div class="truth-grid">
+              <div class="truth"><span class="number">128</span><h3>真值动态切片</h3><p>16张图 × 8个真值字段分别用GPU布尔掩码切片，Profiler确认每批128次流同步。</p></div>
+              <div class="truth"><span class="number">03</span><h3>骨干特征掩码</h3><p>3层特征的零掩码先在CPU创建，再搬到GPU；每批3次同步，可直接改成目标设备创建。</p></div>
+              <div class="truth"><span class="number">23</span><h3>二维Transformer</h3><p>平均每批23次同步，目前只定位到模块。当前use_dn=False，不能归因给去噪；精确代码行仍需专项追踪。</p></div>
+            </div>
+          </article>
+
+          <article class="section-card">
+            <div class="section-head"><div><span class="section-kicker">Operator Hotspots</span><h2>12个有效批次的设备算子热点</h2></div></div>
+            <div class="table-wrap">
+              <table class="memory-table">
+                <thead><tr><th>算子族</th><th>占已归因设备自耗时</th><th>解读</th></tr></thead>
+                <tbody>
+                  <tr><td>数据与张量复制</td><td>14.94%</td><td>大部分是已被预取隐藏的输入复制</td></tr>
+                  <tr><td>卷积反向</td><td>13.19%</td><td>核心GPU热点</td></tr>
+                  <tr><td>高效注意力反向</td><td>8.77%</td><td>核心GPU热点</td></tr>
+                  <tr><td>卷积前向</td><td>7.63%</td><td>骨干、区域头和深度头</td></tr>
+                  <tr><td>加法、乘法和原位加法</td><td>18.17%</td><td>大量小kernel，适合研究局部融合</td></tr>
+                  <tr><td>矩阵乘法</td><td>5.55%</td><td>TF32已经启用</td></tr>
+                  <tr><td>可变形注意力反向</td><td>5.12%</td><td>自定义CUDA扩展，修改风险高</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </article>
+
+          <article class="section-card">
+            <div class="section-head"><div><span class="section-kicker">GPU Timeline</span><h2>GPU不是一直满负荷：大量时间碎在小kernel之间</h2></div></div>
+            <div class="metric-grid">
+              <div class="metric"><span>每批CUDA kernel</span><strong>约 6,871 个</strong><em>数量非常多</em></div>
+              <div class="metric"><span>短于10微秒</span><strong>74.6%</strong><em>极碎的小kernel</em></div>
+              <div class="metric"><span>主GPU流空档</span><strong>约 60.23ms/批</strong><em>约占13.5%</em></div>
+            </div>
+            <p class="plain-note">20个真实B16批次中，主GPU流每批约385.45ms在执行kernel、设备复制或清零，约60.23ms散落在kernel之间。短kernel本身只占kernel执行时间约2.76%，问题主要是数量太多，启动和算子之间出现大量缝隙。因此“把很多加减乘小算子融合起来”比继续抠一个不到1%的预测头更值得验证。</p>
+            <div class="callout warning" style="margin-top:14px">
+              <h4>第一次时间线配置无效，已按原范围重跑</h4>
+              <p>Nsight默认跟踪CUDA Event，并警告可能给双流预取制造假依赖。第一次结果没有作为证据；关闭该跟踪后，用相同模型、数据和20批范围重跑，以上数字来自重跑结果。</p>
+            </div>
+          </article>
+
+          <article class="section-card">
+            <div class="section-head"><div><span class="section-kicker">Layer Breakdown</span><h2>继续拆开后，真正慢的是哪些层</h2></div></div>
+            <div class="table-wrap">
+              <table class="memory-table">
+                <thead><tr><th>前向部分</th><th>设备时间/批</th><th>里面最慢的部分</th></tr></thead>
+                <tbody>
+                  <tr><td>ResNet主干</td><td><strong>79.47ms</strong></td><td>layer1 28.70ms；layer2 22.19ms；layer3 16.75ms；layer4 6.49ms</td></tr>
+                  <tr><td>二维Transformer</td><td><strong>38.48ms</strong></td><td>三个编码层各约9.98ms；三个解码层合计约6.70ms</td></tr>
+                  <tr><td>三维Transformer</td><td>12.76ms</td><td>三个解码层各约4.13ms，其中深度交叉注意力各约1.91ms</td></tr>
+                  <tr><td>深度预测器</td><td>10.80ms</td><td>单层深度编码器6.97ms，占约65%</td></tr>
+                  <tr><td>区域头</td><td>9.52ms</td><td>最高分辨率预测3.23ms；上采样合计2.82ms</td></tr>
+                  <tr><td>固定正弦位置编码</td><td>1.59ms</td><td>输入尺寸不变时理论上可以按形状复用</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </article>
+
+          <article class="section-card">
+            <div class="section-head"><div><span class="section-kicker">Data & Memory</span><h2>数据和显存也查了，不再只盯模型前向</h2></div></div>
+            <div class="condition-grid">
+              <article class="condition-card">
+                <header><strong>数据管线</strong><span>全部3712张真实训练图</span></header>
+                <dl>
+                  <div><dt>单独供给能力</dt><dd><strong>86.57图/秒</strong></dd></div>
+                  <div><dt>训练实际需求</dt><dd>35.86图/秒</dd></div>
+                  <div><dt>主要CPU工作</dt><dd>PNG解码、PIL仿射、颜色增强、MixUp</dd></div>
+                  <div><dt>判断</dt><dd>稳态供给是需求2.41倍，不是当前瓶颈</dd></div>
+                </dl>
+              </article>
+              <article class="condition-card new">
+                <header><strong>显存生命周期</strong><span>一个真实B16批次</span></header>
+                <dl>
+                  <div><dt>前向前活跃</dt><dd>0.67GiB</dd></div>
+                  <div><dt>前向与Loss后</dt><dd><strong>14.04GiB</strong></dd></div>
+                  <div><dt>反向后活跃</dt><dd>1.01GiB</dd></div>
+                  <div><dt>保存张量唯一存储</dt><dd>13.54GiB</dd></div>
+                </dl>
+              </article>
+            </div>
+            <p class="plain-note">最大保存张量热点是深度编码器自注意力，其次是ResNet layer1—3和三个二维编码层。激活检查点能省显存，但需要重算前向，会让训练变慢；当前目标是速度，因此不排在前面。PyTorch保留显存是为了下一批复用，也不应该主动清空。</p>
+          </article>
+
+          <article class="section-card">
+            <div class="section-head"><div><span class="section-kicker">Candidate Map</span><h2>当前已经找到的优化空间</h2></div></div>
+            <div class="callout warning" style="margin-bottom:14px">
+              <h4>这里不能写“已经全部查完”</h4>
+              <p>序号11已经系统覆盖真实B16训练主路径，但验证、AP、checkpoint、外部监控和GPU硬件计数器没有全部实测。下面按现有证据列候选，并把尚未封口的范围单独写清楚。</p>
+            </div>
+            <div class="stage-grid">
+              <div class="stage"><span>优先1 · 确定算完就丢</span><h3>删除无消费者的深度计算</h3><p>深度头计算完整softmax、加权深度和深度位置嵌入，但位置嵌入没有加回特征，加权深度在主模型也没有再使用。先做独立数值合同，再测真实B16收益。</p></div>
+              <div class="stage"><span>优先2 · 直接打卷积热点</span><h3>cuDNN固定形状自动调优</h3><p>当前benchmark关闭，而B16和图像尺寸固定。保持deterministic开启，比较第2轮稳态；主干前向约79.47ms，卷积反向也很重。</p></div>
+              <div class="stage"><span>优先3 · 明确的掩码浪费</span><h3>无padding注意力快路径</h3><p>KITTI图像都已统一尺寸，padding mask实际全为False，但注意力仍执行约6.52ms/批的masked_fill。固定入口传None跳过它，同时保留可变尺寸的普通路径。</p></div>
+              <div class="stage"><span>优先4 · 直接打60ms空档</span><h3>局部torch.compile融合</h3><p>只编译稳定子图，重点覆盖冻结BN算术、区域头、深度头和Loss小算子；SciPy匹配、自定义可变形CUDA和动态目标边界留在外面。</p></div>
+              <div class="stage"><span>优先5 · 卷积布局</span><h3>channels_last真实B16 A/B</h3><p>只在ResNet、区域头和深度卷积分支试；必须把布局转换成本算进去，并验证前向、Loss、梯度与完整一轮。</p></div>
+              <div class="stage"><span>优先6 · 不删除11组，只减少搬运</span><h3>11组查询的张量布局</h3><p>训练仍使用11组×50个查询，匹配和Loss也按11组计算，所以11组本身不是废代码、不能删除。候选只减少每层反复的repeat、split、cat和contiguous，保持完全相同的11组结果。use_dn=False仅表示没有额外的加噪去噪查询。</p></div>
+              <div class="stage"><span>优先7 · 每批答案相同却重复计算</span><h3>固定几何元数据缓存</h3><p>B16和图像尺寸固定时，spatial shapes、level starts、valid ratios和reference points每批结果相同，可以按形状、设备和dtype复用。这与11组查询是两件独立的事。</p></div>
+              <div class="stage"><span>优先8 · 少造内容完全确定的张量</span><h3>零掩码和区域0/1图</h3><p><strong>零掩码：</strong>所有训练图已经是相同尺寸，没有补边，因此每个位置都确定为“不是补边”。代码仍在CPU创建一张全0图、搬到GPU，部分位置还做一次不改变内容的缩放。可以直接在GPU创建，或在明确无补边的路径中不传掩码。<br><strong>区域0/1图：</strong>当前为了把区域概率变成0或1，先创建一张全1图和一张全0图，再用where选择；可以直接用“概率&gt;0.5”的布尔结果转成浮点数，输出逐像素相同。</p></div>
+              <div class="stage"><span>优先9 · 只用于观察、不训练模型</span><h3>两个error监控值</h3><p><strong>class_error：</strong>看已经匹配到真值的查询有多少分类错误，只是观察分类准确率，不进入总Loss；当前训练日志也没有展示它。<br><strong>cardinality_error：</strong>比较“预测物体数量”和“真值物体数量”，同样不进入总Loss。它沿用旧DETR把最后一个类别当背景的算法，而当前使用sigmoid focal分类头、没有这种背景类别，因此这个值本身还可能算错。删除它们不会改变反向梯度。</p></div>
+              <div class="stage"><span>优先10 · 相同网格不要每批重算</span><h3>位置编码缓存</h3><p>Transformer需要给特征图每个位置附上“我在第几行、第几列”的正弦/余弦坐标。固定384×1280输入时，各层特征图大小固定，这张坐标表每批都完全相同；现在仍每批重新执行累计、除法、sin和cos。可以第一次算好后按空间形状、设备和数据类型保存并复用。证据上位置编码约1.59ms/批。</p></div>
+              <div class="stage"><span>靠后 · 先在CPU删掉填充行</span><h3>真值整理前移到CPU</h3><p>一个B16批次的真值先被补齐成相同长度，不足的位置用无效行填充。现在代码先把整块真值搬到GPU，再对16张图的8个字段逐一用掩码删除无效行，共产生每批128次CPU等待GPU。候选是在数据加载阶段先用CPU删掉无效行，只把每辆车真正有效的真值搬到GPU。Loss仍在GPU计算，真值也最终进入GPU；改变的只是“删除填充行”发生在哪里。由于这部分CPU工作目前会和上一批反向重叠，真实速度收益尚未验证。</p></div>
+            </div>
+            <div class="callout warning" style="margin-top:14px">
+              <h4>不优先或高风险</h4>
+              <p>不优先：输入预取、数据增强CPU实现、预测小头、AdamW、继续微调匹配缓存、清空显存缓存。高风险：混合精度需要先补可变形注意力FP16/BF16支持；CUDA Graph被动态目标形状和CPU Hungarian匹配阻断；重写可变形注意力CUDA反向只覆盖约5.12%的算子时间。</p>
+            </div>
+            <div class="table-wrap" style="margin-top:14px">
+              <table class="memory-table">
+                <thead><tr><th>范围</th><th>现在查到什么程度</th><th>还缺什么</th></tr></thead>
+                <tbody>
+                  <tr><td>真实B16训练主路径</td><td><strong>已实测</strong>：数据、搬运、真值、前向、全部Loss、反向、优化器、GPU时间线、显存</td><td>二维Transformer的23次同步还没逐行分账</td></tr>
+                  <tr><td>代码级候选</td><td><strong>已静态审计</strong>：死深度计算、零掩码、区域嵌入、固定元数据、11组布局</td><td>尚未做独立合同和A/B，不能写成已有收益</td></tr>
+                  <tr><td>GPU内核细节</td><td>已知kernel数量、持续时间和流空档</td><td>SM利用率、带宽、occupancy和stall被权限阻止</td></tr>
+                  <tr><td>验证与AP</td><td>序号11没有覆盖</td><td>推理、CPU解码、GPU KITTI AP需要单独测</td></tr>
+                  <tr><td>训练外围</td><td>序号11没有覆盖</td><td>checkpoint保存/恢复、W&amp;B或其他监控的墙钟与I/O</td></tr>
+                  <tr><td>低优先级系统项</td><td>已列出但未实测</td><td>worker持久化/亲和性、PNG线程、H2D打包、融合AdamW、GPU匈牙利</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <details>
+              <summary>展开限制与失败记录</summary>
+              <div><ul>
+                <li>仍可做但排在后面：各辅助层匹配完成后批量计算同类Loss、保持索引完全一致的GPU批量匈牙利、融合AdamW、持久DataLoader worker。</li>
+                <li>这些项目不是遗漏不管：匹配总共约7.83ms/批、AdamW约4.24ms/批、worker只影响每轮约1秒启动，收益上限或实现复杂度不适合排在前面。</li>
+                <li>当前正式配置use_dn=False；旧说明把二维Transformer同步归因给去噪查询是错误的，现已撤回。11组查询训练仍然存在，但不是DN训练。</li>
+                <li>算子Profiler首次正式运行在结果导出时读取了不存在的device_index字段；修复后按原口径重跑，失败未产生结果。</li>
+                <li>第一次Nsight Systems时间线警告CUDA Event跟踪可能产生假依赖；关闭该项后按原20批口径重跑，第一次结果未采信。</li>
+                <li>尝试用Nsight Compute读取重kernel的SM、带宽和占用率时，驱动返回ERR_NVGPUCTRPERM；当前用户没有GPU性能计数器权限，所以没有把“算力受限还是带宽受限”写成猜测。</li>
+                <li>Profiler显著拖慢并改变调度，模块与算子数字只用于比例和定位。</li>
+                <li>每种口径只运行一次；实验目录只保留result.json，没有checkpoint、预测或trace文件。</li>
+              </ul></div>
+            </details>
+          </article>
+        </section>
       </div>
     </div>
 
-    <footer class="footer">MonoDGP 实验总览 v2 · 序号01—10</footer>
+    <footer class="footer">MonoDGP 实验总览 v2 · 序号01—11</footer>
   </main>
 
   <script>
