@@ -540,7 +540,7 @@
       <h1>实验总览 v2</h1>
       <p>实验总账的可视化索引。每项实验单独记录目的、对比条件、执行过程和客观结果，方便后续持续追加。</p>
       <div class="hero-meta">
-        <span class="pill"><span class="status-dot"></span>6 项实验已记录</span>
+        <span class="pill"><span class="status-dot"></span>7 项实验已记录</span>
         <span class="pill">数据来源：实验总账v2</span>
         <span class="pill">更新日期：2026-08-10</span>
       </div>
@@ -549,13 +549,13 @@
     <section class="top-grid" aria-label="全局摘要">
       <article class="summary-card">
         <span class="label">正式实验</span>
-        <strong>6 项</strong>
+        <strong>7 项</strong>
         <small>从 v2 重新编号</small>
       </article>
       <article class="summary-card">
         <span class="label">已完成</span>
-        <strong>6 项</strong>
-        <small>序号6已审核通过</small>
+        <strong>7 项</strong>
+        <small>序号7已审核通过</small>
       </article>
       <article class="summary-card">
         <span class="label">实验类型</span>
@@ -564,7 +564,7 @@
       </article>
       <article class="summary-card">
         <span class="label">当前编号</span>
-        <strong>01—06</strong>
+        <strong>01—07</strong>
         <small>后续实验继续追加</small>
       </article>
     </section>
@@ -599,6 +599,10 @@
         <button class="nav-button" data-target="exp6" type="button">
           <span class="nav-index">06</span>
           <span class="nav-copy"><strong>AdamW批量更新</strong><small>B16单轮对照</small></span>
+        </button>
+        <button class="nav-button" data-target="exp7" type="button">
+          <span class="nav-index">07</span>
+          <span class="nav-copy"><strong>只算匹配框GIoU</strong><small>B16单轮对照</small></span>
         </button>
       </nav>
 
@@ -643,6 +647,11 @@
                 <h3>B16自定义AdamW批量更新</h3>
                 <p>保持原更新公式不变，比较逐参数执行和PyTorch foreach批量执行的正确性、速度与显存。</p>
               </div>
+              <div class="truth">
+                <span class="number">07</span>
+                <h3>B16只计算匹配框对GIoU</h3>
+                <p>匹配完成后不再生成完整两两矩阵，比较逐对计算与旧写法的正确性、速度和显存。</p>
+              </div>
             </div>
           </article>
 
@@ -678,10 +687,14 @@
                 <h3>实验 6：对照序号5代码</h3>
                 <p>普通与foreach各训练一轮，唯一变量是自定义AdamW的张量操作是否批量执行。</p>
               </div>
+              <div class="mini-card good">
+                <h3>实验 7：对照序号6代码</h3>
+                <p>两种GIoU写法各训练一轮，唯一变量是匹配后的框Loss是否构造完整两两矩阵。</p>
+              </div>
             </div>
             <div class="callout warning" style="margin-top:14px">
               <h4>每项实验只和自己明确的对照比</h4>
-              <p>序号1是B8完整运行栈对比；序号2是B16单组基准；序号3对照序号2；序号4对照序号3累计代码；序号5对照序号4；序号6对照已合并序号5后的当前代码。</p>
+              <p>序号1是B8完整运行栈对比；序号2是B16单组基准；序号3对照序号2；序号4对照序号3累计代码；序号5对照序号4；序号6对照已合并序号5后的当前代码；序号7对照已审核的序号6累计代码。</p>
             </div>
           </article>
         </section>
@@ -1274,10 +1287,90 @@
             </details>
           </article>
         </section>
+
+        <section id="exp7" class="content-panel" aria-labelledby="exp7-title">
+          <article class="section-card">
+            <div class="section-head">
+              <div>
+                <span class="section-kicker">Experiment 07 · 08-10</span>
+                <h2 id="exp7-title">B16匹配框对GIoU性能对比</h2>
+                <p class="section-subtitle">匈牙利匹配完成后，只计算真正一一对应框对的GIoU，不再先生成完整两两矩阵。</p>
+              </div>
+              <span class="done-badge">已完成·已采用</span>
+            </div>
+            <div class="condition-common">
+              <strong>两边完全相同</strong>
+              <span>序号6已审核累计代码、Python 3.10.20、PyTorch 2.8.0+cu129、cuDNN 9.10.2、B16、4个数据进程、种子444、同一初始化、3712张KITTI训练图和232个更新步骤。</span>
+            </div>
+            <div class="condition-grid">
+              <article class="condition-card">
+                <header><strong>A · 完整两两矩阵</strong><span>对照组</span></header>
+                <dl>
+                  <div><dt>匹配后有N对框</dt><dd>计算N×N个GIoU</dd></div>
+                  <div><dt>真正用于Loss</dt><dd>只取矩阵对角线N个值</dd></div>
+                  <div><dt>训练范围</dt><dd>完整1轮，232批</dd></div>
+                </dl>
+              </article>
+              <article class="condition-card new">
+                <header><strong>B · 直接逐对计算</strong><span>候选组</span></header>
+                <dl>
+                  <div><dt>匹配后有N对框</dt><dd>只计算对应的N个GIoU</dd></div>
+                  <div><dt>真正用于Loss</dt><dd>同样是这N个值</dd></div>
+                  <div><dt>训练范围</dt><dd>完整1轮，232批</dd></div>
+                </dl>
+              </article>
+            </div>
+            <div class="scope-strip">
+              <span>不改匈牙利匹配</span><span>不改Loss定义</span><span>不做AP</span><span>不保存checkpoint</span>
+            </div>
+          </article>
+
+          <article class="section-card">
+            <div class="section-head"><div><span class="section-kicker">Correctness</span><h2>真实匹配结果逐元素核对</h2></div></div>
+            <div class="truth-grid">
+              <div class="truth"><span class="number">01</span><h3>真实数据范围</h3><p>12个真实B16批次、192张图，不是只用构造框测试。</p></div>
+              <div class="truth"><span class="number">02</span><h3>覆盖全部Loss层</h3><p>每批检查最终层、2个辅助层和3个二维中间层，共72组Loss、55,044对匹配框。</p></div>
+              <div class="truth"><span class="number">03</span><h3>结果完全一致</h3><p>L1框Loss、GIoU Loss和GIoU对预测框的梯度均逐元素完全一致。</p></div>
+            </div>
+          </article>
+
+          <article class="section-card">
+            <div class="section-head"><div><span class="section-kicker">Performance</span><h2>真实B16完整一轮结果</h2></div></div>
+            <div class="metric-grid">
+              <div class="metric"><span>完整矩阵</span><strong>118.532 秒</strong><em>↓ 越低越好</em></div>
+              <div class="metric"><span>直接逐对</span><strong>118.667 秒</strong><em>慢 0.11%</em></div>
+              <div class="metric"><span>已分配显存减少</span><strong>333.04 MiB</strong><em>↓ 越低越好</em></div>
+            </div>
+            <div class="table-wrap">
+              <table class="memory-table">
+                <thead><tr><th>指标</th><th>完整两两矩阵</th><th>直接匹配框对</th><th>变化</th></tr></thead>
+                <tbody>
+                  <tr><td>一轮时间 ↓</td><td><strong>118.5320秒</strong></td><td>118.6668秒</td><td>+0.11%</td></tr>
+                  <tr><td>训练吞吐 ↑</td><td><strong>31.3164图/秒</strong></td><td>31.2809图/秒</td><td>-0.11%</td></tr>
+                  <tr><td>峰值已分配显存 ↓</td><td>15,411,334,144字节</td><td><strong>15,062,113,792字节</strong></td><td><strong>-333.04 MiB</strong></td></tr>
+                  <tr><td>峰值已保留显存 ↓</td><td>16,296,968,192字节</td><td><strong>16,141,778,944字节</strong></td><td><strong>-148 MiB</strong></td></tr>
+                  <tr><td>整卡峰值 ↓</td><td>16,640 MiB</td><td><strong>16,493 MiB</strong></td><td><strong>-147 MiB</strong></td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="callout warning" style="margin-top:14px">
+              <h4>速度收益没有复现</h4>
+              <p>每臂只运行一次。候选慢0.11%属于运行波动量级，因此不能宣称变慢，也不能宣称更快；当前明确证据是Loss与梯度等价，并节省约333 MiB活跃显存。</p>
+            </div>
+            <details>
+              <summary>展开产物口径</summary>
+              <div><ul>
+                <li>实验目录只保留 result.json。</li>
+                <li>没有验证AP、checkpoint、预测文件或运行日志。</li>
+                <li>用户已审核通过，并批准提交、合并和推送。</li>
+              </ul></div>
+            </details>
+          </article>
+        </section>
       </div>
     </div>
 
-    <footer class="footer">MonoDGP 实验总览 v2 · 序号01—06</footer>
+    <footer class="footer">MonoDGP 实验总览 v2 · 序号01—07</footer>
   </main>
 
   <script>

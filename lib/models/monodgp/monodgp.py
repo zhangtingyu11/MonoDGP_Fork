@@ -315,7 +315,8 @@ class SetCriterion(nn.Module):
     """
     def __init__(self, num_classes, matcher, weight_dict, focal_alpha, losses,
                  inter_losses, group_num=11,
-                 use_vectorized_ddn_rasterization=False):
+                 use_vectorized_ddn_rasterization=False,
+                 use_aligned_giou_loss=False):
         """ Create the criterion.
         Parameters:
             num_classes: number of object categories, omitting the special no-object category
@@ -337,6 +338,7 @@ class SetCriterion(nn.Module):
         self.bce_noReduce = nn.BCELoss(reduction='none')
 
         self.group_num = group_num
+        self.use_aligned_giou_loss = bool(use_aligned_giou_loss)
 
     def loss_labels(self, outputs, targets, indices, num_boxes, log=True):
         """Classification loss (Binary focal loss)
@@ -405,9 +407,15 @@ class SetCriterion(nn.Module):
         # giou
         src_boxes = outputs['pred_boxes'][idx]
         target_boxes = torch.cat([t['boxes_3d'][i] for t, (_, i) in zip(targets, indices)], dim=0)
-        loss_giou = 1 - torch.diag(box_ops.generalized_box_iou(
-            box_ops.box_cxcylrtb_to_xyxy(src_boxes),
-            box_ops.box_cxcylrtb_to_xyxy(target_boxes)))
+        src_boxes_xyxy = box_ops.box_cxcylrtb_to_xyxy(src_boxes)
+        target_boxes_xyxy = box_ops.box_cxcylrtb_to_xyxy(target_boxes)
+        if self.use_aligned_giou_loss:
+            matched_giou = box_ops.generalized_box_iou_aligned(
+                src_boxes_xyxy, target_boxes_xyxy)
+        else:
+            matched_giou = torch.diag(box_ops.generalized_box_iou(
+                src_boxes_xyxy, target_boxes_xyxy))
+        loss_giou = 1 - matched_giou
         losses['loss_giou'] = loss_giou.sum() / num_boxes
         return losses
 
@@ -656,7 +664,8 @@ def build(cfg):
         inter_losses=inter_losses,
         group_num=cfg['group_num'],
         use_vectorized_ddn_rasterization=cfg.get(
-            'use_vectorized_ddn_rasterization', False)
+            'use_vectorized_ddn_rasterization', False),
+        use_aligned_giou_loss=cfg.get('use_aligned_giou_loss', False)
         )
 
     device = torch.device(cfg['device'])

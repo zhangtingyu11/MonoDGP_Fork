@@ -75,6 +75,40 @@ def generalized_box_iou(boxes1, boxes2):
     return iou - (area - union) / area
 
 
+def generalized_box_iou_aligned(boxes1, boxes2):
+    """GIoU for row-aligned boxes that have already been matched.
+
+    This computes only ``boxes1[i]`` against ``boxes2[i]`` and returns
+    ``[N]``. Matchers must continue to use ``generalized_box_iou`` because
+    they require the complete pairwise cost matrix.
+    """
+    if boxes1.shape != boxes2.shape:
+        raise ValueError(
+            "aligned GIoU requires equal box shapes, got "
+            f"{tuple(boxes1.shape)} and {tuple(boxes2.shape)}")
+    if boxes1.ndim != 2 or boxes1.shape[-1] != 4:
+        raise ValueError(
+            "aligned GIoU requires [N, 4] boxes, got "
+            f"{tuple(boxes1.shape)}")
+    assert (boxes1[:, 2:] >= boxes1[:, :2]).all()
+    assert (boxes2[:, 2:] >= boxes2[:, :2]).all()
+
+    area1 = box_area(boxes1)
+    area2 = box_area(boxes2)
+    lt = torch.maximum(boxes1[:, :2], boxes2[:, :2])
+    rb = torch.minimum(boxes1[:, 2:], boxes2[:, 2:])
+    wh = (rb - lt).clamp(min=0)
+    intersection = wh[:, 0] * wh[:, 1]
+    union = area1 + area2 - intersection
+    iou = intersection / union
+
+    enclosing_lt = torch.minimum(boxes1[:, :2], boxes2[:, :2])
+    enclosing_rb = torch.maximum(boxes1[:, 2:], boxes2[:, 2:])
+    enclosing_wh = (enclosing_rb - enclosing_lt).clamp(min=0)
+    enclosing_area = enclosing_wh[:, 0] * enclosing_wh[:, 1]
+    return iou - (enclosing_area - union) / enclosing_area
+
+
 def masks_to_boxes(masks):
     """Compute the bounding boxes around the provided masks
 

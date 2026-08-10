@@ -83,6 +83,9 @@ model:
 
   bbox_loss_coef: 5
   giou_loss_coef: 2
+  # Matching is already fixed when box loss runs, so compute only each
+  # matched prediction/target pair instead of a discarded pairwise matrix.
+  use_aligned_giou_loss: True
   3dcenter_loss_coef: 10
   dim_loss_coef: 1
   angle_loss_coef: 1
