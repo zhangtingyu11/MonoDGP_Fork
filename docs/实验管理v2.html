@@ -540,7 +540,7 @@
       <h1>实验总览 v2</h1>
       <p>实验总账的可视化索引。每项实验单独记录目的、对比条件、执行过程和客观结果，方便后续持续追加。</p>
       <div class="hero-meta">
-        <span class="pill"><span class="status-dot"></span>4 项实验已记录</span>
+        <span class="pill"><span class="status-dot"></span>5 项实验已记录</span>
         <span class="pill">数据来源：实验总账v2</span>
         <span class="pill">更新日期：2026-08-10</span>
       </div>
@@ -549,13 +549,13 @@
     <section class="top-grid" aria-label="全局摘要">
       <article class="summary-card">
         <span class="label">正式实验</span>
-        <strong>4 项</strong>
+        <strong>5 项</strong>
         <small>从 v2 重新编号</small>
       </article>
       <article class="summary-card">
         <span class="label">已完成</span>
-        <strong>4 项</strong>
-        <small>序号4已审核通过</small>
+        <strong>5 项</strong>
+        <small>序号5已审核通过</small>
       </article>
       <article class="summary-card">
         <span class="label">实验类型</span>
@@ -564,7 +564,7 @@
       </article>
       <article class="summary-card">
         <span class="label">当前编号</span>
-        <strong>01—04</strong>
+        <strong>01—05</strong>
         <small>后续实验继续追加</small>
       </article>
     </section>
@@ -591,6 +591,10 @@
         <button class="nav-button" data-target="exp4" type="button">
           <span class="nav-index">04</span>
           <span class="nav-copy"><strong>训练批次CUDA预取</strong><small>B16两轮对照</small></span>
+        </button>
+        <button class="nav-button" data-target="exp5" type="button">
+          <span class="nav-index">05</span>
+          <span class="nav-copy"><strong>验证批次CUDA预取</strong><small>B16完整验证</small></span>
         </button>
       </nav>
 
@@ -625,6 +629,11 @@
                 <h3>B16训练批次CUDA预取</h3>
                 <p>在序号3累计代码上，比较普通同步搬运与单批异步预取的速度、显存和数值一致性。</p>
               </div>
+              <div class="truth">
+                <span class="number">05</span>
+                <h3>B16验证批次CUDA预取</h3>
+                <p>使用同一成熟checkpoint，比较普通验证与提前搬运下一批的完整预测、AP、速度和显存。</p>
+              </div>
             </div>
           </article>
 
@@ -652,10 +661,14 @@
                 <h3>实验 4：对照序号3代码</h3>
                 <p>两臂各从第0轮训练2轮，唯一工程变量是训练数据是否锁页并用独立CUDA流预取。</p>
               </div>
+              <div class="mini-card good">
+                <h3>实验 5：对照序号4代码</h3>
+                <p>不训练；同一checkpoint按A-B-B-A跑4次完整验证，唯一变量是验证数据是否预取。</p>
+              </div>
             </div>
             <div class="callout warning" style="margin-top:14px">
               <h4>每项实验只和自己明确的对照比</h4>
-              <p>序号1是B8完整运行栈对比；序号2是B16单组基准；序号3对照序号2；序号4则对照已合并序号3后的当前代码。</p>
+              <p>序号1是B8完整运行栈对比；序号2是B16单组基准；序号3对照序号2；序号4对照序号3累计代码；序号5对照已合并序号4后的当前代码。</p>
             </div>
           </article>
         </section>
@@ -1082,10 +1095,92 @@
             </details>
           </article>
         </section>
+
+        <section id="exp5" class="content-panel" aria-labelledby="exp5-title">
+          <article class="section-card">
+            <div class="section-head">
+              <div>
+                <span class="section-kicker">Experiment 05 · 08-10</span>
+                <h2 id="exp5-title">B16验证批次CUDA预取性能对比</h2>
+                <p class="section-subtitle">不训练模型；候选只在当前批前向时提前搬运下一批验证数据。</p>
+              </div>
+              <span class="done-badge">已完成·已采用</span>
+            </div>
+            <div class="condition-common">
+              <strong>两边完全相同</strong>
+              <span>序号4已合并代码、Python 3.10.20、PyTorch 2.8.0+cu129、cuDNN 9.10.2、B16、4个数据进程、同一epoch177官方checkpoint、3769张KITTI验证图、同一前向、解码与GPU AP评测。</span>
+            </div>
+            <div class="condition-grid">
+              <article class="condition-card">
+                <header><strong>A · 普通验证</strong><span>对照组</span></header>
+                <dl>
+                  <div><dt>CPU内存</dt><dd>普通内存</dd></div>
+                  <div><dt>GPU搬运</dt><dd>取到当前批后同步 .to(cuda)</dd></div>
+                  <div><dt>运行位置</dt><dd>第1次和第4次</dd></div>
+                  <div><dt>预测保存</dt><dd>只在内存，不写文件</dd></div>
+                </dl>
+              </article>
+              <article class="condition-card new">
+                <header><strong>B · CUDA预取</strong><span>候选组</span></header>
+                <dl>
+                  <div><dt>CPU内存</dt><dd>锁页内存</dd></div>
+                  <div><dt>GPU搬运</dt><dd>持久CUDA流 + non_blocking=True</dd></div>
+                  <div><dt>运行位置</dt><dd>第2次和第3次</dd></div>
+                  <div><dt>预取深度</dt><dd>只提前1个batch</dd></div>
+                </dl>
+              </article>
+            </div>
+            <div class="scope-strip">
+              <span>不训练</span><span>不改模型</span><span>不改解码</span><span>不改AP</span>
+            </div>
+          </article>
+
+          <article class="section-card">
+            <div class="section-head"><div><span class="section-kicker">Performance</span><h2>4次完整验证的墙钟结果</h2></div></div>
+            <div class="metric-grid">
+              <div class="metric"><span>普通平均</span><strong>51.11 秒</strong><em>↓ 越低越好</em></div>
+              <div class="metric"><span>预取平均</span><strong>38.29 秒</strong><em>↓ 25.08%</em></div>
+              <div class="metric"><span>吞吐提高</span><strong>33.48%</strong><em>↑ 越高越好</em></div>
+            </div>
+            <div class="table-wrap">
+              <table class="memory-table">
+                <thead><tr><th>指标</th><th>普通验证</th><th>CUDA预取</th><th>变化</th></tr></thead>
+                <tbody>
+                  <tr><td>第1组时间 ↓</td><td>51.5977秒</td><td><strong>38.3949秒</strong></td><td>-25.59%</td></tr>
+                  <tr><td>第2组时间 ↓</td><td>50.6150秒</td><td><strong>38.1812秒</strong></td><td>-24.57%</td></tr>
+                  <tr><td>平均时间 ↓</td><td>51.1064秒</td><td><strong>38.2881秒</strong></td><td><strong>-25.08%</strong></td></tr>
+                  <tr><td>平均吞吐 ↑</td><td>约73.75图/秒</td><td><strong>约98.44图/秒</strong></td><td><strong>+33.48%</strong></td></tr>
+                  <tr><td>峰值已分配显存 ↓</td><td>约2.516 GiB</td><td>约2.604 GiB</td><td>+90.84 MiB</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </article>
+
+          <article class="section-card">
+            <div class="section-head"><div><span class="section-kicker">Correctness</span><h2>数据、预测和AP的完整正确性门</h2></div></div>
+            <div class="truth-grid">
+              <div class="truth"><span class="number">01</span><h3>全验证集数据</h3><p>普通和预取都是236批、3769张图，图片顺序与完整批次哈希全部一致。</p></div>
+              <div class="truth"><span class="number">02</span><h3>GPU搬运内容</h3><p>55.58亿个图像、标定和图像尺寸元素，从GPU还原后逐元素差异为0。</p></div>
+              <div class="truth"><span class="number">03</span><h3>预测与AP</h3><p>4次都是13,921个检测，预测SHA256完全一致；Moderate 3D AP_R40均为22.482184。</p></div>
+            </div>
+            <div class="callout warning" style="margin-top:14px">
+              <h4>AP计算时间不是本项收益</h4>
+              <p>首次AP包含Numba/CUDA初始化与编译，后续复用缓存。验证预取只影响数据搬运和模型推理阶段，所以只将推理墙钟差异计为收益。</p>
+            </div>
+            <details>
+              <summary>展开产物口径</summary>
+              <div><ul>
+                <li>实验目录只保留 result.json。</li>
+                <li>没有训练、checkpoint、KITTI预测文件或运行日志。</li>
+                <li>用户已审核通过，并批准提交、合并和推送。</li>
+              </ul></div>
+            </details>
+          </article>
+        </section>
       </div>
     </div>
 
-    <footer class="footer">MonoDGP 实验总览 v2 · 序号01—04</footer>
+    <footer class="footer">MonoDGP 实验总览 v2 · 序号01—05</footer>
   </main>
 
   <script>

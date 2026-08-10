@@ -9,6 +9,88 @@ from lib.helpers.decode_helper import decode_detections
 import time
 
 
+class CudaEvalBatchPrefetcher:
+    """Keep one validation batch ready while the current batch is evaluated."""
+
+    def __init__(self, iterator, device, copy_stream):
+        self.iterator = iterator
+        self.device = torch.device(device)
+        if self.device.type != 'cuda':
+            raise ValueError('CudaEvalBatchPrefetcher requires a CUDA device')
+        self.copy_stream = copy_stream
+        expected_device = (self.device.index if self.device.index is not None
+                           else torch.cuda.current_device())
+        if self.copy_stream.device.index != expected_device:
+            raise ValueError('CUDA evaluation prefetch stream is on the wrong device')
+        self._next_batch = None
+        self._next_host_sources = None
+        self._next_ready = None
+        self._retained_host_sources = []
+        self._preload()
+
+    def _preload(self):
+        try:
+            inputs, calibs, targets, info = next(self.iterator)
+        except StopIteration:
+            self._next_batch = None
+            self._next_host_sources = None
+            self._next_ready = None
+            return
+
+        img_sizes = info['img_size']
+        host_sources = (inputs, calibs, img_sizes)
+        if not all(tensor.is_pinned() for tensor in host_sources):
+            raise RuntimeError(
+                'CUDA evaluation prefetch requires pinned source tensors')
+        with torch.cuda.stream(self.copy_stream):
+            moved = tuple(
+                tensor.to(self.device, non_blocking=True)
+                for tensor in host_sources)
+            ready = torch.cuda.Event(blocking=False)
+            ready.record(self.copy_stream)
+        self._next_batch = (
+            moved[0], moved[1], targets, info, moved[2])
+        self._next_host_sources = host_sources
+        self._next_ready = ready
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        if self._next_batch is None:
+            raise StopIteration
+
+        current_stream = torch.cuda.current_stream(self.device)
+        current_stream.wait_event(self._next_ready)
+        batch = self._next_batch
+        host_sources = self._next_host_sources
+        ready = self._next_ready
+        for tensor in (batch[0], batch[1], batch[4]):
+            tensor.record_stream(current_stream)
+
+        # Pinned CPU storage must remain alive until its asynchronous copy is
+        # complete. Two retained batches cover the one-batch look-ahead.
+        self._retained_host_sources.append((host_sources, ready))
+        if len(self._retained_host_sources) > 2:
+            _, old_ready = self._retained_host_sources.pop(0)
+            old_ready.synchronize()
+
+        self._preload()
+        return batch
+
+    def close(self):
+        """Finish outstanding copies and release validation-local references."""
+        if self._next_ready is not None:
+            self._next_ready.synchronize()
+        for _, ready in self._retained_host_sources:
+            ready.synchronize()
+        self._retained_host_sources.clear()
+        self._next_batch = None
+        self._next_host_sources = None
+        self._next_ready = None
+        self.iterator = None
+
+
 class Tester(object):
     def __init__(self, cfg, model, dataloader, logger, train_cfg=None, model_name='monodgp'):
         self.cfg = cfg
@@ -22,6 +104,13 @@ class Tester(object):
         self.logger = logger
         self.train_cfg = train_cfg
         self.model_name = model_name
+        self.use_cuda_eval_prefetch = bool(
+            train_cfg.get('use_cuda_eval_prefetch', False))
+        if self.use_cuda_eval_prefetch and self.device.type != 'cuda':
+            raise RuntimeError('CUDA evaluation prefetch is enabled without CUDA')
+        self.cuda_eval_copy_stream = (
+            torch.cuda.Stream(device=self.device)
+            if self.use_cuda_eval_prefetch else None)
 
     def test(self):
         assert self.cfg['mode'] in ['single', 'all']
@@ -69,36 +158,50 @@ class Tester(object):
         results = {}
         progress_bar = tqdm.tqdm(total=len(self.dataloader), leave=True, desc='Evaluation Progress')
         model_infer_time = 0
-        for batch_idx, (inputs, calibs, targets, info) in enumerate(self.dataloader):
-            # load evaluation data and move data to GPU.
-            inputs = inputs.to(self.device)
-            calibs = calibs.to(self.device)
-            img_sizes = info['img_size'].to(self.device)
+        batch_source = self.dataloader
+        prefetched = self.use_cuda_eval_prefetch
+        if prefetched:
+            batch_source = CudaEvalBatchPrefetcher(
+                iter(self.dataloader), self.device,
+                copy_stream=self.cuda_eval_copy_stream)
+        try:
+            for batch_idx, batch in enumerate(batch_source):
+                if prefetched:
+                    inputs, calibs, targets, info, img_sizes = batch
+                else:
+                    inputs, calibs, targets, info = batch
+                    # load evaluation data and move data to GPU.
+                    inputs = inputs.to(self.device)
+                    calibs = calibs.to(self.device)
+                    img_sizes = info['img_size'].to(self.device)
 
-            start_time = time.time()
-            ###dn
-            outputs = self.model(inputs, calibs, targets, img_sizes, dn_args = 0)
-            ###
-            end_time = time.time()
-            model_infer_time += end_time - start_time
+                start_time = time.time()
+                ###dn
+                outputs = self.model(inputs, calibs, targets, img_sizes, dn_args = 0)
+                ###
+                end_time = time.time()
+                model_infer_time += end_time - start_time
 
-            dets = extract_dets_from_outputs(outputs=outputs, K=self.max_objs, topk=self.cfg['topk'])
+                dets = extract_dets_from_outputs(outputs=outputs, K=self.max_objs, topk=self.cfg['topk'])
 
-            dets = dets.detach().cpu().numpy()
+                dets = dets.detach().cpu().numpy()
 
-            # get corresponding calibs & transform tensor to numpy
-            calibs = [self.dataloader.dataset.get_calib(index) for index in info['img_id']]
-            info = {key: val.detach().cpu().numpy() for key, val in info.items()}
-            cls_mean_size = self.dataloader.dataset.cls_mean_size
-            dets = decode_detections(
-                dets=dets,
-                info=info,
-                calibs=calibs,
-                cls_mean_size=cls_mean_size,
-                threshold=self.cfg.get('threshold', 0.2))
+                # get corresponding calibs & transform tensor to numpy
+                calibs = [self.dataloader.dataset.get_calib(index) for index in info['img_id']]
+                info = {key: val.detach().cpu().numpy() for key, val in info.items()}
+                cls_mean_size = self.dataloader.dataset.cls_mean_size
+                dets = decode_detections(
+                    dets=dets,
+                    info=info,
+                    calibs=calibs,
+                    cls_mean_size=cls_mean_size,
+                    threshold=self.cfg.get('threshold', 0.2))
 
-            results.update(dets)
-            progress_bar.update()
+                results.update(dets)
+                progress_bar.update()
+        finally:
+            if prefetched:
+                batch_source.close()
 
         print("inference on {} images by {}/per image".format(
             len(self.dataloader), model_infer_time / len(self.dataloader)))
