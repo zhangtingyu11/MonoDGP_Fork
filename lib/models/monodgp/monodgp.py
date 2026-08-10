@@ -695,10 +695,16 @@ class SetCriterion(nn.Module):
         num_boxes = torch.as_tensor([num_boxes], dtype=torch.float, device=next(iter(outputs.values())).device)
         num_boxes = torch.clamp(num_boxes / get_world_size(), min=1).item()
         losses = {}
+        prepared_matcher_targets = (
+            self.matcher.prepare_targets(targets)
+            if getattr(self.matcher, 'use_batched_same_image_cost', False)
+            else None)
 
         # Compute Det 2D loss
         for i, inter_outputs in enumerate(outputs['inter_outputs']):
-            indices = self.matcher(inter_outputs, targets, group_num=group_num)
+            indices = self.matcher(
+                inter_outputs, targets, group_num=group_num,
+                prepared_targets=prepared_matcher_targets)
             matched_cache = self._post_match_cache(
                 inter_outputs, targets, indices, self.inter_losses)
             for loss in self.inter_losses:
@@ -711,7 +717,9 @@ class SetCriterion(nn.Module):
         # Compute Det 2D and 3D loss
         outputs_without_aux = {k: v for k, v in outputs.items() if k != 'aux_outputs' and k != 'inter_outputs'}
         # Retrieve the matching between the outputs of the last layer and the targets
-        indices = self.matcher(outputs_without_aux, targets, group_num=group_num)
+        indices = self.matcher(
+            outputs_without_aux, targets, group_num=group_num,
+            prepared_targets=prepared_matcher_targets)
         matched_cache = self._post_match_cache(
             outputs, targets, indices, self.losses)
         for loss in self.losses:
@@ -722,7 +730,9 @@ class SetCriterion(nn.Module):
         # In case of auxiliary losses, we repeat this process with the output of each intermediate layer.
         if 'aux_outputs' in outputs:
             for i, aux_outputs in enumerate(outputs['aux_outputs']):
-                indices = self.matcher(aux_outputs, targets, group_num=group_num)
+                indices = self.matcher(
+                    aux_outputs, targets, group_num=group_num,
+                    prepared_targets=prepared_matcher_targets)
                 active_losses = [
                     loss for loss in self.losses
                     if loss not in ('depth_map', 'region')]

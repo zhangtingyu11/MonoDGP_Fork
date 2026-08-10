@@ -108,7 +108,9 @@ class HungarianMatcher(nn.Module):
     while the others are un-matched (and thus treated as non-objects).
     """
 
-    def __init__(self, cost_class: float = 1, cost_3dcenter: float = 1, cost_bbox: float = 1, cost_giou: float = 1):
+    def __init__(self, cost_class: float = 1, cost_3dcenter: float = 1,
+                 cost_bbox: float = 1, cost_giou: float = 1,
+                 use_batched_same_image_cost=False):
         """Creates the matcher
         Params:
             cost_class: This is the relative weight of the classification error in the matching cost
@@ -120,10 +122,120 @@ class HungarianMatcher(nn.Module):
         self.cost_3dcenter = cost_3dcenter
         self.cost_bbox = cost_bbox
         self.cost_giou = cost_giou
+        self.use_batched_same_image_cost = bool(
+            use_batched_same_image_cost)
         assert cost_class != 0 or cost_bbox != 0 or cost_giou != 0, "all costs cant be 0"
 
+    def prepare_targets(self, targets):
+        """Pack unchanged targets once for all matcher layers."""
+        if not targets:
+            raise ValueError("matcher requires a non-empty batch")
+        sizes = tuple(int(len(target["boxes"])) for target in targets)
+        for batch_index, (target, size) in enumerate(zip(targets, sizes)):
+            if (len(target["labels"]) != size
+                    or len(target["boxes_3d"]) != size):
+                raise ValueError(
+                    f"target {batch_index} matcher fields disagree in length")
+        labels = torch.nn.utils.rnn.pad_sequence(
+            [target["labels"].long() for target in targets],
+            batch_first=True, padding_value=0)
+        boxes_3d = torch.nn.utils.rnn.pad_sequence(
+            [target["boxes_3d"] for target in targets],
+            batch_first=True, padding_value=0.0)
+        return {
+            "sizes": sizes,
+            "labels": labels,
+            "boxes_3d": boxes_3d,
+            "boxes_xyxy": box_cxcylrtb_to_xyxy(boxes_3d),
+        }
+
+    @staticmethod
+    def _batched_generalized_box_iou(boxes1, boxes2):
+        """Pairwise GIoU within each image: [B,N,4] x [B,M,4]."""
+        assert (boxes1[..., 2:] >= boxes1[..., :2]).all()
+        assert (boxes2[..., 2:] >= boxes2[..., :2]).all()
+        area1 = ((boxes1[..., 2] - boxes1[..., 0])
+                 * (boxes1[..., 3] - boxes1[..., 1]))
+        area2 = ((boxes2[..., 2] - boxes2[..., 0])
+                 * (boxes2[..., 3] - boxes2[..., 1]))
+        lt = torch.maximum(
+            boxes1[:, :, None, :2], boxes2[:, None, :, :2])
+        rb = torch.minimum(
+            boxes1[:, :, None, 2:], boxes2[:, None, :, 2:])
+        wh = (rb - lt).clamp(min=0)
+        intersection = wh[..., 0] * wh[..., 1]
+        union = area1[:, :, None] + area2[:, None, :] - intersection
+        iou = intersection / union
+        enclosing_lt = torch.minimum(
+            boxes1[:, :, None, :2], boxes2[:, None, :, :2])
+        enclosing_rb = torch.maximum(
+            boxes1[:, :, None, 2:], boxes2[:, None, :, 2:])
+        enclosing_wh = (enclosing_rb - enclosing_lt).clamp(min=0)
+        enclosing_area = enclosing_wh[..., 0] * enclosing_wh[..., 1]
+        return iou - (enclosing_area - union) / enclosing_area
+
+    def _forward_batched(self, outputs, targets, group_num,
+                         prepared_targets=None):
+        bs, num_queries = outputs["pred_boxes"].shape[:2]
+        if prepared_targets is None:
+            prepared_targets = self.prepare_targets(targets)
+        if len(prepared_targets["sizes"]) != bs:
+            raise ValueError("prepared matcher target batch size changed")
+        labels = prepared_targets["labels"]
+        target_boxes = prepared_targets["boxes_3d"]
+        target_xyxy = prepared_targets["boxes_xyxy"]
+        if (labels.device != outputs["pred_logits"].device
+                or target_boxes.device != outputs["pred_boxes"].device):
+            raise ValueError("prepared matcher targets are on the wrong device")
+
+        out_prob = outputs["pred_logits"].sigmoid()
+        alpha = 0.25
+        gamma = 2.0
+        neg_cost = ((1 - alpha) * out_prob.pow(gamma)
+                    * (-(1 - out_prob + 1e-8).log()))
+        pos_cost = (alpha * (1 - out_prob).pow(gamma)
+                    * (-(out_prob + 1e-8).log()))
+        gather_index = labels[:, None, :].expand(
+            bs, num_queries, labels.shape[1])
+        cost_class = torch.gather(pos_cost - neg_cost, 2, gather_index)
+        cost_3dcenter = torch.cdist(
+            outputs["pred_boxes"][..., :2], target_boxes[..., :2], p=1)
+        cost_bbox = torch.cdist(
+            outputs["pred_boxes"][..., 2:6], target_boxes[..., 2:6], p=1)
+        prediction_xyxy = box_cxcylrtb_to_xyxy(outputs["pred_boxes"])
+        cost_giou = -self._batched_generalized_box_iou(
+            prediction_xyxy, target_xyxy)
+        cost = (self.cost_bbox * cost_bbox
+                + self.cost_3dcenter * cost_3dcenter
+                + self.cost_class * cost_class
+                + self.cost_giou * cost_giou)
+        cost = torch.nan_to_num(
+            cost, nan=0.0, posinf=0.0, neginf=0.0).cpu().numpy()
+
+        queries_per_group = num_queries // group_num
+        if queries_per_group * group_num != num_queries:
+            raise ValueError("query count is not divisible by group count")
+        indices = []
+        for batch_index, target_count in enumerate(
+                prepared_targets["sizes"]):
+            source_parts = []
+            target_parts = []
+            for group_index in range(group_num):
+                begin = group_index * queries_per_group
+                end = begin + queries_per_group
+                source, target = linear_sum_assignment(
+                    cost[batch_index, begin:end, :target_count])
+                source_parts.append(source + begin)
+                target_parts.append(target)
+            source = np.concatenate(source_parts)
+            target = np.concatenate(target_parts)
+            indices.append((torch.as_tensor(source, dtype=torch.int64),
+                            torch.as_tensor(target, dtype=torch.int64)))
+        return indices
+
     @torch.no_grad()
-    def forward(self, outputs, targets, group_num=11):
+    def forward(self, outputs, targets, group_num=11,
+                prepared_targets=None):
         """ Performs the matching
         Params:
             outputs: This is a dict that contains at least these entries:
@@ -140,6 +252,10 @@ class HungarianMatcher(nn.Module):
             For each batch element, it holds:
                 len(index_i) = len(index_j) = min(num_queries, num_target_boxes)
         """
+        if self.use_batched_same_image_cost:
+            return self._forward_batched(
+                outputs, targets, group_num, prepared_targets)
+
         bs, num_queries = outputs["pred_boxes"].shape[:2]
 
         # We flatten to compute the cost matrices in a batch
@@ -199,4 +315,6 @@ def build_matcher(cfg):
         cost_class=cfg['set_cost_class'],
         cost_bbox=cfg['set_cost_bbox'],
         cost_3dcenter=cfg['set_cost_3dcenter'],
-        cost_giou=cfg['set_cost_giou'])
+        cost_giou=cfg['set_cost_giou'],
+        use_batched_same_image_cost=cfg.get(
+            'use_batched_same_image_matcher_cost', False))

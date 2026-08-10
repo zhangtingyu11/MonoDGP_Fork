@@ -101,6 +101,9 @@ model:
   set_cost_bbox: 5
   set_cost_giou: 2
   set_cost_3dcenter: 10
+  # Build matching costs only between predictions and targets from the same
+  # image; SciPy still solves each of the 11 query groups independently.
+  use_batched_same_image_matcher_cost: True
 
 
 optimizer:
