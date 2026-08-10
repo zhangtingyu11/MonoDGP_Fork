@@ -540,7 +540,7 @@
       <h1>实验总览 v2</h1>
       <p>实验总账的可视化索引。每项实验单独记录目的、对比条件、执行过程和客观结果，方便后续持续追加。</p>
       <div class="hero-meta">
-        <span class="pill"><span class="status-dot"></span>7 项实验已记录</span>
+        <span class="pill"><span class="status-dot"></span>8 项实验已记录</span>
         <span class="pill">数据来源：实验总账v2</span>
         <span class="pill">更新日期：2026-08-10</span>
       </div>
@@ -549,13 +549,13 @@
     <section class="top-grid" aria-label="全局摘要">
       <article class="summary-card">
         <span class="label">正式实验</span>
-        <strong>7 项</strong>
+        <strong>8 项</strong>
         <small>从 v2 重新编号</small>
       </article>
       <article class="summary-card">
         <span class="label">已完成</span>
-        <strong>7 项</strong>
-        <small>序号7已审核通过</small>
+        <strong>8 项</strong>
+        <small>序号8已审核通过</small>
       </article>
       <article class="summary-card">
         <span class="label">实验类型</span>
@@ -564,7 +564,7 @@
       </article>
       <article class="summary-card">
         <span class="label">当前编号</span>
-        <strong>01—07</strong>
+        <strong>01—08</strong>
         <small>后续实验继续追加</small>
       </article>
     </section>
@@ -603,6 +603,10 @@
         <button class="nav-button" data-target="exp7" type="button">
           <span class="nav-index">07</span>
           <span class="nav-copy"><strong>只算匹配框GIoU</strong><small>B16单轮对照</small></span>
+        </button>
+        <button class="nav-button" data-target="exp8" type="button">
+          <span class="nav-index">08</span>
+          <span class="nav-copy"><strong>匹配结果多Loss复用</strong><small>B16单轮对照</small></span>
         </button>
       </nav>
 
@@ -652,6 +656,11 @@
                 <h3>B16只计算匹配框对GIoU</h3>
                 <p>匹配完成后不再生成完整两两矩阵，比较逐对计算与旧写法的正确性、速度和显存。</p>
               </div>
+              <div class="truth">
+                <span class="number">08</span>
+                <h3>B16匹配结果多Loss复用</h3>
+                <p>每个输出层只整理一次匹配索引和真值，供多个Loss共同使用。</p>
+              </div>
             </div>
           </article>
 
@@ -691,10 +700,14 @@
                 <h3>实验 7：对照序号6代码</h3>
                 <p>两种GIoU写法各训练一轮，唯一变量是匹配后的框Loss是否构造完整两两矩阵。</p>
               </div>
+              <div class="mini-card good">
+                <h3>实验 8：对照序号7代码</h3>
+                <p>两边各训练一轮，唯一变量是每个输出层的匹配索引和真值是否统一整理一次并由多个Loss复用。</p>
+              </div>
             </div>
             <div class="callout warning" style="margin-top:14px">
               <h4>每项实验只和自己明确的对照比</h4>
-              <p>序号1是B8完整运行栈对比；序号2是B16单组基准；序号3对照序号2；序号4对照序号3累计代码；序号5对照序号4；序号6对照已合并序号5后的当前代码；序号7对照已审核的序号6累计代码。</p>
+              <p>序号1是B8完整运行栈对比；序号2是B16单组基准；序号3对照序号2；序号4对照序号3累计代码；序号5对照序号4；序号6对照已合并序号5后的当前代码；序号7对照序号6累计代码；序号8对照已合并序号7后的当前代码。</p>
             </div>
           </article>
         </section>
@@ -1367,10 +1380,90 @@
             </details>
           </article>
         </section>
+
+        <section id="exp8" class="content-panel" aria-labelledby="exp8-title">
+          <article class="section-card">
+            <div class="section-head">
+              <div>
+                <span class="section-kicker">Experiment 08 · 08-10</span>
+                <h2 id="exp8-title">B16匹配结果一次整理、多Loss复用性能对比</h2>
+                <p class="section-subtitle">一层匹配结束后，把预测编号和对应真值只整理一次，后续多个Loss直接共用。</p>
+              </div>
+              <span class="done-badge">已完成·已采用</span>
+            </div>
+            <div class="condition-common">
+              <strong>两边完全相同</strong>
+              <span>序号7已合并代码、Python 3.10.20、PyTorch 2.8.0+cu129、cuDNN 9.10.2、B16、4个数据进程、种子444、同一初始化、3712张KITTI训练图和232个更新步骤。</span>
+            </div>
+            <div class="condition-grid">
+              <article class="condition-card">
+                <header><strong>A · 每个Loss重复整理</strong><span>对照组</span></header>
+                <dl>
+                  <div><dt>分类Loss</dt><dd>重新整理匹配编号和类别</dd></div>
+                  <div><dt>框/中心/深度等</dt><dd>各自再次整理对应真值</dd></div>
+                  <div><dt>训练范围</dt><dd>完整1轮，232批</dd></div>
+                </dl>
+              </article>
+              <article class="condition-card new">
+                <header><strong>B · 每层只整理一次</strong><span>候选组</span></header>
+                <dl>
+                  <div><dt>匹配完成后</dt><dd>统一整理编号和所需真值</dd></div>
+                  <div><dt>全部相关Loss</dt><dd>共用同一份临时结果</dd></div>
+                  <div><dt>训练范围</dt><dd>完整1轮，232批</dd></div>
+                </dl>
+              </article>
+            </div>
+            <div class="scope-strip">
+              <span>不改匹配关系</span><span>不改Loss公式</span><span>不跨批次缓存</span><span>不做AP</span>
+            </div>
+          </article>
+
+          <article class="section-card">
+            <div class="section-head"><div><span class="section-kicker">Correctness</span><h2>真实Loss和梯度逐项核对</h2></div></div>
+            <div class="truth-grid">
+              <div class="truth"><span class="number">01</span><h3>真实数据范围</h3><p>12个真实B16批次、192张图、72个输出层，共55,044对匹配框。</p></div>
+              <div class="truth"><span class="number">02</span><h3>全部相关Loss</h3><p>覆盖分类、框、中心、深度、尺寸和航向，共比较468个Loss值。</p></div>
+              <div class="truth"><span class="number">03</span><h3>结果完全一致</h3><p>468个Loss值和396组对模型输出的梯度均逐元素完全一致；累计22项CUDA回归通过。</p></div>
+            </div>
+          </article>
+
+          <article class="section-card">
+            <div class="section-head"><div><span class="section-kicker">Performance</span><h2>真实B16完整一轮结果</h2></div></div>
+            <div class="metric-grid">
+              <div class="metric"><span>重复整理</span><strong>118.652 秒</strong><em>↓ 越低越好</em></div>
+              <div class="metric"><span>统一整理复用</span><strong>116.960 秒</strong><em>↓ 1.43%</em></div>
+              <div class="metric"><span>吞吐提高</span><strong>1.45%</strong><em>↑ 越高越好</em></div>
+            </div>
+            <div class="table-wrap">
+              <table class="memory-table">
+                <thead><tr><th>指标</th><th>重复整理</th><th>统一整理复用</th><th>变化</th></tr></thead>
+                <tbody>
+                  <tr><td>一轮时间 ↓</td><td>118.6520秒</td><td><strong>116.9599秒</strong></td><td><strong>-1.43%</strong></td></tr>
+                  <tr><td>训练吞吐 ↑</td><td>31.2848图/秒</td><td><strong>31.7374图/秒</strong></td><td><strong>+1.45%</strong></td></tr>
+                  <tr><td>峰值已分配显存 ↓</td><td>15,062,113,792字节</td><td>15,062,113,792字节</td><td>不变</td></tr>
+                  <tr><td>峰值已保留显存 ↓</td><td><strong>16,139,681,792字节</strong></td><td>16,141,778,944字节</td><td>+2 MiB</td></tr>
+                  <tr><td>整卡峰值 ↓</td><td>16,521 MiB</td><td>16,521 MiB</td><td>不变</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="callout warning" style="margin-top:14px">
+              <h4>当前只有单次A/B</h4>
+              <p>历史记录中的1.92%收益在当前累计B16栈上复现为1.43%。每臂只运行一次，未估计运行间波动；正确性由同一真实输出上的逐Loss、逐梯度合同保证。</p>
+            </div>
+            <details>
+              <summary>展开产物口径</summary>
+              <div><ul>
+                <li>实验目录只保留 result.json。</li>
+                <li>没有验证AP、checkpoint、预测文件或运行日志。</li>
+                <li>用户已审核通过，并批准提交、合并和推送。</li>
+              </ul></div>
+            </details>
+          </article>
+        </section>
       </div>
     </div>
 
-    <footer class="footer">MonoDGP 实验总览 v2 · 序号01—07</footer>
+    <footer class="footer">MonoDGP 实验总览 v2 · 序号01—08</footer>
   </main>
 
   <script>

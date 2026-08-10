@@ -25,6 +25,95 @@ def _get_clones(module, N):
     return nn.ModuleList([copy.deepcopy(module) for i in range(N)])
 
 
+_POST_MATCH_TARGET_FIELDS = {
+    'labels': ('labels',),
+    'boxes': ('boxes_3d',),
+    'center': ('boxes_3d',),
+    'depths': ('depth',),
+    'dims': ('size_3d',),
+    'angles': ('heading_bin', 'heading_res'),
+}
+
+
+def build_post_match_cache(outputs, targets, indices, active_losses):
+    """Gather one layer's matched indices and target fields exactly once."""
+    if 'pred_boxes' not in outputs:
+        raise KeyError("post-match cache requires pred_boxes")
+    batch_size, query_count = outputs['pred_boxes'].shape[:2]
+    if len(targets) != batch_size or len(indices) != batch_size:
+        raise ValueError("post-match cache batch size mismatch")
+
+    requested_fields = []
+    for loss_name in active_losses:
+        for field in _POST_MATCH_TARGET_FIELDS.get(loss_name, ()):
+            if field not in requested_fields:
+                requested_fields.append(field)
+
+    source_parts = []
+    target_parts = []
+    batch_parts = []
+    target_offset = 0
+    for batch_index, (target, pair) in enumerate(zip(targets, indices)):
+        if len(pair) != 2:
+            raise ValueError(
+                "matcher entry must contain source and target indices")
+        source_index = torch.as_tensor(
+            pair[0], dtype=torch.int64, device='cpu')
+        target_index = torch.as_tensor(
+            pair[1], dtype=torch.int64, device='cpu')
+        if source_index.ndim != 1 or target_index.ndim != 1:
+            raise ValueError("matcher indices must be one-dimensional")
+        if source_index.numel() != target_index.numel():
+            raise ValueError("matcher source/target index length mismatch")
+
+        target_count = None
+        for field in requested_fields:
+            value = target[field]
+            if value.device != outputs['pred_boxes'].device:
+                raise ValueError(f"target field {field} is on the wrong device")
+            if value.ndim == 0:
+                raise ValueError(
+                    f"target field {field} must have a leading dimension")
+            if target_count is None:
+                target_count = int(value.shape[0])
+            elif int(value.shape[0]) != target_count:
+                raise ValueError(
+                    "target fields have inconsistent leading dimensions")
+        if target_count is None:
+            target_count = int(target['labels'].shape[0])
+
+        if source_index.numel():
+            if (int(source_index.min()) < 0
+                    or int(source_index.max()) >= query_count):
+                raise IndexError("matcher source index is out of range")
+            if (int(target_index.min()) < 0
+                    or int(target_index.max()) >= target_count):
+                raise IndexError("matcher target index is out of range")
+        source_parts.append(source_index)
+        target_parts.append(target_index + target_offset)
+        batch_parts.append(torch.full_like(source_index, batch_index))
+        target_offset += target_count
+
+    batch_index = torch.cat(batch_parts, dim=0)
+    source_index = torch.cat(source_parts, dim=0)
+    global_target_index = torch.cat(target_parts, dim=0)
+    packed_indices = torch.stack(
+        (batch_index, source_index, global_target_index), dim=0).to(
+            device=outputs['pred_boxes'].device)
+
+    matched_targets = {}
+    for field in requested_fields:
+        flat_field = torch.cat([target[field] for target in targets], dim=0)
+        matched_targets[field] = flat_field.index_select(
+            0, packed_indices[2])
+    return {
+        'source_index': (packed_indices[0], packed_indices[1]),
+        'matched_targets': matched_targets,
+        'matched_count': int(packed_indices.shape[1]),
+        'fields': tuple(requested_fields),
+    }
+
+
 class MonoDGP(nn.Module):
     """ This is the MonoDGP module that performs monocualr 3D object detection """
     def __init__(self, backbone, depth_predictor, det2d_transformer, det3d_transformer,
@@ -316,7 +405,8 @@ class SetCriterion(nn.Module):
     def __init__(self, num_classes, matcher, weight_dict, focal_alpha, losses,
                  inter_losses, group_num=11,
                  use_vectorized_ddn_rasterization=False,
-                 use_aligned_giou_loss=False):
+                 use_aligned_giou_loss=False,
+                 use_post_match_cache=False):
         """ Create the criterion.
         Parameters:
             num_classes: number of object categories, omitting the special no-object category
@@ -339,16 +429,23 @@ class SetCriterion(nn.Module):
 
         self.group_num = group_num
         self.use_aligned_giou_loss = bool(use_aligned_giou_loss)
+        self.use_post_match_cache = bool(use_post_match_cache)
 
-    def loss_labels(self, outputs, targets, indices, num_boxes, log=True):
+    def loss_labels(self, outputs, targets, indices, num_boxes, log=True,
+                    matched_cache=None):
         """Classification loss (Binary focal loss)
         targets dicts must contain the key "labels" containing a tensor of dim [nb_target_boxes]
         """
         assert 'pred_logits' in outputs
         src_logits = outputs['pred_logits']
 
-        idx = self._get_src_permutation_idx(indices)
-        target_classes_o = torch.cat([t["labels"][J] for t, (_, J) in zip(targets, indices)])
+        idx = (matched_cache['source_index'] if matched_cache is not None
+               else self._get_src_permutation_idx(indices))
+        target_classes_o = (
+            matched_cache['matched_targets']['labels']
+            if matched_cache is not None
+            else torch.cat([t["labels"][J]
+                            for t, (_, J) in zip(targets, indices)]))
         target_classes = torch.full(src_logits.shape[:2], self.num_classes,
                                     dtype=torch.int64, device=src_logits.device)
 
@@ -381,23 +478,37 @@ class SetCriterion(nn.Module):
         losses = {'cardinality_error': card_err}
         return losses
 
-    def loss_3dcenter(self, outputs, targets, indices, num_boxes):
+    def loss_3dcenter(self, outputs, targets, indices, num_boxes,
+                      matched_cache=None):
         
-        idx = self._get_src_permutation_idx(indices)
+        idx = (matched_cache['source_index'] if matched_cache is not None
+               else self._get_src_permutation_idx(indices))
         src_3dcenter = outputs['pred_boxes'][:, :, 0: 2][idx]
-        target_3dcenter = torch.cat([t['boxes_3d'][:, 0: 2][i] for t, (_, i) in zip(targets, indices)], dim=0)
+        target_boxes = (
+            matched_cache['matched_targets']['boxes_3d']
+            if matched_cache is not None
+            else torch.cat([t['boxes_3d'][i]
+                            for t, (_, i) in zip(targets, indices)], dim=0))
+        target_3dcenter = target_boxes[:, 0:2]
 
         loss_3dcenter = F.l1_loss(src_3dcenter, target_3dcenter, reduction='none')
         losses = {}
         losses['loss_center'] = loss_3dcenter.sum() / num_boxes
         return losses
 
-    def loss_boxes(self, outputs, targets, indices, num_boxes):
+    def loss_boxes(self, outputs, targets, indices, num_boxes,
+                   matched_cache=None):
         
         assert 'pred_boxes' in outputs
-        idx = self._get_src_permutation_idx(indices)
+        idx = (matched_cache['source_index'] if matched_cache is not None
+               else self._get_src_permutation_idx(indices))
         src_2dboxes = outputs['pred_boxes'][:, :, 2: 6][idx]
-        target_2dboxes = torch.cat([t['boxes_3d'][:, 2: 6][i] for t, (_, i) in zip(targets, indices)], dim=0)
+        target_boxes = (
+            matched_cache['matched_targets']['boxes_3d']
+            if matched_cache is not None
+            else torch.cat([t['boxes_3d'][i]
+                            for t, (_, i) in zip(targets, indices)], dim=0))
+        target_2dboxes = target_boxes[:, 2:6]
 
         # l1
         loss_bbox = F.l1_loss(src_2dboxes, target_2dboxes, reduction='none')
@@ -406,7 +517,6 @@ class SetCriterion(nn.Module):
 
         # giou
         src_boxes = outputs['pred_boxes'][idx]
-        target_boxes = torch.cat([t['boxes_3d'][i] for t, (_, i) in zip(targets, indices)], dim=0)
         src_boxes_xyxy = box_ops.box_cxcylrtb_to_xyxy(src_boxes)
         target_boxes_xyxy = box_ops.box_cxcylrtb_to_xyxy(target_boxes)
         if self.use_aligned_giou_loss:
@@ -419,12 +529,19 @@ class SetCriterion(nn.Module):
         losses['loss_giou'] = loss_giou.sum() / num_boxes
         return losses
 
-    def loss_depths(self, outputs, targets, indices, num_boxes):  
+    def loss_depths(self, outputs, targets, indices, num_boxes,
+                    matched_cache=None):
 
-        idx = self._get_src_permutation_idx(indices)
+        idx = (matched_cache['source_index'] if matched_cache is not None
+               else self._get_src_permutation_idx(indices))
    
         src_depths = outputs['pred_depth'][idx]
-        target_depths = torch.cat([t['depth'][i] for t, (_, i) in zip(targets, indices)], dim=0).squeeze()
+        target_depths = (
+            matched_cache['matched_targets']['depth']
+            if matched_cache is not None
+            else torch.cat([t['depth'][i]
+                            for t, (_, i) in zip(targets, indices)], dim=0)
+            ).squeeze()
          
         depth_loss = 0
         depth_input, depth_log_variance = src_depths[:, 0], src_depths[:, 1] 
@@ -434,11 +551,17 @@ class SetCriterion(nn.Module):
         losses['loss_depth'] = depth_loss.sum() / num_boxes 
         return losses  
     
-    def loss_dims(self, outputs, targets, indices, num_boxes):  
+    def loss_dims(self, outputs, targets, indices, num_boxes,
+                  matched_cache=None):
 
-        idx = self._get_src_permutation_idx(indices)
+        idx = (matched_cache['source_index'] if matched_cache is not None
+               else self._get_src_permutation_idx(indices))
         src_dims = outputs['pred_3d_dim'][idx]
-        target_dims = torch.cat([t['size_3d'][i] for t, (_, i) in zip(targets, indices)], dim=0)
+        target_dims = (
+            matched_cache['matched_targets']['size_3d']
+            if matched_cache is not None
+            else torch.cat([t['size_3d'][i]
+                            for t, (_, i) in zip(targets, indices)], dim=0))
 
         dimension = target_dims.clone().detach()
         dim_loss = torch.abs(src_dims - target_dims)
@@ -450,12 +573,22 @@ class SetCriterion(nn.Module):
         losses['loss_dim'] = dim_loss.sum() / num_boxes
         return losses
 
-    def loss_angles(self, outputs, targets, indices, num_boxes):  
+    def loss_angles(self, outputs, targets, indices, num_boxes,
+                    matched_cache=None):
 
-        idx = self._get_src_permutation_idx(indices)
+        idx = (matched_cache['source_index'] if matched_cache is not None
+               else self._get_src_permutation_idx(indices))
         heading_input = outputs['pred_angle'][idx]
-        target_heading_cls = torch.cat([t['heading_bin'][i] for t, (_, i) in zip(targets, indices)], dim=0)
-        target_heading_res = torch.cat([t['heading_res'][i] for t, (_, i) in zip(targets, indices)], dim=0)
+        if matched_cache is not None:
+            target_heading_cls = matched_cache['matched_targets']['heading_bin']
+            target_heading_res = matched_cache['matched_targets']['heading_res']
+        else:
+            target_heading_cls = torch.cat(
+                [t['heading_bin'][i] for t, (_, i) in zip(targets, indices)],
+                dim=0)
+            target_heading_res = torch.cat(
+                [t['heading_res'][i] for t, (_, i) in zip(targets, indices)],
+                dim=0)
 
         heading_input = heading_input.view(-1, 24)
         heading_target_cls = target_heading_cls.view(-1).long()
@@ -538,7 +671,16 @@ class SetCriterion(nn.Module):
         }
 
         assert loss in loss_map, f'do you really want to compute {loss} loss?'
+        matched_cache = kwargs.pop('matched_cache', None)
+        if matched_cache is not None and loss in _POST_MATCH_TARGET_FIELDS:
+            kwargs['matched_cache'] = matched_cache
         return loss_map[loss](outputs, targets, indices, num_boxes, **kwargs)
+
+    def _post_match_cache(self, outputs, targets, indices, active_losses):
+        if not self.use_post_match_cache:
+            return None
+        return build_post_match_cache(
+            outputs, targets, indices, active_losses)
 
     def forward(self, outputs, targets, mask_dict=None):
         """ This performs the loss computation.
@@ -557,8 +699,12 @@ class SetCriterion(nn.Module):
         # Compute Det 2D loss
         for i, inter_outputs in enumerate(outputs['inter_outputs']):
             indices = self.matcher(inter_outputs, targets, group_num=group_num)
+            matched_cache = self._post_match_cache(
+                inter_outputs, targets, indices, self.inter_losses)
             for loss in self.inter_losses:
-                l_dict = self.get_loss(loss, inter_outputs, targets, indices, num_boxes)
+                l_dict = self.get_loss(
+                    loss, inter_outputs, targets, indices, num_boxes,
+                    matched_cache=matched_cache)
                 l_dict = {k + f'_inter_{i}': v for k, v in l_dict.items()}
                 losses.update(l_dict)
         
@@ -566,13 +712,22 @@ class SetCriterion(nn.Module):
         outputs_without_aux = {k: v for k, v in outputs.items() if k != 'aux_outputs' and k != 'inter_outputs'}
         # Retrieve the matching between the outputs of the last layer and the targets
         indices = self.matcher(outputs_without_aux, targets, group_num=group_num)
+        matched_cache = self._post_match_cache(
+            outputs, targets, indices, self.losses)
         for loss in self.losses:
-            losses.update(self.get_loss(loss, outputs, targets, indices, num_boxes))
+            losses.update(self.get_loss(
+                loss, outputs, targets, indices, num_boxes,
+                matched_cache=matched_cache))
 
         # In case of auxiliary losses, we repeat this process with the output of each intermediate layer.
         if 'aux_outputs' in outputs:
             for i, aux_outputs in enumerate(outputs['aux_outputs']):
                 indices = self.matcher(aux_outputs, targets, group_num=group_num)
+                active_losses = [
+                    loss for loss in self.losses
+                    if loss not in ('depth_map', 'region')]
+                matched_cache = self._post_match_cache(
+                    aux_outputs, targets, indices, active_losses)
                 for loss in self.losses:
                     if loss == 'depth_map' or loss == 'region':
                         continue
@@ -580,6 +735,7 @@ class SetCriterion(nn.Module):
                     if loss == 'labels':
                         # Logging is enabled only for the last layer
                         kwargs = {'log': False}
+                    kwargs['matched_cache'] = matched_cache
                     l_dict = self.get_loss(loss, aux_outputs, targets, indices, num_boxes, **kwargs)
                     l_dict = {k + f'_{i}': v for k, v in l_dict.items()}
                     losses.update(l_dict)
@@ -665,7 +821,8 @@ def build(cfg):
         group_num=cfg['group_num'],
         use_vectorized_ddn_rasterization=cfg.get(
             'use_vectorized_ddn_rasterization', False),
-        use_aligned_giou_loss=cfg.get('use_aligned_giou_loss', False)
+        use_aligned_giou_loss=cfg.get('use_aligned_giou_loss', False),
+        use_post_match_cache=cfg.get('use_post_match_cache', False)
         )
 
     device = torch.device(cfg['device'])

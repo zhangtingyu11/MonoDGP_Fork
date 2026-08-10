@@ -86,6 +86,9 @@ model:
   # Matching is already fixed when box loss runs, so compute only each
   # matched prediction/target pair instead of a discarded pairwise matrix.
   use_aligned_giou_loss: True
+  # Gather matched indices and target fields once per output layer so all
+  # object losses can reuse them.
+  use_post_match_cache: True
   3dcenter_loss_coef: 10
   dim_loss_coef: 1
   angle_loss_coef: 1
