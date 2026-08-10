@@ -39,8 +39,8 @@ class Tester(object):
                             map_location=self.device,
                             logger=self.logger)
             self.model.to(self.device)
-            self.inference()
-            self.evaluate()
+            results = self.inference()
+            self.evaluate(results)
 
         # test all checkpoints in the given dir
         elif self.cfg['mode'] == 'all' and self.train_cfg["save_all"]:
@@ -59,8 +59,8 @@ class Tester(object):
                                 map_location=self.device,
                                 logger=self.logger)
                 self.model.to(self.device)
-                self.inference()
-                self.evaluate()
+                results = self.inference()
+                self.evaluate(results)
 
     def inference(self):
         torch.set_grad_enabled(False)
@@ -105,9 +105,12 @@ class Tester(object):
 
         progress_bar.close()
 
-        # save the result for evaluation.
-        self.logger.info('==> Saving ...')
-        self.save_results(results)
+        # Validation is evaluated directly from memory.  Writing thousands of
+        # KITTI text files is reserved for explicitly requested exports.
+        if self.cfg.get('export_predictions', False):
+            self.logger.info('==> Exporting KITTI prediction files ...')
+            self.save_results(results)
+        return results
 
     def save_results(self, results):
         output_dir = os.path.join(self.output_dir, 'outputs', 'data')
@@ -131,8 +134,6 @@ class Tester(object):
                 f.write('\n')
             f.close()
 
-    def evaluate(self):
-        results_dir = os.path.join(self.output_dir, 'outputs', 'data')
-        assert os.path.exists(results_dir)
-        result = self.dataloader.dataset.eval(results_dir=results_dir, logger=self.logger)
+    def evaluate(self, results):
+        result = self.dataloader.dataset.eval(results=results, logger=self.logger)
         return result

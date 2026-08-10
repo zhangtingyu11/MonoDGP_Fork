@@ -124,3 +124,6 @@ tester:
   checkpoint: 195  # the start ckpt epoch for 'all'
   threshold: 0.2  # confidence filter
   topk: 50
+  # Validation stays in memory. Enable only when KITTI text files are needed
+  # for an external test-server submission or manual inspection.
+  export_predictions: False

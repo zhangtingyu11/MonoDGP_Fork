@@ -137,10 +137,58 @@ class KITTI_Dataset(data.Dataset):
 
     
 
-    def eval(self, results_dir, logger):
+    def _decoded_predictions_to_annos(self, results):
+        """Convert decoded predictions to KITTI annotations without disk I/O.
+
+        Values are rounded to the same two decimals used by the historical
+        text export, so switching to in-memory evaluation does not silently
+        change AP merely by retaining extra floating-point precision.
+        """
+        annos = []
+        for image_id in self.idx_list:
+            predictions = results.get(int(image_id), [])
+            count = len(predictions)
+            names = []
+            alpha = np.empty(count, dtype=np.float64)
+            bbox = np.empty((count, 4), dtype=np.float64)
+            dimensions_hwl = np.empty((count, 3), dtype=np.float64)
+            location = np.empty((count, 3), dtype=np.float64)
+            rotation_y = np.empty(count, dtype=np.float64)
+            score = np.empty(count, dtype=np.float64)
+
+            for index, prediction in enumerate(predictions):
+                # This exactly mirrors Tester.save_results(..., "{:.2f}")
+                # followed by kitti_common.get_label_anno(...).
+                quantized = np.array(
+                    [float(f"{value:.2f}") for value in prediction[1:]],
+                    dtype=np.float64,
+                )
+                names.append(self.class_name[int(prediction[0])])
+                alpha[index] = quantized[0]
+                bbox[index] = quantized[1:5]
+                dimensions_hwl[index] = quantized[5:8]
+                location[index] = quantized[8:11]
+                rotation_y[index] = quantized[11]
+                score[index] = quantized[12]
+
+            annos.append({
+                'name': np.asarray(names),
+                'truncated': np.zeros(count, dtype=np.float64),
+                'occluded': np.zeros(count, dtype=np.int64),
+                'alpha': alpha,
+                'bbox': bbox,
+                # The evaluator stores dimensions as length, height, width.
+                'dimensions': dimensions_hwl[:, [2, 0, 1]],
+                'location': location,
+                'rotation_y': rotation_y,
+                'score': score,
+            })
+        return annos
+
+    def eval(self, results, logger):
         logger.info("==> Loading detections and GTs...")
         img_ids = [int(id) for id in self.idx_list]
-        dt_annos = kitti.get_label_annos(results_dir)
+        dt_annos = self._decoded_predictions_to_annos(results)
         gt_annos = kitti.get_label_annos(self.label_dir, img_ids)
 
         test_id = {'Car': 0, 'Pedestrian':1, 'Cyclist': 2}
