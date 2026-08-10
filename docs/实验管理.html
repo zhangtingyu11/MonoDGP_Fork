@@ -1,0 +1,703 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MonoDGP 实验管理台</title>
+  <style>
+    :root {
+      --bg: #f4f7fb;
+      --surface: #fff;
+      --surface-2: #f7f9fc;
+      --text: #182230;
+      --muted: #657487;
+      --line: #dbe3ed;
+      --accent: #2c66d6;
+      --accent-soft: #e8f0ff;
+      --good: #1f7a4d;
+      --good-soft: #e7f6ed;
+      --warn: #9b6210;
+      --warn-soft: #fff4df;
+      --bad: #a33b3b;
+      --bad-soft: #ffebeb;
+      --shadow: 0 14px 36px rgb(25 49 83 / 8%);
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #11161e;
+        --surface: #1a222d;
+        --surface-2: #222c38;
+        --text: #edf2f8;
+        --muted: #aab7c7;
+        --line: #3a4655;
+        --accent: #86afff;
+        --accent-soft: #243b64;
+        --good: #79d09c;
+        --good-soft: #183a29;
+        --warn: #e4b15e;
+        --warn-soft: #3a2d1b;
+        --bad: #ff9a9a;
+        --bad-soft: #422527;
+        --shadow: 0 16px 40px rgb(0 0 0 / 22%);
+      }
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    .visually-hidden {
+      position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+      overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+    }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI",
+        "PingFang SC", "Microsoft YaHei", sans-serif;
+      line-height: 1.6;
+    }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    button, input, select, textarea { font: inherit; }
+    button { cursor: pointer; }
+    .topbar {
+      padding: 42px max(22px, calc((100vw - 1320px) / 2)) 34px;
+      border-bottom: 1px solid var(--line);
+      background: radial-gradient(circle at 84% 4%, rgb(88 140 255 / 18%), transparent 32%),
+        linear-gradient(135deg, var(--surface), var(--surface-2));
+    }
+    .topbar-inner { max-width: 1320px; margin: 0 auto; }
+    .eyebrow { color: var(--accent); font-size: 12px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; }
+    h1, h2, h3, h4 { line-height: 1.25; letter-spacing: -.015em; }
+    h1 { margin: 8px 0 10px; font-size: clamp(30px, 5vw, 46px); }
+    h2 { margin: 0 0 12px; font-size: 26px; }
+    h3 { margin: 0 0 10px; font-size: 19px; }
+    h4 { margin: 0 0 8px; font-size: 15px; }
+    .lead { max-width: 820px; margin: 0; color: var(--muted); font-size: 16px; }
+    .top-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 20px; }
+    .top-actions a, .ghost-button {
+      display: inline-flex; align-items: center; gap: 6px; padding: 8px 13px;
+      border: 1px solid var(--line); border-radius: 9px; background: var(--surface);
+      color: var(--text); font-size: 13px; font-weight: 650; text-decoration: none;
+    }
+    .top-actions a:hover, .ghost-button:hover { border-color: var(--accent); color: var(--accent); text-decoration: none; }
+    .app {
+      display: grid; grid-template-columns: 230px minmax(0, 1fr); gap: 28px;
+      max-width: 1320px; margin: 0 auto; padding: 28px 22px 68px;
+    }
+    .sidebar { position: sticky; top: 18px; align-self: start; }
+    .side-card, .panel, .detail-card {
+      border: 1px solid var(--line); border-radius: 14px; background: var(--surface); box-shadow: var(--shadow);
+    }
+    .side-card { padding: 16px; }
+    .side-card + .side-card { margin-top: 14px; }
+    .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .stat { padding: 10px; border-radius: 9px; background: var(--surface-2); }
+    .stat strong { display: block; font-size: 22px; line-height: 1.1; color: var(--accent); }
+    .stat span { display: block; margin-top: 4px; color: var(--muted); font-size: 11px; }
+    .side-title { margin: 0 0 9px; color: var(--muted); font-size: 12px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
+    .view-nav { display: grid; gap: 5px; }
+    .view-nav button {
+      width: 100%; padding: 9px 10px; border: 0; border-radius: 8px; background: transparent;
+      color: var(--muted); text-align: left; font-size: 13px;
+    }
+    .view-nav button:hover, .view-nav button.active { background: var(--accent-soft); color: var(--accent); font-weight: 750; }
+    .source-note { color: var(--muted); font-size: 12px; }
+    .source-note code { display: inline-block; margin-top: 4px; padding: 2px 5px; border-radius: 4px; background: var(--surface-2); font-size: 11px; }
+    main { min-width: 0; }
+    .panel { padding: 20px; }
+    .panel + .panel { margin-top: 16px; }
+    .toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 18px; }
+    .search { flex: 1 1 260px; position: relative; }
+    .search input, .toolbar select, .todo-form input, .todo-form textarea, .thought-box textarea {
+      width: 100%; padding: 10px 12px; border: 1px solid var(--line); border-radius: 9px;
+      background: var(--surface-2); color: var(--text); outline: none;
+    }
+    .search input:focus, .toolbar select:focus, .todo-form input:focus, .todo-form textarea:focus, .thought-box textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgb(44 102 214 / 12%); }
+    .toolbar select { width: auto; min-width: 130px; }
+    .toolbar-note { margin-left: auto; color: var(--muted); font-size: 12px; }
+    .experiment-list { display: grid; gap: 10px; }
+    .experiment-card {
+      display: grid; grid-template-columns: 62px minmax(0, 1fr) auto; gap: 14px; align-items: start;
+      width: 100%; padding: 15px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface);
+      color: var(--text); text-align: left; transition: border-color .15s, transform .15s, box-shadow .15s;
+    }
+    .experiment-card:hover { border-color: var(--accent); box-shadow: 0 8px 24px rgb(44 102 214 / 9%); transform: translateY(-1px); }
+    .exp-number { display: grid; place-items: center; min-height: 43px; border-radius: 10px; background: var(--accent-soft); color: var(--accent); font-size: 20px; font-weight: 850; }
+    .exp-title { margin: 0; font-size: 16px; }
+    .exp-meta { display: flex; flex-wrap: wrap; gap: 7px; align-items: center; margin-top: 5px; color: var(--muted); font-size: 12px; }
+    .exp-preview { margin: 7px 0 0; color: var(--muted); font-size: 13px; }
+    .status { display: inline-flex; align-items: center; padding: 3px 8px; border-radius: 999px; font-size: 11px; font-weight: 750; line-height: 1.35; }
+    .status.good { color: var(--good); background: var(--good-soft); }
+    .status.bad { color: var(--bad); background: var(--bad-soft); }
+    .status.warn { color: var(--warn); background: var(--warn-soft); }
+    .status.neutral { color: var(--muted); background: var(--surface-2); }
+    .exp-arrow { padding-top: 9px; color: var(--muted); font-size: 20px; }
+    .empty { padding: 36px 16px; border: 1px dashed var(--line); border-radius: 12px; color: var(--muted); text-align: center; }
+    .detail-head { display: flex; gap: 14px; align-items: flex-start; justify-content: space-between; margin-bottom: 18px; }
+    .detail-number { display: inline-grid; place-items: center; min-width: 48px; height: 48px; margin-right: 10px; border-radius: 11px; background: var(--accent-soft); color: var(--accent); font-size: 21px; font-weight: 850; vertical-align: middle; }
+    .detail-title { display: inline; font-size: clamp(22px, 4vw, 32px); vertical-align: middle; }
+    .back-button { padding: 8px 11px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface-2); color: var(--text); white-space: nowrap; }
+    .back-button:hover { border-color: var(--accent); color: var(--accent); }
+    .detail-meta { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0 20px; color: var(--muted); font-size: 13px; }
+    .detail-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+    .detail-card { padding: 18px; box-shadow: none; }
+    .detail-card.full { grid-column: 1 / -1; }
+    .detail-card p { margin: 0; white-space: pre-wrap; }
+    .detail-card p + p { margin-top: 10px; }
+    .detail-card ul { margin: 0; padding-left: 21px; }
+    .detail-card li + li { margin-top: 6px; }
+    .visual-review { overflow: hidden; }
+    .visual-review > h3 { margin-bottom: 14px; }
+    .center-picture { display: grid; grid-template-columns: minmax(220px, .8fr) minmax(260px, 1.2fr); gap: 18px; align-items: center; padding: 14px; border-radius: 12px; background: var(--surface-2); }
+    .center-picture svg { width: 100%; max-height: 190px; }
+    .center-picture .car-shape { fill: var(--accent-soft); stroke: var(--accent); stroke-width: 2; }
+    .center-picture .box-shape { fill: none; stroke: var(--muted); stroke-width: 2; stroke-dasharray: 6 5; }
+    .center-picture .true2d-dot { fill: var(--warn); }
+    .center-picture .projected-dot { fill: var(--accent); }
+    .center-legend { display: grid; gap: 12px; }
+    .center-key { display: grid; grid-template-columns: 14px 1fr; gap: 9px; align-items: start; }
+    .center-key i { width: 11px; height: 11px; margin-top: 7px; border-radius: 50%; background: var(--warn); }
+    .center-key.projected i { background: var(--accent); }
+    .center-key strong, .center-key span { display: block; }
+    .center-key span { color: var(--muted); font-size: 13px; }
+    .flow-lanes { display: grid; gap: 10px; margin-top: 14px; }
+    .flow-lane { display: grid; grid-template-columns: 44px minmax(100px, 1fr) 28px minmax(100px, 1fr) 28px minmax(100px, 1fr); gap: 8px; align-items: center; padding: 11px; border: 1px solid var(--line); border-radius: 11px; background: var(--surface); }
+    .lane-name { display: grid; place-items: center; width: 38px; height: 38px; border-radius: 50%; background: var(--accent-soft); color: var(--accent); font-size: 18px; font-weight: 850; }
+    .flow-node { min-height: 58px; display: grid; place-items: center; padding: 8px; border-radius: 9px; background: var(--surface-2); text-align: center; font-size: 13px; font-weight: 700; line-height: 1.35; }
+    .flow-node.bridge { color: var(--warn); background: var(--warn-soft); }
+    .flow-node.final { color: var(--good); background: var(--good-soft); }
+    .flow-arrow { color: var(--muted); text-align: center; font-size: 22px; }
+    .visual-caption { margin-top: 8px !important; color: var(--muted); font-size: 12px; text-align: right; }
+    .scale-picture { display: grid; grid-template-columns: 1fr 38px 1fr; gap: 10px; align-items: stretch; margin-top: 14px; }
+    .scale-box { display: grid; place-items: center; min-height: 92px; padding: 14px; border-radius: 11px; background: var(--good-soft); color: var(--good); text-align: center; }
+    .scale-box.unsolved { background: var(--warn-soft); color: var(--warn); }
+    .scale-box strong, .scale-box span { display: block; }
+    .scale-box strong { font-size: 17px; }
+    .scale-box span { margin-top: 4px; font-size: 12px; }
+    .scale-divider { display: grid; place-items: center; color: var(--muted); font-weight: 850; }
+    .result-picture { display: grid; gap: 12px; margin-top: 14px; }
+    .metric-row { display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 12px; align-items: center; }
+    .metric-label { font-size: 13px; font-weight: 750; }
+    .metric-bars { display: grid; gap: 5px; }
+    .metric-bar { display: grid; grid-template-columns: minmax(0, 1fr) 68px; gap: 8px; align-items: center; }
+    .bar-track { height: 20px; overflow: hidden; border-radius: 5px; background: var(--surface-2); }
+    .bar-track.missing { display: grid; place-items: center; border: 1px dashed var(--line); background: transparent; color: var(--muted); font-size: 11px; }
+    .bar-fill { height: 100%; background: var(--accent); }
+    .bar-fill.original { background: var(--muted); }
+    .bar-fill.candidate { background: var(--bad); }
+    .bar-value { color: var(--muted); font-size: 12px; }
+    .comparison-arrows { display: flex; flex-wrap: wrap; gap: 12px; margin: 2px 0 2px 162px; color: var(--muted); font-size: 12px; }
+    .comparison-arrows strong { color: var(--text); }
+    .verdict-strip { margin-top: 15px; padding: 12px 14px; border-left: 4px solid var(--bad); background: var(--bad-soft); color: var(--bad); font-weight: 700; }
+    .raw-record summary { cursor: pointer; color: var(--accent); font-weight: 750; }
+    .raw-record h4 { margin-top: 16px; }
+    .raw-record p { color: var(--muted); font-size: 13px; }
+    .thought-box { margin-top: 14px; }
+    .thought-box textarea { min-height: 145px; resize: vertical; line-height: 1.6; }
+    .thought-actions { display: flex; gap: 8px; align-items: center; margin-top: 8px; }
+    .primary-button { padding: 8px 13px; border: 1px solid var(--accent); border-radius: 8px; background: var(--accent); color: white; font-weight: 750; }
+    .primary-button:hover { filter: brightness(.95); }
+    .save-state { color: var(--good); font-size: 12px; }
+    .todo-layout { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 16px; }
+    .todo-list { display: grid; gap: 10px; }
+    .todo-item { padding: 14px; border: 1px solid var(--line); border-radius: 11px; background: var(--surface-2); }
+    .todo-item h3 { margin: 0 0 5px; font-size: 16px; }
+    .todo-item p { margin: 0; color: var(--muted); font-size: 13px; white-space: pre-wrap; }
+    .todo-meta { display: flex; flex-wrap: wrap; gap: 7px; align-items: center; margin-top: 9px; color: var(--muted); font-size: 12px; }
+    .todo-form { padding: 15px; border: 1px solid var(--line); border-radius: 11px; background: var(--surface-2); }
+    .todo-form label { display: block; margin: 0 0 5px; color: var(--muted); font-size: 12px; font-weight: 700; }
+    .todo-form textarea { min-height: 105px; resize: vertical; }
+    .todo-form .field + .field { margin-top: 10px; }
+    .todo-form button { width: 100%; margin-top: 12px; }
+    .muted { color: var(--muted); }
+    .error { padding: 14px; border-radius: 9px; color: var(--bad); background: var(--bad-soft); }
+    .footer { max-width: 1320px; margin: 0 auto; padding: 0 22px 46px; color: var(--muted); font-size: 12px; }
+    @media (max-width: 900px) {
+      .app { grid-template-columns: 1fr; }
+      .sidebar { position: static; }
+      .sidebar .side-card:first-child { display: none; }
+      .view-nav { grid-template-columns: repeat(3, 1fr); }
+      .view-nav button { text-align: center; }
+      .todo-layout { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 620px) {
+      .topbar { padding-top: 30px; }
+      .app { padding: 18px 14px 50px; }
+      .experiment-card { grid-template-columns: 48px minmax(0, 1fr); }
+      .exp-arrow { display: none; }
+      .detail-head { display: block; }
+      .back-button { margin-top: 12px; }
+      .detail-grid { grid-template-columns: 1fr; }
+      .detail-card.full { grid-column: auto; }
+      .center-picture { grid-template-columns: 1fr; }
+      .flow-lane { grid-template-columns: 36px minmax(0, 1fr); }
+      .flow-arrow { display: none; }
+      .flow-node { grid-column: 2; }
+      .metric-row { grid-template-columns: 1fr; }
+      .comparison-arrows { margin-left: 0; }
+      .scale-picture { grid-template-columns: 1fr; }
+      .scale-divider { min-height: 26px; }
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="eyebrow">MonoDGP · Experiment Desk</div>
+      <h1>实验管理台</h1>
+      <p class="lead">只管理 MonoDGP 这个项目：总账里的已做实验、每项实验的流程与结果、你的思考，以及尚未执行的待办方向。</p>
+      <div class="top-actions">
+        <a href="去噪专项分析.html">打开去噪专项分析</a>
+        <a href="实验总账.md">打开实验总账</a>
+      </div>
+    </div>
+  </header>
+
+  <div class="app">
+    <aside class="sidebar" aria-label="实验管理导航">
+      <div class="side-card">
+        <div class="side-title">项目概览</div>
+        <div id="summary" class="stat-grid" aria-live="polite"></div>
+      </div>
+      <div class="side-card">
+        <div class="side-title">查看</div>
+        <nav class="view-nav">
+          <button type="button" data-view="all" class="active">全部实验</button>
+          <button type="button" data-view="denoising">去噪相关</button>
+          <button type="button" data-view="todo">待办方向</button>
+        </nav>
+      </div>
+      <div class="side-card source-note">
+        页面数据来自：<code>docs/实验总账.md</code><br>
+        用户思考与待办保存在当前浏览器的本地记录中，不会修改训练代码或实验产物。
+      </div>
+    </aside>
+
+    <main>
+      <section id="list-view" class="panel" aria-labelledby="list-title">
+        <h2 id="list-title">已做实验</h2>
+        <div class="toolbar">
+          <label class="search"><span class="visually-hidden">搜索实验</span><input id="search" type="search" placeholder="搜索编号、名称、结果或脚本"></label>
+          <select id="status-filter" aria-label="按状态筛选">
+            <option value="all">所有状态</option>
+            <option value="good">通过 / 采用</option>
+            <option value="bad">判负 / FAIL</option>
+            <option value="warn">未启动 / 中止 / 进行中</option>
+          </select>
+          <select id="category-filter" aria-label="按范围筛选">
+            <option value="all">全部范围</option>
+            <option value="denoising">去噪相关</option>
+          </select>
+          <span id="result-count" class="toolbar-note"></span>
+        </div>
+        <div id="load-state" class="muted">正在读取实验总账……</div>
+        <div id="experiment-list" class="experiment-list" aria-live="polite"></div>
+      </section>
+
+      <section id="detail-view" class="panel" hidden aria-live="polite"></section>
+
+      <section id="todo-view" class="panel" hidden>
+        <h2>待办方向</h2>
+        <p class="muted">这里放还没有正式执行的想法。标成“待讨论”不代表已经批准，也不代表已经启动 GPU 或训练。</p>
+        <div class="todo-layout">
+          <div id="todo-list" class="todo-list"></div>
+          <form id="todo-form" class="todo-form">
+            <h3>新增待办</h3>
+            <div class="field"><label for="todo-title">想法名称</label><input id="todo-title" required placeholder="例如：非对称区间监督可学习性诊断"></div>
+            <div class="field"><label for="todo-detail">想做什么</label><textarea id="todo-detail" placeholder="记录目的、关键风险或需要先确认的地方"></textarea></div>
+            <button class="primary-button" type="submit">保存到待办</button>
+          </form>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <footer class="footer">MonoDGP 实验管理台 · 只读实验总账，浏览器本地保存用户补充思考与待办</footer>
+
+  <script>
+    (() => {
+      "use strict";
+      const DENOISING_IDS = new Set([
+        6, 13, 14, 25, 26, 27, 28, 47, 50, 54, 75, 76, 84, 85, 86, 87,
+        88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101,
+        102, 103, 104, 105, 106, 107, 108
+      ]);
+      const THOUGHT_SEEDS = {
+        1: "用户总结：对于目标语义相同、前一阶段先定位而后一阶段继续修正的递进式任务，共用一个头或拆成两个专门头都可行；拆头的+0.0338只能视为可能略有帮助的线索。通过二维框中心再桥接到投影三维中心改变了接口语义，当时的小桥接层、冻结下游和5轮短训方案不太合理。",
+        2: "用户认为：只要训练采用多组查询并让每组独立匹配，组间注意力隔离就是正常且合理的配套实现，应视为基线修正，不包装成创新。",
+        3: "用户追问概率图如何采样，复盘发现旧脚本错误混入背景60米占位值。GPU batch 1完整重算确认当前中心采样线性融合没有收益。用户进一步澄清：真正关心的不是把激光雷达数值与最终深度直接融合，而是现有稠密深度分类分支产生的深度特征会送入三维解码器；若这套空间深度监督不可靠，后续应尝试仅在训练时把激光雷达点云投影到图像，监督更真实的深度特征，测试仍只输入图像。",
+        4: "复盘纠正：实验四并非只有一组查询。实验四和五训练时都有11组×50个查询并做11份独立匹配；四让550个查询全局互看，五按组隔离注意力。用户认为更一致的多组训练可能带来更好泛化，但当前直接证据是验证精度提高，泛化机制未单独验证。",
+        13: "用户指出：序号13只是把同一个投影公式重新算一遍，没有产生新的可学习信息。",
+        14: "用户认为 Stage-0B 的 Oracle 上限很有意义，但要区分区间外贴最近边界和区间内的非对称概率偏向；不能把区间中心当成真值。",
+        27: "用户关心旧的区间损失短训是否真正证明了方向，不能把短程负结果直接扩大成对整个去噪方向的否定。",
+        28: "用户希望先弄清区间概率损失的梯度方向、力度和与普通点损失的冲突，再决定是否训练。",
+        54: "用户关心训练是否真正把几何/图像证据转成 AP，不能只看损失或局部 MAE。",
+        76: "用户认为真实图像中存在投影边界证据，但连续修正没有稳定转成 AP，需要继续分离方向、剂量和接线问题。",
+        93: "用户强调老师要接到真实普通查询路径，不能只在人工查询或冻结支路上得到结论。",
+        94: "用户要求先收口学习许可和实现风险，确认增益、梯度和数据路径没有接错。",
+        97: "用户要求 O0/G/C/W 对照必须真正区分普通损失与辅助损失看什么图，不能混淆归因。",
+        101: "用户关心完整验证集上的动作菜单是否有独立图像收益，不能把 Oracle 菜单本身的收益误认为图像已经学会。",
+        107: "用户指出不确定度损失不应随有效区间覆盖率上升而自动变大，并要求重新检查各项MAE的分母。",
+        108: "有区间和区间内车辆MAE原本已按实际车辆数求平均；区间内MAE上升主要与统计人群持续变化有关，不能单独解读为同一批车退化。"
+      };
+      const PLAIN_REVIEWS = {
+        1: {
+          title: "先用人话看懂三组在比较什么",
+          intro: "模型有前后两个解码阶段：二维阶段先定位，三维阶段接着修正；它们不是各给一个答案再投票，最终采用三维阶段最后一层的输出。",
+          items: [
+            "A组（原版共享）：二维阶段和三维阶段调用同一套框预测头参数。这里的“共享”是两个阶段共用，不是一个东西与自己共享。",
+            "C组（只拆头的公平对照）：把原预测头复制成两个参数独立的头。前一头根据二维阶段特征先预测，后一头根据三维阶段特征继续修正；两者的中心坐标都以投影三维中心为学习目标，最后认准后一头的输出。",
+            "B组（真正候选）：也使用两个独立头，但前一头改学二维框正中心。随后一个两层小网络读取目标特征，只预测横纵两个偏移量，把二维框中心移动到投影三维中心附近，再交给三维阶段继续修正。",
+            "桥接时坐标已经按图像宽高归一化，偏移经过双曲正切函数限幅，单方向最多移动归一化坐标0.25；移动参考中心时还会同步调整它到四条框边的距离，因此二维框边界保持不变。",
+            "归一化解决的是15、20像素与1、2像素之间的绝对数值尺度，不会让网络直接回归几十像素；但它没有解决不同车辆偏移方向、幅度以及遮挡或透视成因差异很大的问题。这个逐车转换本身仍然很难。"
+          ],
+          conclusion: "目标语义相同的递进式修正任务，共用头或拆成两个专门头都可行；C的+0.0338只能算可能略有帮助的线索。B把二维框中心学得更准，却没能经桥接可靠还原投影三维中心。这个结果只否定当时“两层小桥接网络、冻结大部分下游、续训5轮”的具体实现，不能扩大成二维中心中间表示永远无效。"
+        },
+        4: {
+          title: "它不是1组对11组，而是11组的注意力接线对照",
+          intro: "实验四和五都生成11组×50个查询，并让每组独立匹配同一批真值；旧标题“单组查询”把decoder_group_num=1误读成了总查询组数。",
+          items: [
+            "11组不是复制同一组50个查询。模型一次创建550个独立可学习查询向量，按连续每50个划成一组；各组查询内容分别学习，但共享同一套解码器和预测头，推理只取前50个。",
+            "实验四：550个查询全部放进同一个自注意力范围，来自不同匹配组的查询可以互相影响。",
+            "实验五：仍是相同的550个查询和11份匹配，但每次自注意力只在本组50个查询内进行。",
+            "11来自Group DETR的经验消融：组数增加到11附近后收益趋于饱和，MonoDGP沿用这个默认值；本项目没有重新搜索KITTI上的最佳组数。",
+            "最好Moderate从21.129提高到23.263，末轮从20.430提高到21.286。"
+          ],
+          conclusion: "直接结论是组内独立注意力比550查询全局互看更适合这套11组独立匹配监督。更好泛化可以作为可能机制，但没有被这一个对照单独证明。"
+        },
+        5: {
+          title: "它与实验四是同一组成对对照",
+          intro: "实验五没有增加查询组数；实验四和五都是11组×50个查询并做11份独立匹配。实验五只把查询自注意力限制在各自组内。",
+          items: [
+            "两边一次创建的都是550个独立可学习查询向量，使用同一套解码器与预测头。",
+            "实验四允许不同匹配组的查询跨组互相影响；实验五每组50个查询只在组内互看。",
+            "训练时使用全部11组，推理时两边都只使用第一组50个查询，不做11组投票。",
+            "最好Moderate从21.129提高到23.263，末轮从20.430提高到21.286。"
+          ],
+          conclusion: "实验五支持把组内注意力隔离作为基线接线修正。直接证据是验证精度提高；可能更好泛化只是机制解释，不是单独被证明的结论。"
+        },
+        6: {
+          title: "它算的是逐像素表面区间，不是最终中心深度容错",
+          intro: "对二维框内每个粗网格，从相机穿过网格中心发射一条射线；射线进入和离开真值三维框时的两个相机Z深度，组成该网格的近端—远端区间。",
+          items: [
+            "原本希望不再把二维框内所有网格都硬标为同一个物体中心深度，而是允许每个网格的深度概率落在自己的射线区间内。",
+            "射线起点是(tx,ty,0)，方向才是((u-cu)/fu,(v-cv)/fv,1)，所以P2的X/Y平移没丢。但它忽略了P2[2,3]的毫米级Z平移：它严格匹配MonoDGP自己的投影约定，却不是完整3×4 P2的严格反投影。",
+            "这段区间是射线穿过车体前后表面时的Z深度，例如18～22米；它不是在说最终车辆中心预测18～22米都正确。",
+            "脚本同时算困难组的总网格比例和逐车比例中位数；原始结果已删除，现在不能确认总账的55.1%究竟是哪个口径，也不能定量说哪个失效原因占主要。",
+            "若像素确实在真值三维框的完整投影内，射线理应穿过。截断数值没有进入射线求交公式，只参与KITTI难度分组；边界二维框与粗采样可间接改变候选集。",
+            "侧边网格使用斜射线，所得表面距离与模型最终需要的车辆中心轴向Z深度语义不同。"
+          ],
+          conclusion: "停止的是把逐像素射线表面区间直接放进原中心深度分布的方案，不是否定射线几何。后续序号47改为物体中心深度语义下的任务容许区间，是另一种定义。"
+        },
+        7: {
+          title: "用真值前后关系，事后纠正预测顺序",
+          intro: "它没有训练新模块。它从冻结验证集预测中找出二维框重叠的真值前车—后车对，检查模型预测的远近顺序是否颠倒。",
+          items: [
+            "先把Moderate或Hard且KITTI遮挡等级至少为1的车当作“候选后车”；再从同图其他车中，找真值深度至少比它近1米的车作为“候选前车”。",
+            "还要求两个真值二维框的交叉面积至少占后车框面积的10%。若同时有多辆更近的车满足要求，选“交叉面积÷后车框面积”最大的一辆当前车。",
+            "KITTI遮挡标注只告诉我们后车被挡了，不告诉我们具体是谁挡的；因此“选二维框重叠最多的近车”只是代理规则，不保证它就是真实遮挡者。",
+            "共4151个前后对，模型本来就有4083对顺序正确，正确率98.36%；只有68个后车被预测得不比前车远。",
+            "对68个错序对，事后把后车预测深度设为“前车预测深度+极小正数”，仅保证后车比前车远，不把它直接改成真值深度。",
+            "全部配对后车的平均绝对误差只减少0.01853米，低事前0.02米门槛；这是事后oracle诊断，不是AP或可部署结果。"
+          ],
+          conclusion: "直接结论是当前模型绝大多数时候已经知道谁前谁后；主要问题不是前后顺序，而是每辆车的具体深度数值仍然有偏差，因此停止单独开发关系排序模块。"
+        }
+      };
+      const DEFAULT_TODOS = [
+        {
+          id: "baseline-bugfix-consolidated-rerun",
+          title: "收口全部已确认 Bug 后统一重跑 baseline",
+          detail: "先持续收集并逐项核实 baseline 的实现和数据管线 Bug，不边发现边拆成多次正式训练。第一项已确认是颜色增强：PIL 输入实际为 RGB，旧实现按 BGR 进入 HSV，且越界 float 直接转 uint8 会发生 270→14、-20→236 一类回绕。用户已批准按适配 RGB 输入的 YOLO 式 HSV 边界规则修复：H 循环，S/V 限制到合法范围，使用安全中间类型，禁止越界值直接转 uint8。这里只锁定边界规则，不自动照搬 YOLO 的增强强度或概率；旧亮度、对比度和随机通道交换是否保留须在实现前单独核实。全部 Bug 修完并通过合同与样图检查后，再从第0轮完整重跑同口径 baseline。详细清单见 docs/基线重训前Bug收口清单.md。当前只登记，不改代码、不启动或停止训练。",
+          status: "持续收口，未实现",
+          source: "用户 2026-08-09 批准"
+        },
+        {
+          id: "exp3-foreground-conditional-depth-rerun",
+          experimentId: 3,
+          title: "按前景条件概率重算序号3",
+          detail: "已完成GPU batch size 1完整val修正重算和同batch旧算法配对控制；11,178辆匹配Car严格对齐。修正后稠密深度加入最终深度使留出MAE增加0.001294米，加入几何深度使MAE增加0.002299米，未提供互补收益。旧JSON保留，修正结果单独保存。",
+          status: "已完成",
+          source: "2026-08-07逐项复盘发现实现与文档不一致"
+        },
+        {
+          id: "exp3-lidar-depth-direction",
+          experimentId: 3,
+          title: "用训练期点云投影监督稠密深度特征",
+          detail: "这是用户明确的主方案，不是把激光雷达深度直接加入最终深度，也不是测试时多模态输入。训练时将KITTI激光雷达点投影到图像，只在有效点位置用真实表面深度监督稠密深度特征；该特征继续送入三维解码器，由目标深度头学习从可见表面与上下文到物体中心。测试时完全撤掉激光雷达，仍只输入图像。正式设计需对照原二维框整块填中心深度的监督，并处理稀疏覆盖、遮挡取最近点、图像增强与点投影同步、远近样本权重。",
+          status: "待讨论",
+          source: "用户2026-08-07澄清"
+        },
+        {
+          id: "exp1-a-center-error-backfill",
+          experimentId: 1,
+          title: "补算序号1的A组中心投影误差",
+          detail: "等待序号108结束，并且只在用户明确要求开始后执行。从共同的epoch177权重严格复现A组5轮训练，保持种子444、batch 8、冻结范围和原配置不变；小batch只做正确性检查，正式数值必须在完整val的同一批11,178辆匹配车辆上计算。不得用epoch177起始模型或小batch结果冒充第5轮A组正式指标。",
+          status: "等待用户启动",
+          source: "用户 2026-08-07 提出"
+        },
+        {
+          id: "idea-asymmetric-interval",
+          title: "非对称区间监督可学习性诊断",
+          detail: "训练时用真值三维框计算左右边界：区间外监督最近边界，区间内用真值深度构造非对称分布；推理时只输入图像和可观测几何，不输入真值边界。先验证方向和幅度是否能从可见特征中学到。",
+          status: "待讨论",
+          source: "用户 2026-08-06 提出"
+        },
+        {
+          id: "review-interval-target",
+          title: "区间目标与真值泄漏审查",
+          detail: "在实现前明确哪些量只用于训练损失，哪些量允许进入推理特征；检查区间为空、区间外、区间内三种分支的目标是否连续。",
+          status: "待讨论",
+          source: "由序号14讨论整理"
+        },
+        {
+          id: "paired-two-piece-gaussian-width-gradient",
+          title: "双侧高斯：区间宽度与梯度的正反对照",
+          detail: "等序号108与同口径baseline数据完整后再决定是否实现。正向方案：左右深度损失权重随对应侧可行区间宽度增大，在相同绝对误差下宽侧梯度更大。反向方案：把左右区间宽度作为双侧高斯的左右标准差，在相同绝对误差下宽侧梯度更小。两者必须共用同一起点、数据、学习率、归一化和评估口径，并与当前非对称Huber、原始Laplace比较区间内比例、边界距离、深度MAE和AP。",
+          status: "待baseline后讨论",
+          source: "用户 2026-08-07 提出正反梯度对照"
+        }
+      ];
+      const state = {
+        experiments: [],
+        view: "all",
+        query: "",
+        status: "all",
+        category: "all",
+        todos: [],
+        selectedId: null
+      };
+      const $ = (selector) => document.querySelector(selector);
+      const escapeHtml = (value) => String(value ?? "").replace(/[&<>\"']/g, (char) => ({
+        "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;"
+      }[char]));
+      const compact = (value, limit = 190) => {
+        const text = String(value ?? "").replace(/\s+/g, " ").trim();
+        return text.length > limit ? `${text.slice(0, limit)}……` : text;
+      };
+      const normalize = (value) => String(value ?? "").toLowerCase().replace(/\s+/g, "");
+      const statusKind = (status) => {
+        const text = String(status ?? "");
+        if (/判负|fail|负迁移|下降|停止|取消/.test(text)) return "bad";
+        if (/未训练|未进入|未启动|中止|排队|进行中|人工停止|未完成|证据不足|收益过小|未采用|搁置|终止|不成立|未确认|待补|待复核/.test(text)) return "warn";
+        if (/采用|通过|pass/.test(text)) return "good";
+        return "neutral";
+      };
+      const categoryFor = (experiment) => DENOISING_IDS.has(experiment.id) ? "denoising" : "general";
+      const parseLedger = (markdown) => {
+        const result = [];
+        for (const line of String(markdown).split(/\r?\n/)) {
+          if (!/^\|\s*\d+\s*\|/.test(line)) continue;
+          const parts = line.trim().replace(/^\|/, "").replace(/\|$/, "").split("|").map((part) => part.trim());
+          if (parts.length < 8 || !/^\d+$/.test(parts[0])) continue;
+          const id = Number(parts[0]);
+          const experiment = {
+            id,
+            date: parts[1],
+            title: parts[2],
+            status: parts[3],
+            source: parts[4],
+            output: parts[5],
+            workflow: parts[6],
+            result: parts[7],
+            category: DENOISING_IDS.has(id) ? "denoising" : "general",
+            thought: THOUGHT_SEEDS[id] || ""
+          };
+          result.push(experiment);
+        }
+        return result.sort((a, b) => a.id - b.id);
+      };
+      const loadThoughts = () => {
+        try { return JSON.parse(localStorage.getItem("monodgp-experiment-thoughts-v1") || "{}"); }
+        catch (_) { return {}; }
+      };
+      const saveThought = (id, text) => {
+        const thoughts = loadThoughts();
+        thoughts[String(id)] = text;
+        localStorage.setItem("monodgp-experiment-thoughts-v1", JSON.stringify(thoughts));
+      };
+      const loadTodos = () => {
+        try {
+          const saved = JSON.parse(localStorage.getItem("monodgp-experiment-todos-v1") || "null");
+          if (!Array.isArray(saved)) return DEFAULT_TODOS.map((todo) => ({ ...todo }));
+          const defaultsById = new Map(DEFAULT_TODOS.map((todo) => [todo.id, todo]));
+          const merged = saved.map((todo) => ["exp3-foreground-conditional-depth-rerun", "exp3-lidar-depth-direction"].includes(todo.id)
+            ? { ...todo, ...(defaultsById.get(todo.id) || {}) }
+            : { ...(defaultsById.get(todo.id) || {}), ...todo });
+          const savedIds = new Set(merged.map((todo) => todo.id));
+          for (const todo of DEFAULT_TODOS) {
+            if (!savedIds.has(todo.id)) merged.push({ ...todo });
+          }
+          return merged;
+        } catch (_) { return DEFAULT_TODOS.map((todo) => ({ ...todo })); }
+      };
+      const saveTodos = () => localStorage.setItem("monodgp-experiment-todos-v1", JSON.stringify(state.todos));
+      const hasPendingTodo = (experimentId) => state.todos.some((todo) =>
+        Number(todo.experimentId) === Number(experimentId)
+        && !/已完成|已取消/.test(String(todo.status || "")));
+      const statusLabel = (kind) => ({ good: "通过/采用", bad: "判负/失败", warn: "未启动/中止", neutral: "已记录" }[kind] || "已记录");
+      const renderSummary = () => {
+        const total = state.experiments.length;
+        const good = state.experiments.filter((item) => statusKind(item.status) === "good").length;
+        const bad = state.experiments.filter((item) => statusKind(item.status) === "bad").length;
+        const denoising = state.experiments.filter((item) => item.category === "denoising").length;
+        $("#summary").innerHTML = [
+          [total, "总实验"], [denoising, "去噪相关"], [good, "通过/采用"], [bad, "判负/失败"]
+        ].map(([value, label]) => `<div class="stat"><strong>${value}</strong><span>${label}</span></div>`).join("");
+      };
+      const filteredExperiments = () => {
+        const query = normalize(state.query);
+        return state.experiments.filter((item) => {
+          if (state.category === "denoising" && item.category !== "denoising") return false;
+          if (state.status !== "all" && statusKind(item.status) !== state.status) return false;
+          if (!query) return true;
+          return [item.id, item.date, item.title, item.status, item.source, item.output, item.workflow, item.result]
+            .some((value) => normalize(value).includes(query));
+        });
+      };
+      const renderList = () => {
+        const list = filteredExperiments();
+        $("#result-count").textContent = `显示 ${list.length} / ${state.experiments.length}`;
+        if (!list.length) {
+          $("#experiment-list").innerHTML = `<div class="empty">没有符合条件的实验。可以换一个关键词，或切换筛选范围。</div>`;
+          return;
+        }
+        $("#experiment-list").innerHTML = list.map((item) => {
+          const kind = statusKind(item.status);
+          const scope = item.category === "denoising" ? "去噪相关" : "项目实验";
+          const todoTag = hasPendingTodo(item.id) ? `<span class="status warn">有待办</span>` : "";
+          return `<button type="button" class="experiment-card" data-exp-id="${item.id}">
+            <span class="exp-number">${String(item.id).padStart(2, "0")}</span>
+            <span>
+              <span class="exp-title">${escapeHtml(item.title)}</span>
+              <span class="exp-meta"><span>${escapeHtml(item.date)}</span><span>·</span><span>${scope}</span><span class="status ${kind}">${escapeHtml(compact(item.status, 84))}</span>${todoTag}</span>
+              <span class="exp-preview">${escapeHtml(compact(item.result))}</span>
+            </span>
+            <span class="exp-arrow" aria-hidden="true">›</span>
+          </button>`;
+        }).join("");
+        document.querySelectorAll("[data-exp-id]").forEach((button) => button.addEventListener("click", () => showDetail(Number(button.dataset.expId))));
+      };
+      const paragraphs = (text) => String(text ?? "").split(/[。；]/).map((part) => part.trim()).filter(Boolean);
+      const renderPlainReview = (item) => {
+        if (item.id !== 1) return "";
+        return `<article class="detail-card full visual-review">
+          <h3>一张图先看懂：两个“中心”不是一回事</h3>
+          <div class="center-picture">
+            <svg viewBox="0 0 360 190" role="img" aria-label="二维框正中心与投影三维中心位置不同的示意图">
+              <rect class="box-shape" x="35" y="24" width="290" height="142" rx="5"></rect>
+              <path class="car-shape" d="M76 118 L96 73 Q103 57 122 57 H234 Q252 57 262 75 L283 118 V145 H76 Z"></path>
+              <circle class="true2d-dot" cx="180" cy="95" r="9"></circle>
+              <circle class="projected-dot" cx="220" cy="88" r="9"></circle>
+              <path d="M190 94 L207 90" stroke="currentColor" stroke-width="2" marker-end="url(#arrowhead)"></path>
+              <defs><marker id="arrowhead" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto"><path d="M0,0 L7,3.5 L0,7 Z" fill="currentColor"></path></marker></defs>
+            </svg>
+            <div class="center-legend">
+              <div class="center-key"><i></i><div><strong>二维框正中心</strong><span>框的几何中点，B组第一阶段学习它</span></div></div>
+              <div class="center-key projected"><i></i><div><strong>投影三维中心</strong><span>三维框中心投到图像的位置，三维检测真正需要它</span></div></div>
+            </div>
+          </div>
+
+          <h3 style="margin-top:20px">A / C / B：不是投票，而是前后接力</h3>
+          <div class="flow-lanes" aria-label="三组实验流程对照">
+            <div class="flow-lane"><span class="lane-name">A</span><span class="flow-node">二维阶段<br>共用头 X</span><span class="flow-arrow">→</span><span class="flow-node">三维阶段<br>仍用头 X</span><span class="flow-arrow">→</span><span class="flow-node final">最终输出</span></div>
+            <div class="flow-lane"><span class="lane-name">C</span><span class="flow-node">二维阶段<br>独立头 X<br>学投影三维中心</span><span class="flow-arrow">→</span><span class="flow-node">三维阶段<br>独立头 Y<br>继续修正</span><span class="flow-arrow">→</span><span class="flow-node final">认准 Y 的输出</span></div>
+            <div class="flow-lane"><span class="lane-name">B</span><span class="flow-node">二维阶段<br>学二维框中心</span><span class="flow-arrow">→</span><span class="flow-node bridge">两层桥接网络<br>预测 Δx、Δy</span><span class="flow-arrow">→</span><span class="flow-node final">三维阶段修正<br>并最终输出</span></div>
+          </div>
+          <p class="visual-caption">C只检查“拆头”有没有伤害；B才是要验证的中心转换方案。</p>
+
+          <h3 style="margin-top:20px">你指出的尺度问题：只解决了一半</h3>
+          <div class="scale-picture">
+            <div class="scale-box"><div><strong>✓ 数字尺度已处理</strong><span>像素先除以图像宽高，偏移再限幅；不是直接回归15、20像素</span></div></div>
+            <div class="scale-divider">但</div>
+            <div class="scale-box unsolved"><div><strong>! 逐车规律仍难学</strong><span>方向、幅度、遮挡和透视成因都不同，小桥接层未必推得准</span></div></div>
+          </div>
+
+          <h3 style="margin-top:20px">结果：拆头没事，桥接方案变差</h3>
+          <div class="result-picture" aria-label="A组、C组与B组结果对照">
+            <div class="metric-row"><span class="metric-label">Moderate 3D精度<br>越高越好</span><div class="metric-bars"><div class="metric-bar"><span class="bar-track"><span class="bar-fill original" style="display:block;width:97.8%"></span></span><span class="bar-value">A　21.510</span></div><div class="metric-bar"><span class="bar-track"><span class="bar-fill" style="display:block;width:97.9%"></span></span><span class="bar-value">C　21.544</span></div><div class="metric-bar"><span class="bar-track"><span class="bar-fill candidate" style="display:block;width:89.7%"></span></span><span class="bar-value">B　19.729</span></div></div></div>
+            <div class="comparison-arrows"><span><strong>A → C：+0.034</strong>　拆头几乎没影响</span><span><strong>C → B：−1.815</strong>　桥接方案明显下降</span></div>
+            <div class="metric-row"><span class="metric-label">最终投影中心误差<br>越低越好</span><div class="metric-bars"><div class="metric-bar"><span class="bar-track missing">当时没有计算这项</span><span class="bar-value">A　缺测</span></div><div class="metric-bar"><span class="bar-track"><span class="bar-fill" style="display:block;width:72%"></span></span><span class="bar-value">C　5.06px</span></div><div class="metric-bar"><span class="bar-track"><span class="bar-fill candidate" style="display:block;width:75.6%"></span></span><span class="bar-value">B　5.31px</span></div></div></div>
+            <div class="comparison-arrows"><span><strong>A的中心误差不能与C比较</strong>　原实验没有保存A的逐对象机制指标</span></div>
+          </div>
+          <div class="verdict-strip">只否定当时“小桥接层＋冻结大部分网络＋续训5轮”的实现，不等于二维中心永远无用。</div>
+        </article>`;
+      };
+      const renderDetail = (item) => {
+        const kind = statusKind(item.status);
+        const todoTag = hasPendingTodo(item.id) ? `<span class="status warn">有待办</span>` : "";
+        const localThoughts = loadThoughts();
+        const thought = Object.prototype.hasOwnProperty.call(localThoughts, String(item.id)) ? localThoughts[String(item.id)] : item.thought;
+        const flow = paragraphs(item.workflow);
+        const result = paragraphs(item.result);
+        const reviewHtml = renderPlainReview(item);
+        const recordHtml = item.id === 1
+          ? `<details class="detail-card full raw-record"><summary>查看原始流程、配置和完整文字记录</summary><h4>实验流程</h4><p>${escapeHtml(item.workflow)}</p><h4>配置与脚本</h4><p>${escapeHtml(item.source)}</p><h4>输出与日志</h4><p>${escapeHtml(item.output)}</p><h4>结果与限制</h4><p>${escapeHtml(item.result)}</p></details>`
+          : `<article class="detail-card full"><h3>实验流程 / 实际怎么做</h3><ol>${(flow.length ? flow : [item.workflow]).map((part) => `<li>${escapeHtml(part)}</li>`).join("")}</ol></article><article class="detail-card"><h3>配置与脚本</h3><p>${escapeHtml(item.source)}</p></article><article class="detail-card"><h3>输出与日志</h3><p>${escapeHtml(item.output)}</p></article><article class="detail-card full"><h3>结果、结论与限制</h3><ul>${(result.length ? result : [item.result]).map((part) => `<li>${escapeHtml(part)}</li>`).join("")}</ul></article>`;
+        $("#detail-view").innerHTML = `<div class="detail-head">
+          <div><span class="detail-number">${String(item.id).padStart(2, "0")}</span><h2 class="detail-title">${escapeHtml(item.title)}</h2>
+            <div class="detail-meta"><span>${escapeHtml(item.date)}</span><span class="status ${kind}">${escapeHtml(item.status)}</span>${todoTag}<span>${item.category === "denoising" ? "去噪相关" : "项目实验"}</span></div>
+          </div>
+          <button type="button" class="back-button" id="back-to-list">← 返回实验列表</button>
+        </div>
+        <div class="detail-grid">
+          ${reviewHtml}
+          ${recordHtml}
+          <article class="detail-card full thought-box"><h3>我的思考</h3><p class="muted">这里记录你对该实验的判断、质疑、后续想法。预置内容来自已有讨论；新增内容保存在当前浏览器本地。</p><textarea id="thought-input" aria-label="实验思考">${escapeHtml(thought)}</textarea><div class="thought-actions"><button type="button" class="primary-button" id="save-thought">保存我的思考</button><span id="save-state" class="save-state" role="status"></span></div></article>
+        </div>`;
+        $("#list-view").hidden = true;
+        $("#todo-view").hidden = true;
+        $("#detail-view").hidden = false;
+        $("#back-to-list").addEventListener("click", () => { state.selectedId = null; history.replaceState(null, "", `${location.pathname}`); showView("all"); });
+        $("#save-thought").addEventListener("click", () => { saveThought(item.id, $("#thought-input").value); $("#save-state").textContent = "已保存到本浏览器"; });
+        history.replaceState(null, "", `#exp-${item.id}`);
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      };
+      const showDetail = (id) => {
+        const item = state.experiments.find((candidate) => candidate.id === id);
+        if (item) { state.selectedId = id; renderDetail(item); }
+      };
+      const renderTodos = () => {
+        if (!state.todos.length) { $("#todo-list").innerHTML = `<div class="empty">还没有待办方向。</div>`; return; }
+        $("#todo-list").innerHTML = state.todos.map((todo) => `<article class="todo-item"><h3>${escapeHtml(todo.title)}</h3><p>${escapeHtml(todo.detail)}</p><div class="todo-meta"><span class="status warn">${escapeHtml(todo.status || "待讨论")}</span><span>${escapeHtml(todo.source || "浏览器本地新增")}</span></div></article>`).join("");
+      };
+      const showView = (view) => {
+        state.view = view;
+        document.querySelectorAll(".view-nav button").forEach((button) => button.classList.toggle("active", button.dataset.view === view));
+        $("#detail-view").hidden = true;
+        $("#list-view").hidden = view === "todo";
+        $("#todo-view").hidden = view !== "todo";
+        if (view === "denoising") { state.category = "denoising"; $("#category-filter").value = "denoising"; }
+        if (view === "all") { state.category = "all"; $("#category-filter").value = "all"; }
+        if (view === "todo") renderTodos(); else renderList();
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      };
+      const boot = async () => {
+        state.todos = loadTodos();
+        $("#search").addEventListener("input", (event) => { state.query = event.target.value; renderList(); });
+        $("#status-filter").addEventListener("change", (event) => { state.status = event.target.value; renderList(); });
+        $("#category-filter").addEventListener("change", (event) => { state.category = event.target.value; renderList(); });
+        document.querySelectorAll(".view-nav button").forEach((button) => button.addEventListener("click", () => showView(button.dataset.view)));
+        $("#todo-form").addEventListener("submit", (event) => {
+          event.preventDefault();
+          const title = $("#todo-title").value.trim();
+          const detail = $("#todo-detail").value.trim();
+          if (!title) return;
+          state.todos.push({ id: `local-${Date.now()}`, title, detail, status: "待讨论", source: "浏览器本地新增" });
+          saveTodos(); renderTodos(); event.target.reset();
+        });
+        try {
+          const response = await fetch(`实验总账.md?ts=${Date.now()}`, { cache: "no-store" });
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+          state.experiments = parseLedger(await response.text());
+          renderSummary(); renderList(); $("#load-state").textContent = `已从实验总账读取 ${state.experiments.length} 条记录`;
+          const match = location.hash.match(/^#exp-(\d+)$/);
+          if (match) showDetail(Number(match[1]));
+        } catch (error) {
+          $("#load-state").innerHTML = `<div class="error">无法读取实验总账：${escapeHtml(error.message)}。请通过当前实时网页服务器打开本页，不要直接双击 HTML 文件。</div>`;
+        }
+      };
+      boot();
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,1232 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MonoDGP 去噪专项分析</title>
+  <style>
+    :root {
+      --bg: #f3f6fa;
+      --surface: #ffffff;
+      --soft: #f7f9fc;
+      --text: #182230;
+      --muted: #627184;
+      --line: #dbe2ea;
+      --accent: #2866d7;
+      --accent-soft: #e7efff;
+      --warn: #fff3df;
+      --good: #e6f6ed;
+      --shadow: 0 18px 45px rgb(28 54 88 / 9%);
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #12161d;
+        --surface: #1b222d;
+        --soft: #222b37;
+        --text: #edf2f8;
+        --muted: #aab7c7;
+        --line: #3a4655;
+        --accent: #80adff;
+        --accent-soft: #243a60;
+        --warn: #3b2d1c;
+        --good: #1c3c2b;
+        --shadow: 0 18px 45px rgb(0 0 0 / 20%);
+      }
+    }
+    * { box-sizing: border-box; }
+    [hidden] { display: none !important; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI",
+        "PingFang SC", "Microsoft YaHei", sans-serif;
+      line-height: 1.75;
+    }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .page-header {
+      padding: 58px max(24px, calc((100vw - 1180px) / 2)) 48px;
+      background: radial-gradient(circle at 85% 15%, rgb(80 136 255 / 20%), transparent 34%),
+        linear-gradient(135deg, var(--surface), var(--soft));
+      border-bottom: 1px solid var(--line);
+    }
+    .eyebrow {
+      color: var(--accent);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: .16em;
+      text-transform: uppercase;
+    }
+    h1, h2, h3 { line-height: 1.25; letter-spacing: -.015em; }
+    h1 { max-width: 850px; margin: 10px 0 12px; font-size: clamp(30px, 5vw, 48px); }
+    .lead { max-width: 760px; margin: 0; color: var(--muted); font-size: 17px; }
+    .layout {
+      display: grid;
+      grid-template-columns: 220px minmax(0, 820px);
+      gap: 38px;
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 36px 24px 80px;
+    }
+    .toc {
+      position: sticky;
+      top: 24px;
+      align-self: start;
+      padding: 14px 0;
+      color: var(--muted);
+      font-size: 13px;
+    }
+    .toc-title { margin-bottom: 8px; color: var(--text); font-weight: 700; }
+    .toc a { display: block; padding: 5px 0; color: var(--muted); }
+    .toc a:hover { color: var(--accent); }
+    main { min-width: 0; }
+    section { scroll-margin-top: 22px; margin-bottom: 40px; }
+    .card {
+      padding: 24px 26px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: var(--surface);
+      box-shadow: var(--shadow);
+    }
+    .card + .card { margin-top: 16px; }
+    .card h2, .card h3 { margin-top: 0; }
+    .section-title { margin: 0 0 14px; font-size: 27px; }
+    .section-kicker {
+      margin-bottom: 6px;
+      color: var(--accent);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+    .question {
+      border-left: 4px solid var(--accent);
+      background: var(--accent-soft);
+      box-shadow: none;
+    }
+    .callout {
+      border-left: 4px solid #b87714;
+      background: var(--warn);
+      box-shadow: none;
+    }
+    .callout.good { border-left-color: #258052; background: var(--good); }
+    .grid-two { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+    .mini {
+      padding: 18px 20px;
+      border: 1px solid var(--line);
+      border-radius: 11px;
+      background: var(--soft);
+    }
+    .mini h3 { margin: 0 0 8px; font-size: 16px; }
+    .mini p { margin: 0; color: var(--muted); font-size: 14px; }
+    ul, ol { padding-left: 24px; }
+    li + li { margin-top: 6px; }
+    .timeline { width: 100%; border-collapse: collapse; font-size: 14px; }
+    .timeline th, .timeline td {
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+    }
+    .timeline th { color: var(--muted); font-size: 12px; font-weight: 700; }
+    .timeline tr:last-child td { border-bottom: 0; }
+    .badge {
+      display: inline-block;
+      min-width: 34px;
+      margin-right: 5px;
+      padding: 2px 7px;
+      border-radius: 999px;
+      background: var(--accent-soft);
+      color: var(--accent);
+      font-size: 12px;
+      font-weight: 700;
+      text-align: center;
+    }
+    .flow-wrap { overflow-x: auto; padding: 8px 0 2px; }
+    .flow { display: block; min-width: 760px; width: 100%; height: auto; }
+    .flow-box { fill: var(--soft); stroke: var(--line); stroke-width: 1.5; }
+    .flow-box.emphasis { fill: var(--accent-soft); stroke: var(--accent); }
+    .flow-arrow { stroke: var(--muted); stroke-width: 2; fill: none; }
+    .flow-label { fill: var(--text); font-size: 15px; font-weight: 650; }
+    .flow-sub { fill: var(--muted); font-size: 12px; }
+    .equation {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: .35em;
+      margin: 18px auto;
+      color: var(--text);
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 1.55rem;
+      line-height: 1.25;
+      text-align: center;
+    }
+    .equation sub { font-size: .62em; vertical-align: -.35em; }
+    .fraction {
+      display: inline-flex;
+      flex-direction: column;
+      align-items: center;
+      min-width: 2.6em;
+      line-height: 1.1;
+      vertical-align: middle;
+    }
+    .fraction .top { padding: 0 .25em .12em; border-bottom: 1.5px solid currentColor; }
+    .fraction .bottom { padding: .12em .25em 0; }
+    .simple-equation {
+      margin-top: 14px;
+      padding: 14px 16px;
+      border: 1px solid var(--line);
+      border-radius: 9px;
+      background: var(--bg);
+      color: var(--text);
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 1.18rem;
+      text-align: center;
+    }
+    .simple-equation sub { font-size: .65em; vertical-align: -.35em; }
+    .equation-label { margin: 0 0 -8px; color: var(--muted); font-size: 12px; text-align: center; }
+    .formula-stack { padding: 18px; border: 1px solid var(--line); border-radius: 10px; background: var(--soft); }
+    pre {
+      overflow-x: auto;
+      margin: 14px 0 0;
+      padding: 15px 17px;
+      border: 1px solid var(--line);
+      border-radius: 9px;
+      background: var(--bg);
+      color: var(--text);
+      font: 14px/1.65 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+    code {
+      padding: 2px 5px;
+      border-radius: 4px;
+      background: var(--soft);
+      font: .92em ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+    .number { color: var(--accent); font-weight: 700; }
+    .footer { max-width: 1180px; margin: 0 auto; padding: 0 24px 54px; color: var(--muted); font-size: 13px; }
+    @media (max-width: 820px) {
+      .layout { display: block; padding-top: 20px; }
+      .toc { position: static; padding: 0 0 18px; }
+      .toc a { display: inline-block; margin-right: 14px; }
+      .grid-two { grid-template-columns: 1fr; }
+      .card { padding: 20px; }
+    }
+    /* 管理台模式：通过当前网页的 #experiments 入口打开，不依赖中文文件路径。 */
+    .manager-page { min-height: 100vh; background: var(--bg); color: var(--text); }
+    .manager-header { padding: 42px max(22px, calc((100vw - 1240px) / 2)) 30px; border-bottom: 1px solid var(--line); background: linear-gradient(135deg, var(--surface), var(--soft)); }
+    .manager-header h1 { margin: 7px 0 8px; font-size: clamp(28px, 5vw, 43px); }
+    .manager-header p { max-width: 820px; margin: 0; color: var(--muted); }
+    .manager-header-actions { display: flex; flex-wrap: wrap; gap: 9px; margin-top: 16px; }
+    .manager-header-actions button, .manager-header-actions a { padding: 8px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--text); font-size: 13px; font-weight: 700; text-decoration: none; }
+    .manager-header-actions button:hover, .manager-header-actions a:hover { border-color: var(--accent); color: var(--accent); }
+    .manager-layout { display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 24px; max-width: 1240px; margin: 0 auto; padding: 26px 22px 60px; }
+    .manager-side, .manager-panel, .manager-detail-card { border: 1px solid var(--line); border-radius: 13px; background: var(--surface); box-shadow: var(--shadow); }
+    .manager-side { align-self: start; position: sticky; top: 18px; padding: 15px; }
+    .manager-side-title { margin: 0 0 8px; color: var(--muted); font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+    .manager-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; margin-bottom: 16px; }
+    .manager-stat { padding: 9px; border-radius: 8px; background: var(--soft); }
+    .manager-stat strong { display: block; color: var(--accent); font-size: 21px; line-height: 1.1; }
+    .manager-stat span { display: block; margin-top: 3px; color: var(--muted); font-size: 11px; }
+    .manager-nav { display: grid; gap: 4px; }
+    .manager-nav button { padding: 8px 9px; border: 0; border-radius: 7px; background: transparent; color: var(--muted); text-align: left; font-size: 13px; }
+    .manager-nav button:hover, .manager-nav button.active { background: var(--accent-soft); color: var(--accent); font-weight: 800; }
+    .manager-source { margin-top: 15px; color: var(--muted); font-size: 11px; }
+    .manager-panel { padding: 18px; box-shadow: none; }
+    .manager-toolbar { display: flex; flex-wrap: wrap; gap: 9px; align-items: center; margin: 14px 0; }
+    .manager-toolbar input, .manager-toolbar select, .manager-todo-form input, .manager-todo-form textarea, .manager-thought textarea { width: 100%; padding: 9px 11px; border: 1px solid var(--line); border-radius: 8px; background: var(--soft); color: var(--text); font: inherit; outline: none; }
+    .manager-toolbar input { flex: 1 1 240px; }
+    .manager-toolbar select { width: auto; min-width: 126px; }
+    .manager-toolbar small { margin-left: auto; color: var(--muted); }
+    .manager-list { display: grid; gap: 8px; }
+    .manager-card { display: grid; grid-template-columns: 52px minmax(0, 1fr); gap: 12px; width: 100%; padding: 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--text); text-align: left; }
+    .manager-card:hover { border-color: var(--accent); box-shadow: 0 7px 20px rgb(40 102 215 / 9%); }
+    .manager-id { display: grid; place-items: center; min-height: 39px; border-radius: 9px; background: var(--accent-soft); color: var(--accent); font-size: 18px; font-weight: 850; }
+    .manager-card-title { font-size: 15px; font-weight: 750; }
+    .manager-card-meta { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 3px; color: var(--muted); font-size: 11px; }
+    .manager-card-preview { margin-top: 4px; color: var(--muted); font-size: 12px; }
+    .manager-status { padding: 2px 6px; border-radius: 99px; background: var(--soft); color: var(--muted); font-weight: 700; }
+    .manager-status.good { background: var(--good); color: #17623c; }
+    .manager-status.bad { background: #ffe9e9; color: #9a3232; }
+    .manager-status.warn { background: var(--warn); color: #8a5a12; }
+    @media (prefers-color-scheme: dark) { .manager-status.good { color: #87d8a8; } .manager-status.bad { background: #422527; color: #ff9a9a; } .manager-status.warn { color: #e4b15e; } }
+    .manager-detail-head { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; margin-bottom: 15px; }
+    .manager-detail-head h2 { margin: 0; font-size: clamp(21px, 4vw, 30px); }
+    .manager-back { padding: 7px 10px; border: 1px solid var(--line); border-radius: 7px; background: var(--soft); color: var(--text); white-space: nowrap; }
+    .manager-detail-meta { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 7px; color: var(--muted); font-size: 12px; }
+    .manager-detail-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+    .manager-detail-card { padding: 15px; box-shadow: none; }
+    .manager-detail-card.full { grid-column: 1 / -1; }
+    .manager-detail-card h3 { margin: 0 0 8px; font-size: 16px; }
+    .manager-detail-card p { margin: 0; white-space: pre-wrap; font-size: 13px; }
+    .manager-detail-card li { font-size: 13px; }
+    .manager-visual-center { display: grid; grid-template-columns: minmax(210px, .85fr) minmax(240px, 1.15fr); gap: 16px; align-items: center; padding: 13px; border-radius: 10px; background: var(--soft); }
+    .manager-visual-center svg { width: 100%; max-height: 175px; }
+    .manager-visual-center .box { fill: none; stroke: var(--muted); stroke-width: 2; stroke-dasharray: 6 5; }
+    .manager-visual-center .car { fill: var(--accent-soft); stroke: var(--accent); stroke-width: 2; }
+    .manager-visual-center .dot-2d { fill: #b67819; }
+    .manager-visual-center .dot-3d { fill: var(--accent); }
+    .manager-visual-legend { display: grid; gap: 11px; }
+    .manager-visual-key { display: grid; grid-template-columns: 12px 1fr; gap: 8px; align-items: start; }
+    .manager-visual-key i { width: 10px; height: 10px; margin-top: 6px; border-radius: 50%; background: #b67819; }
+    .manager-visual-key.projected i { background: var(--accent); }
+    .manager-visual-key strong, .manager-visual-key span { display: block; }
+    .manager-visual-key span { color: var(--muted); font-size: 12px; }
+    .manager-attention-compare { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .manager-attention-panel { padding: 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--soft); }
+    .manager-attention-panel h4 { margin: 0 0 7px; font-size: 13px; }
+    .manager-attention-panel svg { width: 100%; height: auto; }
+    .manager-attention-panel .group-box { fill: var(--surface); stroke: var(--line); stroke-width: 2; }
+    .manager-attention-panel .query-dot { fill: var(--accent); }
+    .manager-attention-panel .cross-link { stroke: #b94848; stroke-width: 2; opacity: .72; }
+    .manager-attention-panel .inner-link { stroke: var(--accent); stroke-width: 2; opacity: .58; }
+    .manager-attention-panel text { fill: var(--text); font: 12px ui-sans-serif, sans-serif; }
+    .manager-attention-panel p { margin-top: 6px; color: var(--muted); font-size: 11px; text-align: center; }
+    .manager-depth-compare { display: grid; grid-template-columns: 1.25fr .75fr; gap: 12px; }
+    .manager-depth-panel { padding: 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--soft); }
+    .manager-depth-panel h4 { margin: 0 0 7px; font-size: 13px; }
+    .manager-depth-panel svg { width: 100%; height: auto; }
+    .manager-depth-panel p { margin-top: 6px; color: var(--muted); font-size: 11px; text-align: center; }
+    .manager-depth-number { min-height: 176px; display: grid; place-items: center; text-align: center; }
+    .manager-depth-number strong { display: block; color: var(--accent); font-size: 34px; line-height: 1.1; }
+    .manager-depth-number span { display: block; margin-top: 6px; color: var(--muted); font-size: 12px; }
+    .manager-prob-demo { display: grid; grid-template-columns: 1fr 28px 1fr 28px .8fr; gap: 8px; align-items: stretch; margin-top: 12px; }
+    .manager-prob-step { padding: 11px; border: 1px solid var(--line); border-radius: 9px; background: var(--soft); }
+    .manager-prob-step h4 { margin: 0 0 8px; font-size: 12px; }
+    .manager-vote { display: grid; grid-template-columns: 48px minmax(0, 1fr) 38px; gap: 6px; align-items: center; margin-top: 5px; font-size: 11px; }
+    .manager-vote-track { height: 14px; overflow: hidden; border-radius: 3px; background: var(--surface); }
+    .manager-vote-fill { display: block; height: 100%; background: var(--accent); }
+    .manager-vote.bg .manager-vote-fill { background: #b94848; }
+    .manager-prob-arrow { display: grid; place-items: center; color: var(--muted); font-size: 20px; }
+    .manager-prob-answer { display: grid; place-items: center; border-radius: 9px; background: var(--good); color: #17623c; text-align: center; }
+    .manager-prob-answer strong { display: block; font-size: 26px; }
+    .manager-prob-answer span { display: block; font-size: 11px; }
+    .manager-flow { display: grid; gap: 8px; margin-top: 12px; }
+    .manager-flow-row { display: grid; grid-template-columns: 36px minmax(100px, 1fr) 24px minmax(100px, 1fr) 24px minmax(100px, 1fr); gap: 7px; align-items: center; padding: 9px; border: 1px solid var(--line); border-radius: 9px; }
+    .manager-flow-name { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; background: var(--accent-soft); color: var(--accent); font-weight: 850; }
+    .manager-flow-node { min-height: 52px; display: grid; place-items: center; padding: 7px; border-radius: 8px; background: var(--soft); text-align: center; font-size: 12px; font-weight: 700; line-height: 1.35; }
+    .manager-flow-node.bridge { color: #8a5a12; background: var(--warn); }
+    .manager-flow-node.final { color: #17623c; background: var(--good); }
+    .manager-flow-arrow { color: var(--muted); text-align: center; font-size: 19px; }
+    .manager-results { display: grid; gap: 13px; margin-top: 12px; }
+    .manager-metric { display: grid; grid-template-columns: 145px minmax(0, 1fr); gap: 11px; align-items: center; }
+    .manager-metric-label { font-size: 12px; font-weight: 750; }
+    .manager-bars { display: grid; gap: 5px; }
+    .manager-bar { display: grid; grid-template-columns: minmax(0, 1fr) 72px; gap: 7px; align-items: center; }
+    .manager-track { height: 19px; overflow: hidden; border-radius: 4px; background: var(--soft); }
+    .manager-track.missing { display: grid; place-items: center; border: 1px dashed var(--line); background: transparent; color: var(--muted); font-size: 10px; }
+    .manager-fill { display: block; height: 100%; background: var(--accent); }
+    .manager-fill.original { background: var(--muted); }
+    .manager-fill.candidate { background: #b94848; }
+    .manager-bar-value { color: var(--muted); font-size: 11px; }
+    .manager-comparison { display: flex; flex-wrap: wrap; gap: 12px; margin-left: 156px; color: var(--muted); font-size: 11px; }
+    .manager-verdict { margin-top: 13px; padding: 10px 12px; border-left: 4px solid #b67819; background: var(--warn); color: #8a5a12; font-weight: 700; font-size: 12px; }
+    .manager-raw summary { cursor: pointer; color: var(--accent); font-weight: 750; }
+    .manager-raw h4 { margin: 13px 0 4px; }
+    .manager-raw p { color: var(--muted); }
+    .manager-thought { margin-top: 12px; }
+    .manager-thought textarea { min-height: 125px; resize: vertical; }
+    .manager-save { margin-top: 7px; padding: 7px 11px; border: 1px solid var(--accent); border-radius: 7px; background: var(--accent); color: #fff; font-weight: 750; }
+    .manager-todo-layout { display: grid; grid-template-columns: minmax(0, 1fr) 260px; gap: 13px; }
+    .manager-todo-list { display: grid; gap: 9px; }
+    .manager-todo-item { padding: 12px; border: 1px solid var(--line); border-radius: 9px; background: var(--soft); }
+    .manager-todo-item h3 { margin: 0 0 4px; font-size: 15px; }
+    .manager-todo-item p { margin: 0; color: var(--muted); font-size: 12px; white-space: pre-wrap; }
+    .manager-todo-form { padding: 12px; border: 1px solid var(--line); border-radius: 9px; background: var(--soft); }
+    .manager-todo-form label { display: block; margin: 0 0 4px; color: var(--muted); font-size: 11px; font-weight: 750; }
+    .manager-todo-form .field + .field { margin-top: 8px; }
+    .manager-todo-form textarea { min-height: 100px; resize: vertical; }
+    .manager-empty { padding: 28px 12px; border: 1px dashed var(--line); border-radius: 9px; color: var(--muted); text-align: center; }
+    @media (max-width: 820px) { .manager-layout { grid-template-columns: 1fr; } .manager-side { position: static; } .manager-nav { grid-template-columns: repeat(3, 1fr); } .manager-nav button { text-align: center; } .manager-todo-layout, .manager-detail-grid, .manager-visual-center, .manager-attention-compare, .manager-depth-compare, .manager-prob-demo { grid-template-columns: 1fr; } .manager-detail-card.full { grid-column: auto; } .manager-flow-row { grid-template-columns: 34px minmax(0, 1fr); } .manager-flow-arrow { display: none; } .manager-flow-node { grid-column: 2; } .manager-metric { grid-template-columns: 1fr; } .manager-comparison { margin-left: 0; } .manager-prob-arrow { min-height: 24px; } .manager-prob-answer { min-height: 90px; } }
+  </style>
+</head>
+<body>
+  <div id="manager-root" hidden>
+    <div class="manager-page">
+      <header class="manager-header">
+        <div class="eyebrow">MonoDGP · Experiment Desk</div>
+        <h1>实验管理台</h1>
+        <p>只管理 MonoDGP：总账中的实验、每项实验的流程与结果、你的思考，以及还没有执行的待办方向。</p>
+        <div class="manager-header-actions">
+          <a href="#scope" id="manager-back-note">返回去噪专项分析</a>
+          <a href="/docs/实验总账.md">打开实验总账</a>
+        </div>
+      </header>
+      <div class="manager-layout">
+        <aside class="manager-side">
+          <div class="manager-side-title">项目概览</div>
+          <div id="manager-stats" class="manager-stats"></div>
+          <div class="manager-side-title">查看</div>
+          <nav class="manager-nav" aria-label="实验管理导航">
+            <button type="button" data-manager-view="all" class="active">全部实验</button>
+            <button type="button" data-manager-view="denoising">去噪相关</button>
+            <button type="button" data-manager-view="todo">待办方向</button>
+          </nav>
+          <div class="manager-source">数据来自当前项目的 <code>docs/实验总账.md</code>。思考和待办只保存在当前浏览器。</div>
+        </aside>
+        <main>
+          <section id="manager-list-view" class="manager-panel">
+            <h2 style="margin:0">已做实验</h2>
+            <div class="manager-toolbar">
+              <input id="manager-search" type="search" placeholder="搜索编号、名称、结果或脚本" aria-label="搜索实验">
+              <select id="manager-category" aria-label="按范围筛选"><option value="all">全部范围</option><option value="denoising">去噪相关</option></select>
+              <small id="manager-count"></small>
+            </div>
+            <div id="manager-load-state" class="manager-source">正在读取实验总账……</div>
+            <div id="manager-list" class="manager-list" aria-live="polite"></div>
+          </section>
+          <section id="manager-detail-view" class="manager-panel" hidden aria-live="polite"></section>
+          <section id="manager-todo-view" class="manager-panel" hidden>
+            <h2 style="margin:0 0 5px">待办方向</h2>
+            <p class="manager-source" style="margin:0 0 14px">这里放还没有正式执行的想法，不代表已经批准或已经启动训练。</p>
+            <div class="manager-todo-layout">
+              <div id="manager-todo-list" class="manager-todo-list"></div>
+              <form id="manager-todo-form" class="manager-todo-form">
+                <div class="field"><label for="manager-todo-title">想法名称</label><input id="manager-todo-title" required placeholder="例如：非对称区间监督诊断"></div>
+                <div class="field"><label for="manager-todo-detail">想做什么</label><textarea id="manager-todo-detail" placeholder="记录目的、风险或先要确认的地方"></textarea></div>
+                <button class="manager-save" type="submit">保存到待办</button>
+              </form>
+            </div>
+          </section>
+        </main>
+      </div>
+    </div>
+  </div>
+  <header class="page-header">
+    <div class="eyebrow">MonoDGP · Research Note</div>
+    <h1>去噪专项分析</h1>
+    <p class="lead">
+      这份笔记只讨论去噪路线。每个实验都回答：想解决什么、实际做了什么、
+      得到什么结果、能证明什么，以及不能证明什么。
+    </p>
+    <p style="margin:16px 0 0"><a href="#experiments">打开 MonoDGP 实验管理台 →</a></p>
+  </header>
+
+  <div class="layout">
+    <nav class="toc" aria-label="章节导航">
+      <div class="toc-title">本页目录</div>
+      <a href="#scope">先看范围</a>
+      <a href="#timeline">实验时间线</a>
+      <a href="#seq13">序号13</a>
+      <a href="#seq14">序号14</a>
+      <a href="#symbols">符号解释</a>
+      <a href="#conclusion">结论边界</a>
+    </nav>
+
+    <main>
+      <section id="scope">
+        <div class="card question">
+          <strong>先把“去噪”分清楚</strong>
+          总账里出现“去噪”不代表每项都训练过网络。序号13是数学诊断；
+          序号84是噪声和真实错误的对齐诊断；序号88以后才进入可学习去噪。
+        </div>
+      </section>
+
+      <section id="timeline">
+        <div class="card">
+          <div class="section-kicker">路线总览</div>
+          <h2 class="section-title">去噪实验时间线</h2>
+          <div class="flow-wrap">
+            <svg class="flow" viewBox="0 0 960 190" role="img"
+                 aria-label="从序号13几何公式诊断到序号99老师剂量体检的去噪实验路线">
+              <defs>
+                <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5"
+                        markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                  <path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor"></path>
+                </marker>
+              </defs>
+              <line class="flow-arrow" x1="170" y1="70" x2="245" y2="70" marker-end="url(#arrow)"></line>
+              <line class="flow-arrow" x1="415" y1="70" x2="490" y2="70" marker-end="url(#arrow)"></line>
+              <line class="flow-arrow" x1="660" y1="70" x2="735" y2="70" marker-end="url(#arrow)"></line>
+              <rect class="flow-box emphasis" x="5" y="28" width="165" height="84" rx="12"></rect>
+              <rect class="flow-box" x="250" y="28" width="165" height="84" rx="12"></rect>
+              <rect class="flow-box" x="495" y="28" width="165" height="84" rx="12"></rect>
+              <rect class="flow-box" x="740" y="28" width="215" height="84" rx="12"></rect>
+              <text class="flow-label" x="87" y="58" text-anchor="middle">13 几何公式</text>
+              <text class="flow-sub" x="87" y="82" text-anchor="middle">先查有没有新信息</text>
+              <text class="flow-label" x="332" y="58" text-anchor="middle">84–87 真实对齐</text>
+              <text class="flow-sub" x="332" y="82" text-anchor="middle">噪声像不像真实错误</text>
+              <text class="flow-label" x="577" y="58" text-anchor="middle">88–92 可学习性</text>
+              <text class="flow-sub" x="577" y="82" text-anchor="middle">梯度、迁移、记忆</text>
+              <text class="flow-label" x="847" y="58" text-anchor="middle">93–99 普通查询路线</text>
+              <text class="flow-sub" x="847" y="82" text-anchor="middle">接线、四臂、老师体检</text>
+              <text class="flow-sub" x="480" y="156" text-anchor="middle">从“公式有没有信息”逐步走到“网络能不能学会并迁移”</text>
+            </svg>
+          </div>
+          <table class="timeline">
+            <thead><tr><th>编号</th><th>实验性质</th><th>回答的问题</th></tr></thead>
+            <tbody>
+              <tr><td><span class="badge">13</span></td><td>数学/几何诊断</td><td>二维高度扰动能不能通过投影公式产生独立的深度修正？</td></tr>
+              <tr><td><span class="badge">14</span></td><td>两级机制诊断</td><td>能不能让每辆车拥有一个图像自适应的可行深度区间？</td></tr>
+              <tr><td><span class="badge">84</span></td><td>传统 DN 对齐</td><td>人工噪声是否像真实模型错误？</td></tr>
+              <tr><td><span class="badge">86–87</span></td><td>生产接线</td><td>去噪分支是否真的进入真实模型和损失？</td></tr>
+              <tr><td><span class="badge">88+</span></td><td>可学习去噪</td><td>有梯度后能不能学、能不能迁移回普通查询？</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="seq13">
+        <div class="section-kicker">Experiment 13 · 2026-07-31</div>
+        <h2 class="section-title">投影闭合的几何去噪</h2>
+
+        <div class="card question">
+          <strong>它想解决什么？</strong>
+          当二维框高度有误差时，用投影关系算出来的深度也会变。
+          当时的想法是：能不能利用这个二维误差反推出一个深度补偿，
+          把二维框、物体尺寸和三维深度重新“闭合”？
+        </div>
+
+        <div class="card">
+          <h3>实际做了什么？</h3>
+          <div class="callout">
+            <strong>数据身份：</strong>
+            序号13没有拿 KITTI 真值框加噪声，也没有拿模型预测框加噪声。
+            二维高度、三维尺寸、深度和扰动都是公式变量；数值复核使用人工生成的随机数。
+          </div>
+          <ol>
+            <li>写出二维框高度、三维尺寸和深度之间的投影关系。</li>
+            <li>给抽象的二维高度加一个扰动。</li>
+            <li>按照同一个投影公式重新计算深度。</li>
+            <li>把新旧深度的差作为候选变化，检查它是否提供了额外纠错信息。</li>
+            <li>用约 <span class="number">1000 万</span>组人工数值做复核。</li>
+          </ol>
+        </div>
+
+        <div class="card">
+          <h3>投影关系</h3>
+          <div class="formula-stack">
+            <p class="equation-label">二维高度、焦距、物体高度和深度的关系</p>
+            <div class="equation" aria-label="h equals fy times H divided by Z">
+              <span>h</span><span>=</span>
+              <span class="fraction"><span class="top">f<sub>y</sub> × H</span><span class="bottom">Z</span></span>
+            </div>
+            <p class="equation-label">加高度扰动后</p>
+            <div class="equation" aria-label="h new equals h plus e sub h">
+              <span>h<sub>new</sub></span><span>=</span><span>h</span><span>+</span><span>e<sub>h</sub></span>
+            </div>
+            <p class="equation-label">由高度扰动引起的深度变化</p>
+            <div class="equation" aria-label="delta Z equals fy H over h plus e sub h minus fy H over h">
+              <span>ΔZ</span><span>=</span>
+              <span class="fraction"><span class="top">f<sub>y</sub> × H</span><span class="bottom">h + e<sub>h</sub></span></span>
+              <span>−</span>
+              <span class="fraction"><span class="top">f<sub>y</sub> × H</span><span class="bottom">h</span></span>
+            </div>
+          </div>
+        </div>
+
+        <div class="card" id="symbols">
+          <h3>符号到底代表什么？</h3>
+          <div class="grid-two">
+            <div class="mini">
+              <h3>唯一人为加入的扰动</h3>
+              <p><strong>e<sub>h</sub></strong>：加到二维高度上的高度残差。</p>
+              <div class="simple-equation">新高度 = 原高度 + e<sub>h</sub></div>
+            </div>
+            <div class="mini">
+              <h3>公式自动算出的变化</h3>
+              <p><strong>ΔZ</strong>：由 e<sub>h</sub> 通过投影公式确定性换算出的深度变化。它不是第二个网络残差。</p>
+              <div class="simple-equation">ΔZ = <span class="fraction"><span class="top">f<sub>y</sub> × H</span><span class="bottom">h + e<sub>h</sub></span></span> − <span class="fraction"><span class="top">f<sub>y</sub> × H</span><span class="bottom">h</span></span></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3>用一个数字例子看</h3>
+          <pre>原高度       h = 100 像素
+高度扰动     e_h = +5 像素
+新高度       h_new = 105 像素
+
+原深度       Z = 20 米
+重新计算     Z_new ≈ 19.05 米
+深度变化     ΔZ ≈ -0.95 米
+
+把变化加回去：20 + (-0.95) = 19.05 米</pre>
+          <p>
+            这说明“把变化放回最终深度”只是得到重新计算后的深度；
+            它没有凭空加入图像纹理、真实深度或网络学到的新证据。
+          </p>
+        </div>
+
+        <div class="card callout good">
+          <h3>结果</h3>
+          <p>
+            公式展开以后，所谓的“深度补偿”只是由同一个高度扰动确定性换算出来的量。
+            它没有形成独立的纠错信号。约 1000 万组人工数值复核中，
+            修正前后的差异只有浮点数舍入误差。
+          </p>
+          <p><strong>因此：没有训练，也没有 AP 结果。</strong></p>
+        </div>
+
+        <div class="grid-two">
+          <div class="card">
+            <h3>它真正证明了什么？</h3>
+            <ul>
+              <li>这个具体的几何去噪公式没有新信息。</li>
+              <li>它不能作为独立的几何修正模块。</li>
+              <li>继续训练它，可能只是在重复原有投影计算。</li>
+            </ul>
+          </div>
+          <div class="card">
+            <h3>它没有证明什么？</h3>
+            <ul>
+              <li>没有证明图像证据不能帮助深度。</li>
+              <li>没有证明网络不能学习去噪。</li>
+              <li>没有证明所有 DN 设计都无效。</li>
+              <li>没有给出任何 AP 结论。</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section id="seq14">
+        <div class="section-kicker">Experiment 14 · 2026-07-31—08-01</div>
+        <h2 class="section-title">图像自适应的可行深度区间监督</h2>
+
+        <div class="card question">
+          <strong>它想解决什么？</strong>
+          不让模型被迫猜一个精确深度，而是让每辆车有一个“允许的深度范围”：
+          只要落在这个范围里，三维框就不会低于指定的 3D IoU 门槛。
+        </div>
+
+        <div class="card callout">
+          <strong>先说清楚：序号14也没有真实训练。</strong>
+          它分成 Stage-0A 和 Stage-0B 两级诊断。Stage-0A 检查这个范围在真实缓存里是否足够常见；
+          Stage-0B 用真值做一个理想上限。两级都没有更新模型参数，也没有训练 checkpoint。
+        </div>
+
+        <div class="card">
+          <h3>Stage-0A：先检查“可行区间”是否覆盖得够多</h3>
+          <div class="callout">
+            <strong>R4-D 是什么？</strong>
+            R4 是把 KITTI 的 <strong>train</strong> 图片按固定哈希切成 D、F、H 三个分片；
+            D 取哈希比例 [0, 0.4)，一共有 <strong>1,512 张图片</strong>。
+            它不是官方 val/test，也不是陌生图片，而是模型见过的训练数据。
+            “R4-D 缓存”就是对这 1,512 张图做的一次冻结基线整理：
+            每辆有效 Car 保存基线三维框、预测二维中心、标定、真值框和真值深度，
+            共 4,473 行。序号14只读它做几何诊断，没有重新跑检测器，也没有训练。
+          </div>
+          <ol>
+            <li>
+              读取固定的 R4-D 缓存：<strong>4,473 个 Car 行、1,512 张图片</strong>。
+              每行包含冻结基线三维框、预测二维中心、相机标定、真值框和真值深度。
+            </li>
+            <li>
+              对每辆车固定预测框的尺寸、朝向和预测中心射线，只让深度沿这条射线变化。
+              深度搜索范围固定为 <strong>2—65 米</strong>。
+            </li>
+            <li>
+              分别设定 3D IoU 门槛 <strong>0.70、0.65、0.75</strong>，找出所有满足
+              <strong>IoU ≥ 门槛</strong> 的深度。它们应该是一个区间
+              <strong>[左端点，右端点]</strong>，而不是一个精确点。
+            </li>
+            <li>
+              区间的最高点用网格/三分搜索，左右端点用二分搜索；如果当前基线深度在区间外，
+              就把它剪到最近的端点，得到一个“理想区间投影”结果。
+            </li>
+            <li>
+              检查支持率、真值是否落在区间里、需要改变的比例、深度 MAE、是否救回 IoU，
+              以及区间损失梯度和普通点深度损失梯度是否同向；统计使用 10,000 次图像簇 bootstrap。
+            </li>
+          </ol>
+          <div class="card" style="margin-top:16px;">
+            <h4>这些指标分别在问什么？</h4>
+            <ul>
+              <li><strong>表头“行数 / 有区间”：</strong>前一个数字是这一难度组里的 Car 记录总数，后一个数字是其中至少存在一个深度能达到 IoU 门槛的记录数。比如“1,998 / 1,977”表示 1,998 辆车里有 1,977 辆有可行深度范围，剩下 21 辆只改深度也救不了。</li>
+              <li><strong>支持率：</strong>在固定尺寸、朝向和射线不变时，沿 2—65 米移动深度，是否至少有一个位置能达到指定 IoU 门槛。低支持率说明“只改深度”从几何上就救不了很多车。</li>
+              <li><strong>真值落在区间里的比例：</strong>在有可行区间的车里，真实深度是否位于这个区间内。低了说明问题不只是深度，预测框尺寸、朝向或二维中心也有明显错误。</li>
+              <li><strong>需要改变的比例：</strong>在有区间的车里，当前基线深度是否已经在区间外；在区间内的车不需要被投影。这不是“模型会不会改”，只是“几何上有多少车值得改”。</li>
+              <li><strong>深度 MAE：</strong>比较原始预测与真值的平均绝对深度误差，再比较把深度<strong>用真值构造的区间剪裁</strong>后的误差。后者下降只说明理想区间有纠错空间，不代表模型已经学会。</li>
+              <li><strong>是否救回 IoU：</strong>原来低于门槛，剪裁后达到门槛，记为一次“救回”；同时检查原来达标、剪裁后反而不达标的“误伤”。因此要看救回率、误伤率和净救回率。</li>
+              <li><strong>两个梯度是否同向：</strong>普通点损失把深度当成一个精确数；区间损失只要求落进允许范围。比较它们在当前预测处的梯度符号：同号表示梯度下降会把深度往同一方向推。这里实际用的是“区间概率损失”，区间不对称时，即使预测在区间内也可能有小梯度；小到阈值以下才不计入。</li>
+              <li><strong>10,000 次图像簇 bootstrap：</strong>不是重复训练，而是每次把“图片”作为整体重新抽样，再重算指标。因为同一张图里的多辆车并不独立，按图片抽样比把每辆车当独立样本更诚实；10,000 次得到 95% 置信区间，表示结果对换一批图片是否仍稳定。</li>
+            </ul>
+          </div>
+          <div class="card callout" style="margin-top:16px;">
+            <h4>“梯度同向率”怎么算？</h4>
+            <p>
+              这里只有一个变量：深度，所以方向只看正负号。设普通点损失梯度为 <code>g_point</code>，区间损失梯度为 <code>g_interval</code>：
+              两者都非零且 <code>g_point × g_interval &gt; 0</code>，记为同向；乘积小于 0，记为相反；任意一个接近 0，就不拿来判断冲突。
+            </p>
+            <p>
+              例如预测深度偏远，普通损失给正梯度，梯度下降会把深度往小了推；如果区间损失也给正梯度，两者同向。
+              如果预测已经在允许区间内且区间损失梯度足够小，它不会再推，这种情况不计入“同向/相反”的分母。
+              因此同向率 = 同向样本数 ÷ 两个梯度都有效的样本数，而不是 ÷ 全部车辆数。
+            </p>
+          </div>
+          <div class="card" style="margin-top:16px;">
+            <h4>区间概率损失到底是什么？</h4>
+            <p>
+              普通点损失问“预测的一个点离真值有多远”；区间概率损失改问“当前深度分布有多大概率落在允许区间 [左端点，右端点] 内”。
+              代码里把预测深度当作 Laplace 分布的中心 <code>μ</code>，把缓存中的 <code>log_scale</code>换成尺度 <code>b</code>，
+              计算区间概率 <code>P(左端点 ≤ Z ≤ 右端点)</code>，然后取负对数：概率越大，损失越小；概率越小，损失越大。
+            </p>
+            <p>
+              例如中心在 24 米、允许区间是 [18, 22] 米时，大部分概率落在区间外，损失会较大，梯度会把中心往近处推。
+              中心在 20 米且区间大致对称时，区间概率较大，梯度接近零。若中心已在区间内但区间左右很不对称，移动中心仍可能增加区间概率，
+              所以梯度不一定严格为零。
+            </p>
+            <p class="muted">
+              序号14只用这个公式计算“如果换成区间监督，梯度会往哪边走”，没有训练模型，也没有更新尺度；真实训练时若允许尺度自由变大，还必须额外约束不确定度，避免模型用“我很不确定”逃避深度学习。
+            </p>
+          </div>
+          <div class="card callout" style="margin-top:16px;">
+            <h4>用数字举例</h4>
+            <p>
+              假设真实深度是 20 米，当前预测是 24 米，几何诊断得到的允许区间是 [18, 22] 米。
+              因为 24 米在区间右边，所以把它“投影”到最近的右端点 22 米；误差就从 |24−20|=4 米变成 |22−20|=2 米。
+              如果当前预测是 21 米，它本来就在区间内，就不改，误差仍是 1 米。这里的“投影”不是模型重新预测，而是诊断阶段的理想剪裁。
+            </p>
+            <p>
+              “10,000 次图像簇 bootstrap”可以想成：有 1,512 张图片，每次随机抽 1,512 张图片（允许同一张被抽到多次），
+              把抽到的图片里的所有车辆拿来重新算一次 MAE 或救回率；重复 10,000 次，得到 10,000 个结果。
+              取中间 95% 的结果就是置信区间。它不增加数据、不训练模型，只是在问：换一批相似的图片后，这个结论会不会大幅波动。
+            </p>
+          </div>
+          <div class="card warning" style="margin-top:16px;">
+            <h4>什么时候会相反？</h4>
+            <p>
+              例如当前预测深度是 24 米，允许区间是 [18, 22] 米，但真实深度是 30 米。
+              区间损失想把 24 米拉回 22 米；普通点损失却想把它推向 30 米。两个梯度就会相反。
+              这不是普通损失算错了，而是固定尺寸/朝向的框在真实深度处无法达到这个 IoU 门槛，两个目标发生冲突。
+            </p>
+            <p>
+              另外，当前实现的区间损失是“区间概率损失”，不是硬规则；区间不对称时，预测即使已经在区间内，也可能被轻微地推向区间中概率更高的一侧，
+              因此仍可能和真值点损失相反。代码用阈值把过小的梯度排除在同向率之外。
+            </p>
+            <p>
+              更直接的反例是：真实深度 19 米，允许区间 [18, 26] 米，当前预测 20 米。
+              对称分布的区间概率会偏向区间中点 22 米，可能把 20 米往更远处推；普通点损失却会把它往 19 米推。
+              所以“真值在区间内”甚至“区间存在”，都不能保证区间概率梯度朝向真值；它只在当前预测与真值相对区间中心的方向恰好一致时才会同向。
+            </p>
+          </div>
+          <div class="callout" style="margin-top:16px;">
+            <strong>搜索到底有多密？不是每 1 米一次。</strong>
+            2—65 米一共是 63 米。程序先用 <strong>0.01 米（1 厘米）</strong>的间隔扫完整个范围，
+            也就是每辆车检查 <strong>6,301 个深度点</strong>（2.00、2.01、…、65.00 米），覆盖 100% 的范围。
+            找到最高点后，再在它附近 ±0.01 米内做 128 轮三分精修；左右区间边界各做 80 轮二分。
+            另外的 0.02/0.01 米网格只是最后核对区间有没有漏掉，不是最终答案的搜索步长。
+          </div>
+          <div class="card warning" style="margin-top:16px;">
+            <strong>二分法的前提，不能说成“整条曲线单调”。</strong>
+            IoU 从很近的深度走向正确位置时通常上升，越过峰值后又下降，所以整条 2—65 米曲线不是单调的。
+            代码先找一个峰值，再只在峰值左侧找“低于门槛 → 高于门槛”的第一次穿越，右侧找相反穿越。
+            在“尺寸、朝向和中心射线都固定”的条件下，两个凸三维盒沿直线平移时，交集体积是对深度的对数凹函数；
+            因此 IoU≥门槛的区域只能是空集、一个点或一个连续区间，左右两侧才可以分别二分。
+            本次结果的 4,473 行、3 个门槛在 0.02 米和 0.01 米网格核验中都没有发现多段区间或错分。
+            但这不是无条件保证：如果尺寸/朝向也随深度改变、射线不是直线，或数值实现出现异常，就必须放弃二分并退回全域扫描。
+          </div>
+          <div class="callout" style="margin-top:16px;">
+            名字虽然叫“图像自适应”，但 Stage-0A 没有读取图像纹理，也没有训练图像网络；
+            它只是用冻结预测框、相机几何和真值做机制体检。
+          </div>
+        </div>
+
+        <div class="card">
+          <h3>Stage-0A 的实际结果（IoU 门槛 0.70）</h3>
+          <table class="timeline">
+            <thead><tr><th>难度</th><th>行数 / 有区间</th><th>需要改变的比例</th><th>MAE</th><th>梯度同向率</th></tr></thead>
+            <tbody>
+              <tr>
+                <td>Moderate</td>
+                <td>1,998 / 1,977（98.95%）</td>
+                <td>23.27%</td>
+                <td>0.2332 → 0.1726 米</td>
+                <td>93.17%</td>
+              </tr>
+              <tr>
+                <td>Hard</td>
+                <td>1,215 / 1,151（94.73%）</td>
+                <td>36.49%</td>
+                <td>0.3710 → 0.2239 米</td>
+                <td>93.05%</td>
+              </tr>
+            </tbody>
+          </table>
+          <p>
+            Moderate 虽然有区间，但真正需要改变的比例只有 <strong>23.27%</strong>，
+            低于事先规定的 25% 作用范围门槛，所以 Stage-0A 的总判断是
+            <strong>KILL_IADS_INSUFFICIENT_SUPPORT</strong>。
+          </p>
+          <div class="card warning" style="margin-top:16px;">
+            <strong>23.27% 的正确解读：</strong>
+            它表示只有约四分之一的 Moderate 基线深度在几何上需要被“直接投影”回区间；这限制的是硬投影的作用面，
+            不是软区间概率梯度的作用面。其余约 76.73% 虽然已经在区间内，区间概率损失仍可能给出一个微调方向，
+            但它只知道“落在范围内可以”，不知道区间内部哪一点是真值，梯度可能很小、推向区间中心，也可能因区间不对称而偏离真值。
+            因此真正要看的是：梯度是否朝向真值，以及力度是否足够，而不能只看硬投影改变比例。
+          </div>
+          <div class="card callout" style="margin-top:16px;">
+            <strong>同向率为什么不是 100%？</strong>
+            在 IoU 门槛 0.70 的 Moderate 组中，两个梯度有效的样本里 93.17% 同向、约 6.83% 相反。
+            相反的那一小部分中，约 98% 的样本真值仍在允许区间内，当前预测也基本在区间内；主要冲突来自“区间概率偏好的中心”和真实深度不在同一侧，
+            而不是因为这些样本没有可行区间。这正说明同向率是在检查方向是否可靠，而不是一个由几何必然保证的数字。
+          </div>
+        </div>
+
+        <div class="card">
+          <h3>Stage-0B：再做一个“真值上限”</h3>
+          <ol>
+            <li>
+              读取冻结的官方 val 检测结果，共 <strong>3,769 个检测文件</strong>。
+            </li>
+            <li>
+              用二维框 IoU ≥ 0.5 的 Hungarian 匹配，把预测 Car 和真值 Car 对齐，
+              一共得到 <strong>10,083 个匹配</strong>。
+            </li>
+            <li>
+              对每个匹配，直接使用真值三维框来求“预测框沿深度射线达到
+              3D IoU ≥ 0.70 的区间”。这一步就是不可部署的真值归因。
+            </li>
+            <li>
+              把预测框沿射线的深度剪到这个区间，只改三维位置
+              <strong>x、y、z</strong>；尺寸、朝向、置信度和二维框全部保持原样。
+            </li>
+            <li>
+              不训练网络，直接把改写后的检测文件送进 CPU KITTI evaluator，
+              同时评估 3D IoU 0.70 和 0.50 的 AP。
+            </li>
+          </ol>
+          <div class="card callout" style="margin-top:16px;">
+            <strong>Oracle 不是把深度直接改成真值。</strong>
+            它用真值三维框算出一个允许区间，再把预测深度剪到最近的区间边界；如果原预测已经在区间内，就不改。
+            例如真值深度是 20 米、区间是 [18, 22] 米、预测是 24 米，Oracle 输出 22 米，不是直接输出 20 米。
+            但区间本身依赖真值框，所以这种修正信息在真实部署时不可获得，属于理想上限。
+          </div>
+          <div class="card warning" style="margin-top:16px;">
+            <strong>去重说明：</strong>
+            Stage-0B 没有做 NMS，也没有删除重复的预测 Car。Hungarian 只保证“归因匹配”是一对一：
+            同一个真值最多归因给一个预测，其他重复预测不会被投影，但仍保留在改写后的检测文件里，继续交给官方评估器，
+            因而仍可能按重复检测/假阳性影响 AP。这不是把重复框人为删掉后再报结果。
+          </div>
+        </div>
+
+        <div class="card">
+          <h3>Stage-0B 的结果</h3>
+          <table class="timeline">
+            <thead><tr><th>指标</th><th>Moderate</th><th>Hard</th></tr></thead>
+            <tbody>
+              <tr><td>深度 MAE</td><td>1.0781 → 0.5554 米</td><td>1.0236 → 0.6215 米</td></tr>
+              <tr><td>3D AP，IoU 0.70</td><td>23.26 → 43.30（+20.04）</td><td>20.26 → 40.07（+19.81）</td></tr>
+              <tr><td>3D AP，IoU 0.50</td><td>49.92 → 81.72（+31.80）</td><td>45.75 → 74.99（+29.24）</td></tr>
+            </tbody>
+          </table>
+          <div class="callout" style="margin-top:16px;">
+            这不是方法结果，而是“知道真值后最多能救多少”的上限。
+            它说明深度错误确实能影响 AP，但没有说明模型能自己找到这个区间。
+          </div>
+          <div class="card callout" style="margin-top:16px;">
+            <strong>这个方向要不要继续？要，但不能原样重复 Oracle。</strong>
+            Stage-0B 已经证明：如果能找到合适的深度修正，AP 的上限很大；Stage-0A 只是否定了“把硬区间直接当成普遍可学修正”的第一版方案。
+            下一步真正要回答的是：不看真值时，图像、预测框几何和不确定度能不能预测“应该往近还是往远”，以及应该推多大。
+            在回答这个可学习性问题前，不应直接投入完整训练或把 Oracle AP 当成方法结果。
+          </div>
+          <div class="card" style="margin-top:16px;">
+            <h4>Stage-0B 后面实际做过什么？</h4>
+            <ul>
+              <li><strong>2026-08-02 支持集分层审计：</strong>读取 3,769 张 val 图、10,083 个匹配 Car，在 IoU 门槛 0.65/0.70/0.75 下按难度、距离、框高、分数和基线 IoU 分层，检查可行区间覆盖、区间宽度和离区间多远。它仍是 GT 条件诊断，不是图像可学习性或 AP。</li>
+              <li><strong>旧的区间损失短程尝试：</strong>序号27做过 6 轮匹配区间损失短训，Moderate 候选比对照低 0.073；序号28只完成真实批次梯度探针；序号54只跑到第3轮后停止，均没有形成正向完整 AP 证据。</li>
+              <li><strong>后续相关但不同的路线：</strong>序号93—101转向普通查询的投影去噪老师、方向和动作菜单诊断，不再是 Stage-0B 的真值区间监督；它们也没有证明无真值区间能直接学会。</li>
+            </ul>
+            <p class="muted">因此，后面不是完全没做，而是做到了“上限和可行性拆解”，还没有得到一个可部署的区间学习方法正结果。</p>
+          </div>
+          <div class="card question" style="margin-top:16px;">
+            <h4>用户提出的下一阶段假设（2026-08-06，尚未执行）</h4>
+            <ol>
+              <li><strong>没有可行区间：</strong>不强行修正，保持原预测。</li>
+              <li><strong>当前深度在区间外：</strong>目标不是直接贴到真值，而是贴到最近的可行区间边界。</li>
+              <li><strong>当前深度在区间内：</strong>不能把区间中心当成真值；应使用一个条件化的非对称深度概率分布，让分布在区间内部偏向真实深度，而不是默认对称地偏向区间中心。</li>
+              <li><strong>条件特征：</strong>把推理时可获得的预测框长、宽、高、朝向、三维中心、中心射线和投影量作为网络输入，辅助决定区间内的偏向和修正力度。真值生成的区间端点、区间宽度和“当前深度相对区间的位置”只能作为训练监督，不能直接喂给推理网络。</li>
+            </ol>
+            <div class="callout" style="margin-top:12px;">
+              <strong>训练和推理的分工：</strong>
+              训练时有真值三维框，可以计算左右边界并构造监督：区间外用最近边界作为目标，区间内用真值深度构造非对称分布目标。
+              推理时不计算真值边界、不做二分搜索，只把可观测的图像与几何特征送入网络，由网络直接输出修正分布或修正量。
+            </div>
+            <p class="muted">
+              这是一条待验证的机制假设，不是已证明结论。关键待讨论点是：可观测图像/几何特征能否学到训练时由真值定义的非对称方向，
+              以及如何约束分布尺度，避免模型只增大“不确定度”而不学习真实偏向。
+            </p>
+          </div>
+        </div>
+
+        <div class="grid-two">
+          <div class="card">
+            <h3>这项真正证明了什么？</h3>
+            <ul>
+              <li>部分车辆确实存在可以接受的深度范围。</li>
+              <li>只改深度位置，理论上能救回一些 3D IoU 0.70 对象。</li>
+              <li>当前深度错误不是完全没有可修正空间。</li>
+            </ul>
+          </div>
+          <div class="card">
+            <h3>这项没有证明什么？</h3>
+            <ul>
+              <li>没有证明图像能预测这个区间。</li>
+              <li>没有证明区间监督能被网络学会。</li>
+              <li>没有证明部署后 AP 会提升。</li>
+              <li>IoU 0.50 AP 同样上升；原始结果字段名叫 <code>ap05_drop</code>，但它保存的是 baseline − oracle，所以负数代表提升，不是下降。</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section id="conclusion">
+        <div class="card callout">
+          <h2 class="section-title">序号13的一句话结论</h2>
+          <p>
+            它看起来是在给二维高度加噪声、再修正深度；但深度变化完全由同一个投影公式推出来，
+            所以只是把原公式重新算了一遍，没有产生新的可学习信息。
+          </p>
+        </div>
+        <div class="card">
+          <h3>后续分析方向</h3>
+          <p>后面的实验要回答两个更实际的问题：</p>
+          <ol>
+            <li>人工去噪噪声是否真的像模型在真实图片上犯的错误？</li>
+            <li>去噪分支学到的东西，能不能迁移回普通检测查询？</li>
+          </ol>
+          <p>
+            完整编号、配置、结果和限制见
+            <a href="实验总账.md">实验总账.md</a>。
+          </p>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <footer class="footer">
+    MonoDGP 去噪专项分析 · 当前从序号13开始逐项回顾
+  </footer>
+  <script>
+    (() => {
+      "use strict";
+      const managerRoot = document.getElementById("manager-root");
+      const DENOISING_IDS = new Set([6, 13, 14, 25, 26, 27, 28, 47, 50, 54, 75, 76, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101]);
+      const THOUGHT_SEEDS = {
+        1: "用户总结：对于目标语义相同、前一阶段先定位而后一阶段继续修正的递进式任务，共用一个头或拆成两个专门头都可行；拆头的+0.0338只能视为可能略有帮助的线索。通过二维框中心再桥接到投影三维中心改变了接口语义，当时的小桥接层、冻结下游和5轮短训方案不太合理。",
+        2: "用户认为：只要训练采用多组查询并让每组独立匹配，组间注意力隔离就是正常且合理的配套实现，应视为基线修正，不包装成创新。",
+        3: "用户追问概率图如何采样，复盘发现旧脚本错误混入背景60米占位值。GPU batch 1完整重算确认当前中心采样线性融合没有收益。用户进一步澄清：真正关心的不是把激光雷达数值与最终深度直接融合，而是现有稠密深度分类分支产生的深度特征会送入三维解码器；若这套空间深度监督不可靠，后续应尝试仅在训练时把激光雷达点云投影到图像，监督更真实的深度特征，测试仍只输入图像。",
+        4: "复盘纠正：实验四并非只有一组查询。实验四和五训练时都有11组×50个查询并做11份独立匹配；四让550个查询全局互看，五按组隔离注意力。用户认为更一致的多组训练可能带来更好泛化，但当前直接证据是验证精度提高，泛化机制未单独验证。",
+        13: "用户指出：序号13只是把同一个投影公式重新算一遍，没有产生新的可学习信息。",
+        14: "用户认为 Oracle 上限很有意义，但要区分区间外贴最近边界和区间内的非对称概率偏向；不能把区间中心当成真值。",
+        27: "用户关心旧的区间损失短训是否真正证明了方向，不能把短程负结果直接扩大成对整个去噪方向的否定。",
+        28: "用户希望先弄清区间概率损失的梯度方向、力度和与普通点损失的冲突，再决定是否训练。",
+        54: "用户关心训练是否真正把几何/图像证据转成 AP，不能只看损失或局部 MAE。",
+        76: "用户认为真实图像中存在投影边界证据，但连续修正没有稳定转成 AP，需要继续分离方向、剂量和接线问题。",
+        93: "用户强调老师要接到真实普通查询路径，不能只在人工查询或冻结支路上得到结论。",
+        94: "用户要求先收口学习许可和实现风险，确认增益、梯度和数据路径没有接错。",
+        97: "用户要求 O0/G/C/W 对照必须真正区分普通损失与辅助损失看什么图，不能混淆归因。",
+        101: "用户关心完整验证集上的动作菜单是否有独立图像收益，不能把 Oracle 菜单本身的收益误认为图像已经学会。"
+      };
+      const DEFAULT_TODOS = [
+        { id: "exp3-foreground-conditional-depth-rerun", experimentId: 3, title: "按前景条件概率重算序号3", detail: "已完成GPU batch size 1完整val修正重算和同batch旧算法配对控制；11,178辆匹配Car严格对齐。修正后稠密深度加入最终深度使留出MAE增加0.001294米，加入几何深度使MAE增加0.002299米，未提供互补收益。旧JSON保留，修正结果单独保存。", status: "已完成", source: "2026-08-07逐项复盘与修正重算" },
+        { id: "exp3-lidar-depth-direction", experimentId: 3, title: "用训练期点云投影监督稠密深度特征", detail: "这是用户明确的主方案，不是把激光雷达深度直接加入最终深度，也不是测试时多模态输入。训练时将KITTI激光雷达点投影到图像，只在有效点位置用真实表面深度监督稠密深度特征；该特征继续送入三维解码器，由目标深度头学习从可见表面与上下文到物体中心。测试时完全撤掉激光雷达，仍只输入图像。正式设计需对照原二维框整块填中心深度的监督，并处理稀疏覆盖、遮挡取最近点、图像增强与点投影同步、远近样本权重。", status: "待讨论", source: "用户2026-08-07澄清" },
+        { id: "exp1-a-center-error-backfill", experimentId: 1, title: "补算序号1的A组中心投影误差", detail: "等待序号108结束，并且只在用户明确要求开始后执行。从共同的epoch177权重严格复现A组5轮训练，保持种子444、batch 8、冻结范围和原配置不变；小batch只做正确性检查，正式数值必须在完整val的同一批11,178辆匹配车辆上计算。不得用epoch177起始模型或小batch结果冒充第5轮A组正式指标。", status: "等待用户启动", source: "用户 2026-08-07 提出" },
+        { id: "idea-asymmetric-interval", title: "非对称区间监督可学习性诊断", detail: "训练时用真值三维框计算左右边界：区间外监督最近边界，区间内用真值深度构造非对称分布；推理时只输入图像和可观测几何，不输入真值边界。先验证方向和幅度是否能从可见特征中学到。", source: "用户 2026-08-06 提出" },
+        { id: "review-interval-target", title: "区间目标与真值泄漏审查", detail: "实现前明确哪些量只用于训练损失，哪些量允许进入推理特征；检查区间为空、区间外、区间内三种分支的目标是否连续。", source: "由序号14讨论整理" }
+      ];
+      const managerState = { experiments: [], view: "all", query: "", category: "all", todos: [], initialized: false };
+      const manager$ = (selector) => document.querySelector(selector);
+      const escapeHtml = (value) => String(value ?? "").replace(/[&<>\"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;" }[char]));
+      const compact = (value, limit = 190) => { const text = String(value ?? "").replace(/\s+/g, " ").trim(); return text.length > limit ? `${text.slice(0, limit)}……` : text; };
+      const normalize = (value) => String(value ?? "").toLowerCase().replace(/\s+/g, "");
+      const statusKind = (status) => {
+        const text = String(status ?? "");
+        if (/判负|fail|负迁移|下降|停止|取消/.test(text)) return "bad";
+        if (/未训练|未进入|未启动|中止|排队|进行中|人工停止|未完成|证据不足|收益过小|未采用|搁置|终止|不成立|未确认|待补|待复核/.test(text)) return "warn";
+        if (/采用|通过|pass/.test(text)) return "good";
+        return "neutral";
+      };
+      const parseLedger = (markdown) => {
+        const rows = [];
+        for (const line of String(markdown).split(/\r?\n/)) {
+          if (!/^\|\s*\d+\s*\|/.test(line)) continue;
+          const parts = line.trim().replace(/^\|/, "").replace(/\|$/, "").split("|").map((part) => part.trim());
+          if (parts.length < 8 || !/^\d+$/.test(parts[0])) continue;
+          const id = Number(parts[0]);
+          rows.push({ id, date: parts[1], title: parts[2], status: parts[3], source: parts[4], output: parts[5], workflow: parts[6], result: parts[7], category: DENOISING_IDS.has(id) ? "denoising" : "general", thought: THOUGHT_SEEDS[id] || "" });
+        }
+        return rows.sort((a, b) => a.id - b.id);
+      };
+      const loadThoughts = () => { try { return JSON.parse(localStorage.getItem("monodgp-experiment-thoughts-v1") || "{}"); } catch (_) { return {}; } };
+      const saveThought = (id, value) => { const thoughts = loadThoughts(); thoughts[String(id)] = value; localStorage.setItem("monodgp-experiment-thoughts-v1", JSON.stringify(thoughts)); };
+      const loadTodos = () => {
+        try {
+          const saved = JSON.parse(localStorage.getItem("monodgp-experiment-todos-v1") || "null");
+          if (!Array.isArray(saved)) return DEFAULT_TODOS.map((todo) => ({ ...todo }));
+          const defaultsById = new Map(DEFAULT_TODOS.map((todo) => [todo.id, todo]));
+          const merged = saved.map((todo) => ["exp3-foreground-conditional-depth-rerun", "exp3-lidar-depth-direction"].includes(todo.id)
+            ? { ...todo, ...(defaultsById.get(todo.id) || {}) }
+            : { ...(defaultsById.get(todo.id) || {}), ...todo });
+          const savedIds = new Set(merged.map((todo) => todo.id));
+          for (const todo of DEFAULT_TODOS) if (!savedIds.has(todo.id)) merged.push({ ...todo });
+          return merged;
+        } catch (_) { return DEFAULT_TODOS.map((todo) => ({ ...todo })); }
+      };
+      const saveTodos = () => localStorage.setItem("monodgp-experiment-todos-v1", JSON.stringify(managerState.todos));
+      const hasPendingTodo = (experimentId) => managerState.todos.some((todo) =>
+        Number(todo.experimentId) === Number(experimentId)
+        && !/已完成|已取消/.test(String(todo.status || "")));
+      const splitText = (value) => String(value ?? "").split(/[。；]/).map((part) => part.trim()).filter(Boolean);
+      const filteredExperiments = () => {
+        const query = normalize(managerState.query);
+        return managerState.experiments.filter((item) => {
+          if (managerState.category === "denoising" && item.category !== "denoising") return false;
+          if (!query) return true;
+          return [item.id, item.date, item.title, item.status, item.source, item.output, item.workflow, item.result].some((value) => normalize(value).includes(query));
+        });
+      };
+      const renderManagerStats = () => {
+        const total = managerState.experiments.length;
+        const denoising = managerState.experiments.filter((item) => item.category === "denoising").length;
+        const good = managerState.experiments.filter((item) => statusKind(item.status) === "good").length;
+        const bad = managerState.experiments.filter((item) => statusKind(item.status) === "bad").length;
+        manager$("#manager-stats").innerHTML = [[total, "总实验"], [denoising, "去噪相关"], [good, "采用/通过"], [bad, "判负/失败"]].map(([value, label]) => `<div class="manager-stat"><strong>${value}</strong><span>${label}</span></div>`).join("");
+      };
+      const renderManagerList = () => {
+        const list = filteredExperiments();
+        manager$("#manager-count").textContent = `显示 ${list.length} / ${managerState.experiments.length}`;
+        if (!list.length) { manager$("#manager-list").innerHTML = `<div class="manager-empty">没有符合条件的实验。</div>`; return; }
+        manager$("#manager-list").innerHTML = list.map((item) => {
+          const kind = statusKind(item.status);
+          const todoTag = hasPendingTodo(item.id) ? `<span class="manager-status warn">有待办</span>` : "";
+          return `<button type="button" class="manager-card" data-manager-id="${item.id}"><span class="manager-id">${String(item.id).padStart(2, "0")}</span><span><span class="manager-card-title">${escapeHtml(item.title)}</span><span class="manager-card-meta"><span>${escapeHtml(item.date)}</span><span>·</span><span>${item.category === "denoising" ? "去噪相关" : "项目实验"}</span><span class="manager-status ${kind}">${escapeHtml(compact(item.status, 84))}</span>${todoTag}</span><span class="manager-card-preview">${escapeHtml(compact(item.result))}</span></span></button>`;
+        }).join("");
+        document.querySelectorAll("[data-manager-id]").forEach((button) => button.addEventListener("click", () => showManagerDetail(Number(button.dataset.managerId))));
+      };
+      const renderExperimentOneVisual = () => `<article class="manager-detail-card full">
+        <h3>一张图先看懂：两个“中心”不是一回事</h3>
+        <div class="manager-visual-center">
+          <svg viewBox="0 0 360 190" role="img" aria-label="二维框正中心与投影三维中心位置不同的示意图">
+            <rect class="box" x="35" y="24" width="290" height="142" rx="5"></rect>
+            <path class="car" d="M76 118 L96 73 Q103 57 122 57 H234 Q252 57 262 75 L283 118 V145 H76 Z"></path>
+            <circle class="dot-2d" cx="180" cy="95" r="9"></circle><circle class="dot-3d" cx="220" cy="88" r="9"></circle>
+            <path d="M190 94 L207 90" stroke="currentColor" stroke-width="2" marker-end="url(#managerArrow)"></path>
+            <defs><marker id="managerArrow" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto"><path d="M0,0 L7,3.5 L0,7 Z" fill="currentColor"></path></marker></defs>
+          </svg>
+          <div class="manager-visual-legend"><div class="manager-visual-key"><i></i><div><strong>二维框正中心</strong><span>框的几何中点，B组第一阶段学习它</span></div></div><div class="manager-visual-key projected"><i></i><div><strong>投影三维中心</strong><span>三维框中心投到图像的位置，三维检测需要它</span></div></div></div>
+        </div>
+        <h3 style="margin-top:18px">A / C / B：不是投票，而是前后接力</h3>
+        <div class="manager-flow">
+          <div class="manager-flow-row"><span class="manager-flow-name">A</span><span class="manager-flow-node">二维阶段<br>共用头 X</span><span class="manager-flow-arrow">→</span><span class="manager-flow-node">三维阶段<br>仍用头 X</span><span class="manager-flow-arrow">→</span><span class="manager-flow-node final">最终输出</span></div>
+          <div class="manager-flow-row"><span class="manager-flow-name">C</span><span class="manager-flow-node">独立头 X<br>学投影三维中心</span><span class="manager-flow-arrow">→</span><span class="manager-flow-node">独立头 Y<br>继续修正</span><span class="manager-flow-arrow">→</span><span class="manager-flow-node final">认准 Y</span></div>
+          <div class="manager-flow-row"><span class="manager-flow-name">B</span><span class="manager-flow-node">先学<br>二维框中心</span><span class="manager-flow-arrow">→</span><span class="manager-flow-node bridge">两层桥接网络<br>预测 Δx、Δy</span><span class="manager-flow-arrow">→</span><span class="manager-flow-node final">三维阶段修正<br>并最终输出</span></div>
+        </div>
+        <h3 style="margin-top:18px">结果：B桥接为负，C拆头收益未确认</h3>
+        <div class="manager-results">
+          <div class="manager-metric"><span class="manager-metric-label">Moderate 3D精度<br>越高越好</span><div class="manager-bars"><div class="manager-bar"><span class="manager-track"><span class="manager-fill original" style="width:97.8%"></span></span><span class="manager-bar-value">A　21.510</span></div><div class="manager-bar"><span class="manager-track"><span class="manager-fill" style="width:97.9%"></span></span><span class="manager-bar-value">C　21.544</span></div><div class="manager-bar"><span class="manager-track"><span class="manager-fill candidate" style="width:89.7%"></span></span><span class="manager-bar-value">B　19.729</span></div></div></div>
+          <div class="manager-comparison"><span><strong>A→C：+0.034</strong>，太小，未确认改善</span><span><strong>C→B：−1.815</strong>，桥接明显下降</span></div>
+          <div class="manager-metric"><span class="manager-metric-label">最终投影中心误差<br>越低越好</span><div class="manager-bars"><div class="manager-bar"><span class="manager-track missing">当时没有计算</span><span class="manager-bar-value">A　缺测</span></div><div class="manager-bar"><span class="manager-track"><span class="manager-fill" style="width:72%"></span></span><span class="manager-bar-value">C　5.06px</span></div><div class="manager-bar"><span class="manager-track"><span class="manager-fill candidate" style="width:75.6%"></span></span><span class="manager-bar-value">B　5.31px</span></div></div></div>
+        </div>
+        <div class="manager-verdict">实验启发：对于目标语义相同、前一阶段先定位而后一阶段继续修正的递进式任务，共用一个头或拆成两个专门头都可行；C的+0.0338只能算“拆头可能略有帮助”的线索。B改变了接口语义，当时的小桥接层、冻结大部分下游和5轮短训方案不成立；A中心误差已经列入待办。</div>
+      </article>`;
+      const renderExperimentTwoVisual = () => `<article class="manager-detail-card full">
+        <h3>先看结构：11组不是11类，而是11支独立的“找车小队”</h3>
+        <div class="manager-attention-compare">
+          <div class="manager-attention-panel"><h4>A组：550个查询全局互看</h4><svg viewBox="0 0 380 205" role="img" aria-label="不同查询组之间存在交叉注意力">
+            <rect class="group-box" x="18" y="32" width="92" height="62" rx="8"></rect><rect class="group-box" x="144" y="32" width="92" height="62" rx="8"></rect><rect class="group-box" x="270" y="32" width="92" height="62" rx="8"></rect><rect class="group-box" x="144" y="126" width="92" height="62" rx="8"></rect>
+            <text x="48" y="24">第1组</text><text x="174" y="24">第2组</text><text x="296" y="24">第3组</text><text x="164" y="203">… 第11组</text>
+            <g class="query-dot"><circle cx="42" cy="55" r="6"></circle><circle cx="66" cy="74" r="6"></circle><circle cx="89" cy="52" r="6"></circle><circle cx="166" cy="55" r="6"></circle><circle cx="191" cy="75" r="6"></circle><circle cx="215" cy="52" r="6"></circle><circle cx="292" cy="54" r="6"></circle><circle cx="317" cy="75" r="6"></circle><circle cx="340" cy="52" r="6"></circle><circle cx="166" cy="149" r="6"></circle><circle cx="191" cy="169" r="6"></circle><circle cx="215" cy="147" r="6"></circle></g>
+            <g class="cross-link"><line x1="89" y1="52" x2="166" y2="55"></line><line x1="66" y1="74" x2="191" y2="169"></line><line x1="215" y1="52" x2="292" y2="54"></line><line x1="317" y1="75" x2="215" y2="147"></line><line x1="42" y1="55" x2="340" y2="52"></line></g>
+          </svg><p>问题：匹配时把各组当独立副本，注意力却允许跨组影响。</p></div>
+          <div class="manager-attention-panel"><h4>B组：每组只在自己的50个查询内互看</h4><svg viewBox="0 0 380 205" role="img" aria-label="查询注意力被限制在每个独立组内部">
+            <rect class="group-box" x="18" y="32" width="92" height="62" rx="8"></rect><rect class="group-box" x="144" y="32" width="92" height="62" rx="8"></rect><rect class="group-box" x="270" y="32" width="92" height="62" rx="8"></rect><rect class="group-box" x="144" y="126" width="92" height="62" rx="8"></rect>
+            <text x="48" y="24">第1组</text><text x="174" y="24">第2组</text><text x="296" y="24">第3组</text><text x="164" y="203">… 第11组</text>
+            <g class="inner-link"><line x1="42" y1="55" x2="66" y2="74"></line><line x1="66" y1="74" x2="89" y2="52"></line><line x1="166" y1="55" x2="191" y2="75"></line><line x1="191" y1="75" x2="215" y2="52"></line><line x1="292" y1="54" x2="317" y2="75"></line><line x1="317" y1="75" x2="340" y2="52"></line><line x1="166" y1="149" x2="191" y2="169"></line><line x1="191" y1="169" x2="215" y2="147"></line></g>
+            <g class="query-dot"><circle cx="42" cy="55" r="6"></circle><circle cx="66" cy="74" r="6"></circle><circle cx="89" cy="52" r="6"></circle><circle cx="166" cy="55" r="6"></circle><circle cx="191" cy="75" r="6"></circle><circle cx="215" cy="52" r="6"></circle><circle cx="292" cy="54" r="6"></circle><circle cx="317" cy="75" r="6"></circle><circle cx="340" cy="52" r="6"></circle><circle cx="166" cy="149" r="6"></circle><circle cx="191" cy="169" r="6"></circle><circle cx="215" cy="147" r="6"></circle></g>
+          </svg><p>每组仍看同一张图、共享同一套模型参数，但组与组之间不交换查询信息。</p></div>
+        </div>
+        <div class="manager-flow" style="margin-top:14px"><div class="manager-flow-row"><span class="manager-flow-name">训</span><span class="manager-flow-node">11组 × 每组50个查询</span><span class="manager-flow-arrow">→</span><span class="manager-flow-node">每组独立与同一批真值车匹配</span><span class="manager-flow-arrow">→</span><span class="manager-flow-node final">得到11份独立监督</span></div><div class="manager-flow-row"><span class="manager-flow-name">推</span><span class="manager-flow-node">只保留1组</span><span class="manager-flow-arrow">→</span><span class="manager-flow-node">50个查询正常检测</span><span class="manager-flow-arrow">→</span><span class="manager-flow-node final">不是11模型投票</span></div></div>
+        <h3 style="margin-top:18px">10轮短训结果：三个难度都涨，但Moderate没过原门槛</h3>
+        <div class="manager-results">
+          <div class="manager-metric"><span class="manager-metric-label">Easy<br>A → B</span><div class="manager-bars"><div class="manager-bar"><span class="manager-track"><span class="manager-fill original" style="width:93.1%"></span></span><span class="manager-bar-value">27.924</span></div><div class="manager-bar"><span class="manager-track"><span class="manager-fill" style="width:94.3%"></span></span><span class="manager-bar-value">28.287</span></div></div></div>
+          <div class="manager-metric"><span class="manager-metric-label">Moderate<br>A → B</span><div class="manager-bars"><div class="manager-bar"><span class="manager-track"><span class="manager-fill original" style="width:83.1%"></span></span><span class="manager-bar-value">20.782</span></div><div class="manager-bar"><span class="manager-track"><span class="manager-fill" style="width:84.6%"></span></span><span class="manager-bar-value">21.159</span></div></div></div>
+          <div class="manager-metric"><span class="manager-metric-label">Hard<br>A → B</span><div class="manager-bars"><div class="manager-bar"><span class="manager-track"><span class="manager-fill original" style="width:89.5%"></span></span><span class="manager-bar-value">17.892</span></div><div class="manager-bar"><span class="manager-track"><span class="manager-fill" style="width:91.1%"></span></span><span class="manager-bar-value">18.214</span></div></div></div>
+          <div class="manager-comparison"><span>Easy <strong>+0.363</strong></span><span>Moderate <strong>+0.377</strong>（原门槛+0.5）</span><span>Hard <strong>+0.323</strong></span></div>
+        </div>
+        <div class="manager-verdict">短训没有通过当时预设的Moderate +0.5门槛，因此不能靠这10轮宣称强收益；但方向三档一致为正。后来的250轮从头训练进一步确认它优于旧单组基线，所以最终作为基线修正保留，不包装成论文创新。这也正是Group DETR的标准配套：组内一对一匹配、组内独立自注意力、推理只用一组。<a href="https://openaccess.thecvf.com/content/ICCV2023/html/Chen_Group_DETR_Fast_DETR_Training_with_Group-Wise_One-to-Many_Assignment_ICCV_2023_paper.html" target="_blank" rel="noreferrer">查看原论文</a></div>
+      </article>`;
+      const renderExperimentThreeVisual = () => `<article class="manager-detail-card full">
+        <h3>两边都在预测物体中心深度，只是预测方式不同</h3>
+        <div class="manager-depth-compare">
+          <div class="manager-depth-panel"><h4>稠密深度分类图：二维框内每个网格都学同一个物体中心深度</h4><svg viewBox="0 0 500 210" role="img" aria-label="网格级稠密深度图并在车辆中心采样">
+            <g stroke="var(--surface)" stroke-width="2"><rect x="16" y="20" width="78" height="54" fill="var(--accent)" opacity=".16"></rect><rect x="94" y="20" width="78" height="54" fill="var(--accent)" opacity=".22"></rect><rect x="172" y="20" width="78" height="54" fill="var(--accent)" opacity=".30"></rect><rect x="250" y="20" width="78" height="54" fill="var(--accent)" opacity=".42"></rect><rect x="328" y="20" width="78" height="54" fill="var(--accent)" opacity=".54"></rect><rect x="406" y="20" width="78" height="54" fill="var(--accent)" opacity=".66"></rect><rect x="16" y="74" width="78" height="54" fill="var(--accent)" opacity=".20"></rect><rect x="94" y="74" width="78" height="54" fill="var(--accent)" opacity=".29"></rect><rect x="172" y="74" width="78" height="54" fill="var(--accent)" opacity=".40"></rect><rect x="250" y="74" width="78" height="54" fill="var(--accent)" opacity=".53"></rect><rect x="328" y="74" width="78" height="54" fill="var(--accent)" opacity=".67"></rect><rect x="406" y="74" width="78" height="54" fill="var(--accent)" opacity=".78"></rect><rect x="16" y="128" width="78" height="54" fill="var(--accent)" opacity=".25"></rect><rect x="94" y="128" width="78" height="54" fill="var(--accent)" opacity=".36"></rect><rect x="172" y="128" width="78" height="54" fill="var(--accent)" opacity=".49"></rect><rect x="250" y="128" width="78" height="54" fill="var(--accent)" opacity=".62"></rect><rect x="328" y="128" width="78" height="54" fill="var(--accent)" opacity=".75"></rect><rect x="406" y="128" width="78" height="54" fill="var(--accent)" opacity=".88"></rect></g>
+            <rect x="168" y="62" width="174" height="94" rx="6" fill="none" stroke="var(--text)" stroke-width="3"></rect><circle cx="255" cy="109" r="10" fill="#b94848"></circle><path d="M265 105 L354 66" stroke="#b94848" stroke-width="2"></path><text x="360" y="62" fill="var(--text)" font-size="13">在车辆中心取一个分布</text><text x="360" y="80" fill="var(--muted)" font-size="12">→ 换算成一个米制估计</text>
+          </svg><p>它不是激光点打到车身表面的距离。训练标签是：把整块二维框填成该车的三维中心深度，框外才是背景。复盘还发现原脚本没有排除第81类背景贡献。</p></div>
+          <div class="manager-depth-panel"><h4>最终深度：几何估计再加学习到的修正量</h4><div class="manager-depth-number"><div><strong>34.5 m</strong><span>几何深度＋模型修正量<br>最终用于三维框位置</span></div></div></div>
+        </div>
+        <div class="manager-verdict" style="border-left-color:#258052;background:#eef8f2;color:var(--text)"><strong>因此不能用“表面距离与中心距离不同”解释误差差距。</strong> 两者监督目标都是车辆三维中心深度；区别在于稠密分支要按图像网格做81类分类再从目标中心取值，而主目标分支先用投影几何算出一个粗深度，再由目标查询特征预测修正量。</div>
+        <h3 style="margin-top:18px">几何深度与最终深度是什么关系？</h3>
+        <div class="manager-flow"><div class="manager-flow-row"><span class="manager-flow-name">几</span><span class="manager-flow-node">预测车辆真实高度 H</span><span class="manager-flow-arrow">＋</span><span class="manager-flow-node">预测二维框像素高度 h</span><span class="manager-flow-arrow">＋</span><span class="manager-flow-node">相机焦距 f</span><span class="manager-flow-arrow">→</span><span class="manager-flow-node final">几何深度＝f×H÷h</span></div><div class="manager-flow-row"><span class="manager-flow-name">终</span><span class="manager-flow-node">几何深度<br>例如32米</span><span class="manager-flow-arrow">＋</span><span class="manager-flow-node bridge">目标特征学到的修正量<br>例如＋2.5米</span><span class="manager-flow-arrow">→</span><span class="manager-flow-node final">最终深度34.5米</span></div></div>
+        <div class="manager-verdict"><strong>几何深度</strong>只按“小孔成像：同样大的车看起来越小就越远”计算，是一个粗估计；预测车高或二维框高只要有误差，它就会偏。<strong>最终深度</strong>是在这个粗估计上，让网络结合这辆车的目标特征学习一个加减修正，随后真正用于放置三维框。它们不是两个互不相关的预测头。</div>
+        <h3 style="margin-top:18px">拉普拉斯公式用在哪里？</h3>
+        <div class="manager-flow"><div class="manager-flow-row"><span class="manager-flow-name">出</span><span class="manager-flow-node">最终深度 μ</span><span class="manager-flow-arrow">＋</span><span class="manager-flow-node">不确定性 s</span><span class="manager-flow-arrow">→</span><span class="manager-flow-node final">每辆车输出两个数</span></div><div class="manager-flow-row"><span class="manager-flow-name">训</span><span class="manager-flow-node">深度误差 |μ−真值|</span><span class="manager-flow-arrow">＋</span><span class="manager-flow-node bridge">拉普拉斯负对数似然<br>√2×e<sup>−s</sup>×误差＋s</span><span class="manager-flow-arrow">→</span><span class="manager-flow-node final">计算最终深度损失</span></div><div class="manager-flow-row"><span class="manager-flow-name">推</span><span class="manager-flow-node">μ用于放置三维框</span><span class="manager-flow-arrow">＋</span><span class="manager-flow-node">e<sup>−s</sup>作为深度可信度</span><span class="manager-flow-arrow">→</span><span class="manager-flow-node final">乘到分类分数上</span></div></div>
+        <div class="manager-verdict" style="border-left-color:#258052;background:#eef8f2;color:var(--text)">模型若说“我不确定”，误差项会被减轻；但公式末尾还有一个<strong>＋s</strong>，防止它靠无限放大不确定性逃避所有错误。推理时真正采用的深度仍是μ，不确定性只调整检测置信分数。稠密深度图使用的是80个深度桶加背景的分类损失，不使用这条拉普拉斯深度损失。</div>
+        <h3 style="margin-top:18px">两个二维框重叠时：近车覆盖远车</h3>
+        <div class="manager-depth-panel"><svg viewBox="0 0 720 235" role="img" aria-label="两个车辆二维框重叠时近车深度覆盖远车深度">
+          <rect x="55" y="42" width="265" height="125" rx="8" fill="var(--accent)" opacity=".18" stroke="var(--accent)" stroke-width="3"></rect>
+          <text x="78" y="70" fill="var(--text)" font-size="15" font-weight="700">远车：40米</text>
+          <rect x="218" y="88" width="265" height="125" rx="8" fill="#b94848" opacity=".22" stroke="#b94848" stroke-width="3"></rect>
+          <text x="385" y="190" fill="var(--text)" font-size="15" font-weight="700">近车：20米</text>
+          <rect x="218" y="88" width="102" height="79" fill="#b94848" opacity=".48"></rect>
+          <path d="M320 126 L428 75" stroke="var(--text)" stroke-width="2"></path>
+          <text x="440" y="66" fill="var(--text)" font-size="15" font-weight="700">重叠区域最终标成20米</text>
+          <text x="440" y="91" fill="var(--muted)" font-size="13">不会同时保存20米和40米</text>
+        </svg><p>实现先按深度从远到近写入二维框，近车最后写，所以会覆盖重叠区域中的远车标签。这近似相机里的遮挡关系，但只是按矩形框覆盖，不知道车辆的真实轮廓，因此重叠边界处的监督并不精确。</p></div>
+        <div class="manager-verdict" style="border-left-color:var(--accent);background:var(--accent-soft);color:var(--text)"><strong>为什么是81通道？</strong> 前80个通道是0.001到60米之间的80个深度区间，不是每米一个通道；近处分得细、远处分得宽。计算时每个通道对应一个由线性递增离散公式生成的固定代表深度，并非普通区间的算术中点。第81个通道不是“第81种距离”，只表示背景或这里没有目标深度。代码为了张量形状给它附了60米占位值，但这个占位值没有物理深度含义。</div>
+        <h3 style="margin-top:18px">把80个深度桶缩成3个，看一次具体换算</h3>
+        <div class="manager-prob-demo" aria-label="从深度概率换算米制深度的简化示例">
+          <div class="manager-prob-step"><h4>① 车辆中心位置的投票</h4><div class="manager-vote"><span>10米</span><span class="manager-vote-track"><span class="manager-vote-fill" style="width:20%"></span></span><span>20%</span></div><div class="manager-vote"><span>20米</span><span class="manager-vote-track"><span class="manager-vote-fill" style="width:30%"></span></span><span>30%</span></div><div class="manager-vote"><span>30米</span><span class="manager-vote-track"><span class="manager-vote-fill" style="width:10%"></span></span><span>10%</span></div><div class="manager-vote bg"><span>背景</span><span class="manager-vote-track"><span class="manager-vote-fill" style="width:40%"></span></span><span>40%</span></div></div>
+          <div class="manager-prob-arrow">→</div>
+          <div class="manager-prob-step"><h4>② 确认这里是车，扔掉背景票</h4><div class="manager-vote"><span>10米</span><span class="manager-vote-track"><span class="manager-vote-fill" style="width:33%"></span></span><span>33%</span></div><div class="manager-vote"><span>20米</span><span class="manager-vote-track"><span class="manager-vote-fill" style="width:50%"></span></span><span>50%</span></div><div class="manager-vote"><span>30米</span><span class="manager-vote-track"><span class="manager-vote-fill" style="width:17%"></span></span><span>17%</span></div></div>
+          <div class="manager-prob-arrow">→</div>
+          <div class="manager-prob-answer"><div><strong>18.3米</strong><span>10×33% ＋ 20×50% ＋ 30×17%</span></div></div>
+        </div>
+        <p style="margin-top:8px;color:var(--muted);font-size:11px">“在中心插值”只是在中心落于四个网格之间时，按距离混合四个网格的投票；上图展示的是混合完成后的投票。真实模型有80个不等距深度桶，这里缩成3个只是为了直观。</p>
+        <h3 style="margin-top:18px">四个网格到底怎么混合？</h3>
+        <div class="manager-depth-panel"><svg viewBox="0 0 720 280" role="img" aria-label="车辆中心在四个网格之间进行双线性插值的示例">
+          <rect x="55" y="35" width="300" height="190" fill="var(--surface)" stroke="var(--line)" stroke-width="2"></rect>
+          <line x1="130" y1="35" x2="130" y2="225" stroke="var(--muted)" stroke-dasharray="5 5"></line><line x1="55" y1="149" x2="355" y2="149" stroke="var(--muted)" stroke-dasharray="5 5"></line>
+          <circle cx="55" cy="35" r="9" fill="var(--accent)"></circle><circle cx="355" cy="35" r="9" fill="var(--accent)"></circle><circle cx="55" cy="225" r="9" fill="var(--accent)"></circle><circle cx="355" cy="225" r="9" fill="var(--accent)"></circle><circle cx="130" cy="149" r="12" fill="#b94848"></circle>
+          <text x="18" y="24" fill="var(--text)" font-size="13">左上格点</text><text x="285" y="24" fill="var(--text)" font-size="13">右上格点</text><text x="18" y="254" fill="var(--text)" font-size="13">左下格点</text><text x="285" y="254" fill="var(--text)" font-size="13">右下格点</text><text x="143" y="145" fill="var(--text)" font-size="13">车辆中心</text>
+          <text x="82" y="132" fill="var(--muted)" font-size="12">向右25%</text><text x="139" y="92" fill="var(--muted)" font-size="12">向下60%</text>
+          <text x="420" y="42" fill="var(--text)" font-size="14" font-weight="700">四个权重</text><text x="420" y="70" fill="var(--text)" font-size="13">左上：(1−25%)×(1−60%) = 30%</text><text x="420" y="96" fill="var(--text)" font-size="13">右上：25%×(1−60%) = 10%</text><text x="420" y="122" fill="var(--text)" font-size="13">左下：(1−25%)×60% = 45%</text><text x="420" y="148" fill="var(--text)" font-size="13">右下：25%×60% = 15%</text>
+          <text x="420" y="188" fill="var(--text)" font-size="14" font-weight="700">以“20米通道”为例</text><text x="420" y="216" fill="var(--text)" font-size="13">四角概率：10%、20%、40%、30%</text><text x="420" y="244" fill="var(--accent)" font-size="14" font-weight="700">中心概率 = 30%×10% + 10%×20% + 45%×40% + 15%×30% = 27.5%</text>
+        </svg><p>这不是按欧氏距离简单平均，而是横向比例和纵向比例相乘得到四个权重；四个权重之和严格等于100%。81个通道分别重复一次同样的计算。</p></div>
+        <h3 style="margin-top:18px">数据从哪里来，偶数图和奇数图各做什么？</h3>
+        <div class="manager-flow"><div class="manager-flow-row"><span class="manager-flow-name">源</span><span class="manager-flow-node">KITTI官方验证集<br>3,769张图</span><span class="manager-flow-arrow">→</span><span class="manager-flow-node">epoch177最后50个查询<br>与真值做匈牙利匹配</span><span class="manager-flow-arrow">→</span><span class="manager-flow-node final">11,178辆匹配Car</span></div><div class="manager-flow-row"><span class="manager-flow-name">偶</span><span class="manager-flow-node">图像编号为偶数<br>5,717辆车</span><span class="manager-flow-arrow">→</span><span class="manager-flow-node">拟合：常数项＋原深度系数<br>＋稠密深度系数</span><span class="manager-flow-arrow">→</span><span class="manager-flow-node final">只负责学习公式</span></div><div class="manager-flow-row"><span class="manager-flow-name">奇</span><span class="manager-flow-node">图像编号为奇数<br>5,461辆车</span><span class="manager-flow-arrow">→</span><span class="manager-flow-node">套用偶数图已经定好的公式</span><span class="manager-flow-arrow">→</span><span class="manager-flow-node final">计算平均绝对误差</span></div></div>
+        <div class="manager-verdict" style="border-left-color:#258052;background:#eef8f2;color:var(--text)"><strong>这里不是“两个权重加起来等于100%”。</strong> 它拟合的是线性公式：校正深度＝常数＋a×原深度＋b×稠密深度，a和b可以为负，也不要求相加等于1。奇数图完全不再调这些系数，只检验公式能否泛化。</div>
+        <div class="manager-depth-compare" style="margin-top:14px"><div class="manager-depth-panel"><h4>修正后公式一：最终深度＋稠密深度</h4><div class="manager-depth-number"><div><strong style="font-size:18px">−0.2414 ＋ 1.0416×最终深度 − 0.0120×稠密深度</strong><span>常数：−0.2414米<br>最终深度系数：1.0416<br>稠密深度系数：−0.0120</span></div></div></div><div class="manager-depth-panel"><h4>修正后公式二：几何深度＋稠密深度</h4><div class="manager-depth-number"><div><strong style="font-size:18px">1.5131 ＋ 1.0740×几何深度 − 0.0082×稠密深度</strong><span>常数：1.5131米<br>几何深度系数：1.0740<br>稠密深度系数：−0.0082</span></div></div></div></div>
+        <div class="manager-verdict" style="border-left-color:#b94848;background:#fff1f1;color:var(--text)"><strong>修正后两套公式仍只给稠密深度很小的负系数。</strong> 这不是百分比权重，而是偶数图拟合出的线性系数；它说明在当前epoch177和这套线性组合里，稠密深度没有提供正向补充。</div>
+        <div class="manager-flow" style="margin-top:14px"><div class="manager-flow-row"><span class="manager-flow-name">取</span><span class="manager-flow-node">冻结epoch177模型</span><span class="manager-flow-arrow">→</span><span class="manager-flow-node">在预测中心采样稠密深度<br>另用真值投影中心作位置控制</span><span class="manager-flow-arrow">→</span><span class="manager-flow-node final">得到每辆车的第二个深度数</span></div><div class="manager-flow-row"><span class="manager-flow-name">验</span><span class="manager-flow-node">偶数图拟合线性公式</span><span class="manager-flow-arrow">→</span><span class="manager-flow-node">最终深度/几何深度<br>＋稠密深度</span><span class="manager-flow-arrow">→</span><span class="manager-flow-node final">奇数图只计算误差</span></div></div>
+        <h3 style="margin-top:18px">修正重算结果：稠密深度自身更准了，但仍不能补充主深度</h3>
+        <div class="manager-results">
+          <div class="manager-metric"><span class="manager-metric-label">各自单独预测车辆深度时<br>平均误差（越小越好）</span><div class="manager-bars"><div class="manager-bar"><span class="manager-track"><span class="manager-fill" style="width:32.2%"></span></span><span class="manager-bar-value">最终深度（几何＋修正）　1.2244m</span></div><div class="manager-bar"><span class="manager-track"><span class="manager-fill candidate" style="width:99.9%"></span></span><span class="manager-bar-value">前景条件稠密深度　3.8024m</span></div></div></div>
+          <div class="manager-metric"><span class="manager-metric-label">留出集：最终深度<br>加稠密图前后</span><div class="manager-bars"><div class="manager-bar"><span class="manager-track"><span class="manager-fill original" style="width:98.3%"></span></span><span class="manager-bar-value">1.1806m</span></div><div class="manager-bar"><span class="manager-track"><span class="manager-fill candidate" style="width:98.4%"></span></span><span class="manager-bar-value">1.1819m</span></div></div></div>
+          <div class="manager-metric"><span class="manager-metric-label">留出集：几何深度<br>加稠密图前后</span><div class="manager-bars"><div class="manager-bar"><span class="manager-track"><span class="manager-fill original" style="width:98.8%"></span></span><span class="manager-bar-value">1.2351m</span></div><div class="manager-bar"><span class="manager-track"><span class="manager-fill candidate" style="width:99.0%"></span></span><span class="manager-bar-value">1.2374m</span></div></div></div>
+          <div class="manager-comparison"><span>加到最终深度：<strong>+0.001294m，更差</strong></span><span>加到几何深度：<strong>+0.002299m，更差</strong></span></div>
+        </div>
+        <div class="manager-verdict"><strong>当前这项可以判定为“不进入融合训练”。</strong> 修正后完整3,769张val、11,178辆Car仍未达到预设的至少5%改善门槛，反而在两种主深度上都略微变差。去背景确实让同batch稠密深度自身MAE改善约0.1666米，但没有变成独立互补信息。这个结论只针对epoch177、目标中心采样和线性组合，不等于稠密深度监督或深度注意力普遍无用。另有374辆车在预测中心的前景概率质量低于90%，其条件深度MAE明显更高，是本方案的局限之一。</div>
+        <h3 style="margin-top:18px">用户建议的后续方向：点云只负责把深度特征教准</h3>
+        <div class="manager-flow"><div class="manager-flow-row"><span class="manager-flow-name">现</span><span class="manager-flow-node">二维框整块填成<br>物体中心深度</span><span class="manager-flow-arrow">→</span><span class="manager-flow-node">训练稠密深度分类特征</span><span class="manager-flow-arrow">→</span><span class="manager-flow-node final">送入三维解码器</span></div><div class="manager-flow-row"><span class="manager-flow-name">改</span><span class="manager-flow-node">训练期激光雷达点云</span><span class="manager-flow-arrow">→</span><span class="manager-flow-node bridge">投影到图像<br>有效点给真实表面深度</span><span class="manager-flow-arrow">→</span><span class="manager-flow-node">监督更真实的深度特征</span><span class="manager-flow-arrow">→</span><span class="manager-flow-node final">三维解码器预测中心深度</span></div><div class="manager-flow-row"><span class="manager-flow-name">测</span><span class="manager-flow-node">撤掉激光雷达</span><span class="manager-flow-arrow">→</span><span class="manager-flow-node">只输入一张图像</span><span class="manager-flow-arrow">→</span><span class="manager-flow-node final">仍是单目检测</span></div></div>
+        <div class="manager-verdict" style="border-left-color:var(--accent);background:var(--accent-soft);color:var(--text)"><strong>这里表面深度与中心深度不同并不是错误。</strong> 点云监督的是中间的空间深度特征，最终目标头仍负责把可见表面、框和上下文转换成三维框中心。真正需要控制的是点云很稀疏、远车可能无点、遮挡处要保留最近表面，以及裁剪、缩放、翻转后图像与投影点必须严格同步。</div>
+      </article>`;
+      const renderExperimentFourFiveVisual = () => `<article class="manager-detail-card full">
+        <h3>实验四和五是一组成对对照：两边都有11组</h3>
+        <div class="manager-flow"><div class="manager-flow-row"><span class="manager-flow-name">04</span><span class="manager-flow-node">11组 × 每组50查询<br>共550个</span><span class="manager-flow-arrow">→</span><span class="manager-flow-node">每组独立匹配同一批真值</span><span class="manager-flow-arrow">→</span><span class="manager-flow-node candidate">550个查询全局互看</span></div><div class="manager-flow-row"><span class="manager-flow-name">05</span><span class="manager-flow-node">11组 × 每组50查询<br>共550个</span><span class="manager-flow-arrow">→</span><span class="manager-flow-node">每组独立匹配同一批真值</span><span class="manager-flow-arrow">→</span><span class="manager-flow-node final">注意力限制在各自50个内</span></div></div>
+        <div class="manager-flow" style="margin-top:14px"><div class="manager-flow-row"><span class="manager-flow-name">建</span><span class="manager-flow-node">一次创建550个<br>独立可学习查询向量</span><span class="manager-flow-arrow">→</span><span class="manager-flow-node">按顺序每50个切成一组</span><span class="manager-flow-arrow">→</span><span class="manager-flow-node final">形成11组<br>不是复制同一组</span></div><div class="manager-flow-row"><span class="manager-flow-name">共</span><span class="manager-flow-node">11组查询内容各自学习</span><span class="manager-flow-arrow">＋</span><span class="manager-flow-node">共享同一套解码器和预测头</span><span class="manager-flow-arrow">→</span><span class="manager-flow-node final">推理只取前50个<br>即第一组</span></div></div>
+        <div class="manager-verdict" style="border-left-color:#b94848;background:#fff1f1;color:var(--text)"><strong>所以实验四和五不是“1组对11组”。</strong> 两边组数、查询总数和匹配监督都相同；唯一核心差异是组与组之间能不能通过解码器自注意力互相影响。此前“单组查询完整历史基线”的名字已在总账中更正。</div>
+        <h3 style="margin-top:18px">为什么正好是11组？</h3>
+        <div class="manager-flow"><div class="manager-flow-row"><span class="manager-flow-name">来</span><span class="manager-flow-node">Group DETR测试多种组数K</span><span class="manager-flow-arrow">→</span><span class="manager-flow-node">K增加时性能上升</span><span class="manager-flow-arrow">→</span><span class="manager-flow-node final">超过11后收益趋于饱和<br>于是采用K＝11</span></div><div class="manager-flow-row"><span class="manager-flow-name">本</span><span class="manager-flow-node">MonoDGP沿用11</span><span class="manager-flow-arrow">→</span><span class="manager-flow-node">实验04与05固定不变</span><span class="manager-flow-arrow">→</span><span class="manager-flow-node final">没有重新证明<br>11是KITTI最优</span></div></div>
+        <div class="manager-verdict">11不是由类别数、每图车辆数或某个公式计算出来的，而是沿用Group DETR消融选出的经验超参数。<a href="https://openaccess.thecvf.com/content/ICCV2023/html/Chen_Group_DETR_Fast_DETR_Training_with_Group-Wise_One-to-Many_Assignment_ICCV_2023_paper.html" target="_blank" rel="noreferrer">查看Group DETR论文</a></div>
+        <h3 style="margin-top:18px">完整训练结果：隔离后验证精度更高</h3>
+        <div class="manager-results"><div class="manager-metric"><span class="manager-metric-label">最好Moderate 3D精度<br>越高越好</span><div class="manager-bars"><div class="manager-bar"><span class="manager-track"><span class="manager-fill original" style="width:90.8%"></span></span><span class="manager-bar-value">04 全局互看　21.129</span></div><div class="manager-bar"><span class="manager-track"><span class="manager-fill" style="width:100%"></span></span><span class="manager-bar-value">05 组内隔离　23.263</span></div></div></div><div class="manager-comparison"><span>最好轮提高 <strong>+2.134</strong></span><span>末轮 20.430 → 21.286，<strong>+0.856</strong></span></div></div>
+        <div class="manager-verdict"><strong>“可能泛化更好”可以作为解释，但不是已单独验证的机制。</strong> 这组实验直接证明的是：同样11组训练监督下，让每组独立注意后，完整训练的验证集精度更好。可能原因包括减少不同匹配副本互相干扰、提供更一致的监督；实验没有单独把这些原因拆开。</div>
+      </article>`;
+      const renderExperimentSixVisual = () => `<article class="manager-detail-card full">
+        <h3>先看它想算什么：一条射线在车体里走了多远</h3>
+        <div class="manager-depth-panel"><svg viewBox="0 0 760 290" role="img" aria-label="相机射线穿过三维车辆框得到前后表面深度区间">
+          <circle cx="68" cy="145" r="18" fill="var(--accent)"></circle><text x="37" y="181" fill="var(--text)" font-size="14">相机</text>
+          <polygon points="390,68 610,92 650,218 418,235" fill="var(--accent)" opacity=".13" stroke="var(--accent)" stroke-width="3"></polygon>
+          <line x1="68" y1="145" x2="705" y2="173" stroke="var(--text)" stroke-width="3"></line>
+          <circle cx="405" cy="160" r="9" fill="#258052"></circle><circle cx="634" cy="170" r="9" fill="#b94848"></circle>
+          <line x1="405" y1="160" x2="634" y2="170" stroke="#d59b28" stroke-width="9" opacity=".72"></line>
+          <text x="352" y="132" fill="#258052" font-size="14" font-weight="700">进入前表面</text><text x="594" y="143" fill="#b94848" font-size="14" font-weight="700">离开后表面</text>
+          <text x="440" y="198" fill="var(--text)" font-size="15" font-weight="700">前、后表面的Z深度，例如18～22米</text>
+          <circle cx="520" cy="151" r="8" fill="var(--text)"></circle><text x="488" y="119" fill="var(--text)" font-size="13">三维框中心</text>
+        </svg><p>代码把射线方向的Z分量固定为1，所以近端和远端是前、后表面的<strong>相机Z深度</strong>，不是“沿斜射线走了多少米”。</p></div>
+        <h3 style="margin-top:18px">它原本想替代什么监督？</h3>
+        <div class="manager-flow"><div class="manager-flow-row"><span class="manager-flow-name">旧</span><span class="manager-flow-node">二维框内所有网格</span><span class="manager-flow-arrow">→</span><span class="manager-flow-node candidate">全部硬标同一个<br>物体中心深度</span></div><div class="manager-flow-row"><span class="manager-flow-name">想</span><span class="manager-flow-node">每个网格各发一条射线</span><span class="manager-flow-arrow">→</span><span class="manager-flow-node">算各自进入/离开三维框的位置</span><span class="manager-flow-arrow">→</span><span class="manager-flow-node final">只要求预测概率<br>落在各自区间内</span></div></div>
+        <div class="manager-verdict">直觉是：车身有厚度，一个像素看到的可能是前表面、侧面或后部，不必强迫所有位置都回答同一个中心深度。这个实验先用真值三维框做CPU几何诊断，没有训练模型。</div>
+        <h3 style="margin-top:18px">为什么最后没有直接采用？</h3>
+        <div class="manager-depth-compare"><div class="manager-depth-panel"><h4>问题一：55.1%的原口径现在不能确认</h4><div class="manager-depth-number"><div><strong>原始JSON和报告已删除</strong><span>脚本同时输出“所有网格总比例”<br>和“逐车比例的中位数”</span></div></div></div><div class="manager-depth-panel"><h4>问题二：区间和最终目标不是同一种深度</h4><div class="manager-depth-number"><div><strong>前后表面Z ≠ 物体中心Z</strong><span>侧边网格所得表面区间<br>未必包含车辆中心的Z深度</span></div></div></div></div>
+        <div class="manager-verdict"><strong>代码实际流程：</strong> 二维标注框缩放到80×24并向外取整 → 排除多框重叠网格 → 取网格中心逆变换回原图像素 → 从相机向该像素发射线 → 射线分别与旋转三维框的长、高、宽求交 → 三轴都有共同区间才得到前后表面Z → 区间与0.001～60米前景桶有交集才记有效。</div>
+        <div class="manager-verdict"><strong>平移没有全部丢掉：</strong> 射线完整写法是 <code>origin=(tx,ty,0)</code> 加 <code>direction=((u-cu)/fu,(v-cv)/fv,1)</code>。<code>tx=-P2[0,3]/fu</code>、<code>ty=-P2[1,3]/fv</code>，因此相机2的X/Y投影平移在起点中。但它忽略了<code>P2[2,3]</code>的毫米级Z平移：与MonoDGP自身的投影/反投影函数一致，但不是完整KITTI 3×4 P2的严格齐次反投影。</div>
+        <div class="manager-verdict"><strong>你的几何判断正确：</strong> 若网格中心真在三维框的完整投影内，射线理应相交。代码确实从整个二维矩形框取候选，因此矩形外围是可能的失效来源；但原结果不在了，现在不能说它已被证明为主要原因。</div>
+        <div class="manager-verdict"><strong>截断数值根本没有进入射线求交公式。</strong> 它只参与KITTI的Easy、Moderate、Hard难度分组，所以会决定一辆车被统计到哪组，不会决定某条射线是否穿过三维框。边界处的二维框和粗网格取样可以间接改变候选集，但这不等于“截断导致射不中”。原始分项结果已删除，现在也不能定量说不同失效来源各占多少。</div>
+        <div class="manager-verdict" style="border-left-color:#b94848;background:#fff1f1;color:var(--text)"><strong>因此停止的是“把射线表面区间直接塞进原中心深度分布”这套方案。</strong> 它不证明射线几何没有信息。后来的序号47改成另一种定义：保持物体中心深度语义，只计算三维检测任务允许中心深度变化多少；那不是本实验的表面区间。</div>
+      </article>`;
+      const renderExperimentSevenVisual = () => `<article class="manager-detail-card full">
+        <h3>先看它如何挑一对前车和后车</h3>
+        <div class="manager-flow"><div class="manager-flow-row"><span class="manager-flow-name">后</span><span class="manager-flow-node">Moderate / Hard<br>遮挡等级≥1</span><span class="manager-flow-arrow">+</span><span class="manager-flow-node">与另一车二维框<br>重叠至少10%</span></div><div class="manager-flow-row"><span class="manager-flow-name">前</span><span class="manager-flow-node">同一张图</span><span class="manager-flow-arrow">+</span><span class="manager-flow-node">真值深度<br>至少近1米</span><span class="manager-flow-arrow">→</span><span class="manager-flow-node final">选重叠最多的前车</span></div></div>
+        <div class="manager-verdict"><strong>具体选法：</strong> 先把“Moderate/Hard且KITTI遮挡等级≥1”的车当后车候选；再在同图找真值深度至少比它近1米的车。两框交叉面积必须至少占<strong>后车框面积</strong>的10%；有多辆候选时，选这个占比最大的一辆当前车。</div>
+        <div class="manager-flow"><div class="manager-flow-row"><span class="manager-flow-name">例</span><span class="manager-flow-node">后车GT 30m<br>框面积100</span><span class="manager-flow-arrow">←</span><span class="manager-flow-node">近车A　20m<br>交叉30＝30%</span><span class="manager-flow-arrow">vs</span><span class="manager-flow-node candidate">近车B　25m<br>交叉50＝50%</span><span class="manager-flow-arrow">→</span><span class="manager-flow-node final">选B作前车</span></div></div>
+        <div class="manager-verdict"><strong>它不保证选中真正遮挡者。</strong> KITTI只标注“这辆车被遮挡”，没标谁挡了它；所以实验用“更近+二维框重叠最多”作为代理。这也是它只能叫事后oracle诊断、不能叫遮挡识别模型的原因。</div>
+        <h3 style="margin-top:18px">它所谓的“修正”只做一件事</h3>
+        <div class="manager-depth-compare"><div class="manager-depth-panel"><h4>顺序正确：完全不动</h4><div class="manager-flow"><div class="manager-flow-row"><span class="manager-flow-node">前车预测 20m</span><span class="manager-flow-arrow">&lt;</span><span class="manager-flow-node final">后车预测 28m</span></div></div></div><div class="manager-depth-panel"><h4>顺序错误：把后车推到前车后一点</h4><div class="manager-flow"><div class="manager-flow-row"><span class="manager-flow-node">前车预测 20m</span><span class="manager-flow-arrow">→</span><span class="manager-flow-node candidate">后车改为<br>20m+极小正数</span></div></div></div></div>
+        <div class="manager-verdict">修正时没有把后车直接改成真值深度；但“哪辆是后车”本身来自真值，所以仍然只是事后理想诊断，不能部署。</div>
+        <h3 style="margin-top:18px">为什么最后判负？</h3>
+        <div class="manager-results"><div class="manager-metric"><span class="manager-metric-label">4151个前后车对</span><div class="manager-bars"><div class="manager-bar"><span class="manager-track"><span class="manager-fill" style="width:98.36%"></span></span><span class="manager-bar-value">4083对本来顺序正确　98.36%</span></div><div class="manager-bar"><span class="manager-track"><span class="manager-fill original" style="width:1.64%"></span></span><span class="manager-bar-value">68对顺序错误　1.64%</span></div></div></div><div class="manager-comparison"><span>只修正 <strong>68</strong> 个后车</span><span>全体后车MAE仅降 <strong>0.01853m</strong></span><span>低事前门槛 <strong>0.02m</strong></span></div></div>
+        <div class="manager-verdict" style="border-left-color:#b94848;background:#fff1f1;color:var(--text)"><strong>模型不是不知道谁前谁后，而是具体深度数值不够准。</strong> 单独增加关系排序模块最多只覆盖极少数错序对，所以当时停止这条路线。</div>
+      </article>`;
+      const renderManagerDetail = (item) => {
+        const kind = statusKind(item.status);
+        const todoTag = hasPendingTodo(item.id) ? `<span class="manager-status warn">有待办</span>` : "";
+        const saved = loadThoughts();
+        const thought = Object.prototype.hasOwnProperty.call(saved, String(item.id)) ? saved[String(item.id)] : item.thought;
+        const flow = splitText(item.workflow);
+        const result = splitText(item.result);
+        const visualHtml = item.id === 1 ? renderExperimentOneVisual() : item.id === 2 ? renderExperimentTwoVisual() : item.id === 3 ? renderExperimentThreeVisual() : item.id === 4 || item.id === 5 ? renderExperimentFourFiveVisual() : item.id === 6 ? renderExperimentSixVisual() : item.id === 7 ? renderExperimentSevenVisual() : "";
+        const recordHtml = item.id === 1 || item.id === 2 || item.id === 3 || item.id === 4 || item.id === 5 || item.id === 6 || item.id === 7
+          ? `<details class="manager-detail-card full manager-raw"><summary>查看原始流程、配置和完整文字记录</summary><h4>实验流程</h4><p>${escapeHtml(item.workflow)}</p><h4>配置与脚本</h4><p>${escapeHtml(item.source)}</p><h4>输出与日志</h4><p>${escapeHtml(item.output)}</p><h4>结果与限制</h4><p>${escapeHtml(item.result)}</p></details>`
+          : `<article class="manager-detail-card full"><h3>实验流程 / 实际怎么做</h3><ol>${(flow.length ? flow : [item.workflow]).map((part) => `<li>${escapeHtml(part)}</li>`).join("")}</ol></article><article class="manager-detail-card"><h3>配置与脚本</h3><p>${escapeHtml(item.source)}</p></article><article class="manager-detail-card"><h3>输出与日志</h3><p>${escapeHtml(item.output)}</p></article><article class="manager-detail-card full"><h3>结果、结论与限制</h3><ul>${(result.length ? result : [item.result]).map((part) => `<li>${escapeHtml(part)}</li>`).join("")}</ul></article>`;
+        manager$("#manager-detail-view").innerHTML = `<div class="manager-detail-head"><div><h2><span class="badge">${String(item.id).padStart(2, "0")}</span> ${escapeHtml(item.title)}</h2><div class="manager-detail-meta"><span>${escapeHtml(item.date)}</span><span class="manager-status ${kind}">${escapeHtml(item.status)}</span>${todoTag}<span>${item.category === "denoising" ? "去噪相关" : "项目实验"}</span></div></div><button type="button" class="manager-back" id="manager-back-list">← 返回列表</button></div><div class="manager-detail-grid">${visualHtml}${recordHtml}<article class="manager-detail-card full manager-thought"><h3>我的思考</h3><p style="color:var(--muted);font-size:12px">已有讨论中能确定的内容会预置在这里；你补充的内容只保存在当前浏览器。</p><textarea id="manager-thought-input" aria-label="实验思考">${escapeHtml(thought)}</textarea><button type="button" class="manager-save" id="manager-save-thought">保存我的思考</button><span id="manager-save-state" style="margin-left:8px;color:#258052;font-size:12px" role="status"></span></article></div>`;
+        manager$("#manager-list-view").hidden = true; manager$("#manager-todo-view").hidden = true; manager$("#manager-detail-view").hidden = false;
+        manager$("#manager-back-list").addEventListener("click", () => { history.replaceState(null, "", "#experiments"); showManagerView("all"); });
+        manager$("#manager-save-thought").addEventListener("click", () => { saveThought(item.id, manager$("#manager-thought-input").value); manager$("#manager-save-state").textContent = "已保存"; });
+        history.replaceState(null, "", `#experiments/${item.id}`); window.scrollTo({ top: 0, behavior: "smooth" });
+      };
+      const showManagerDetail = (id) => { const item = managerState.experiments.find((candidate) => candidate.id === id); if (item) renderManagerDetail(item); };
+      const renderManagerTodos = () => {
+        manager$("#manager-todo-list").innerHTML = managerState.todos.length ? managerState.todos.map((todo) => `<article class="manager-todo-item"><h3>${escapeHtml(todo.title)}</h3><p>${escapeHtml(todo.detail)}</p><div class="manager-card-meta"><span class="manager-status warn">${escapeHtml(todo.status || "待讨论")}</span><span>${escapeHtml(todo.source || "浏览器本地新增")}</span></div></article>`).join("") : `<div class="manager-empty">还没有待办方向。</div>`;
+      };
+      const showManagerView = (view) => {
+        managerState.view = view; managerState.category = view === "denoising" ? "denoising" : "all"; manager$("#manager-category").value = managerState.category;
+        document.querySelectorAll("[data-manager-view]").forEach((button) => button.classList.toggle("active", button.dataset.managerView === view));
+        manager$("#manager-detail-view").hidden = true; manager$("#manager-list-view").hidden = view === "todo"; manager$("#manager-todo-view").hidden = view !== "todo";
+        if (view === "todo") renderManagerTodos(); else renderManagerList(); window.scrollTo({ top: 0, behavior: "smooth" });
+      };
+      const loadManagerLedger = async () => {
+        const urls = [new URL("docs/实验总账.md", location.href).href, new URL("实验总账.md", location.href).href, "/docs/实验总账.md"];
+        let lastError = null;
+        for (const url of [...new Set(urls)]) {
+          try { const response = await fetch(`${url}${url.includes("?") ? "&" : "?"}ts=${Date.now()}`, { cache: "no-store" }); if (!response.ok) throw new Error(`HTTP ${response.status}`); return parseLedger(await response.text()); } catch (error) { lastError = error; }
+        }
+        throw lastError || new Error("无法读取实验总账");
+      };
+      const bootManager = async () => {
+        if (managerState.initialized) return;
+        managerState.initialized = true; managerState.todos = loadTodos();
+        document.querySelectorAll("body > *:not(#manager-root)").forEach((element) => { element.hidden = true; });
+        managerRoot.hidden = false;
+        document.querySelectorAll("[data-manager-view]").forEach((button) => button.addEventListener("click", () => showManagerView(button.dataset.managerView)));
+        manager$("#manager-search").addEventListener("input", (event) => { managerState.query = event.target.value; renderManagerList(); });
+        manager$("#manager-category").addEventListener("change", (event) => { managerState.category = event.target.value; renderManagerList(); });
+        manager$("#manager-todo-form").addEventListener("submit", (event) => { event.preventDefault(); const title = manager$("#manager-todo-title").value.trim(); const detail = manager$("#manager-todo-detail").value.trim(); if (!title) return; managerState.todos.push({ id: `local-${Date.now()}`, title, detail, status: "待讨论", source: "浏览器本地新增" }); saveTodos(); renderManagerTodos(); event.target.reset(); });
+        try { managerState.experiments = await loadManagerLedger(); renderManagerStats(); manager$("#manager-load-state").textContent = `已从实验总账读取 ${managerState.experiments.length} 条记录`; showManagerView("all"); const match = location.hash.match(/^#experiments\/(\d+)$/); if (match) showManagerDetail(Number(match[1])); } catch (error) { manager$("#manager-load-state").innerHTML = `<div class="callout">无法读取实验总账：${escapeHtml(error.message)}</div>`; }
+      };
+      if (/^#experiments(?:\/\d+)?$/.test(location.hash)) bootManager();
+      window.addEventListener("hashchange", () => {
+        const wantsManager = /^#experiments(?:\/\d+)?$/.test(location.hash);
+        if (wantsManager && managerRoot.hidden) { window.location.reload(); return; }
+        if (!wantsManager && !managerRoot.hidden) { window.location.reload(); }
+      });
+      let version = "";
+      const poll = async () => {
+        try {
+          const response = await fetch("/__note_version__", { cache: "no-store" });
+          if (!response.ok) return;
+          const next = await response.text();
+          if (version && next !== version) window.location.reload();
+          version = next;
+        } catch (_) {
+          // 文件直接打开时没有服务端点，忽略即可。
+        }
+      };
+      poll();
+      window.setInterval(poll, 1200);
+    })();
+  </script>
+</body>
+</html>
