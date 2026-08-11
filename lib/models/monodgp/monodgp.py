@@ -193,7 +193,10 @@ class MonoDGP(nn.Module):
         for proj in self.input_proj:
             nn.init.xavier_uniform_(proj[0].weight, gain=1)
             nn.init.constant_(proj[0].bias, 0)
-        num_pred = det3d_transformer.decoder.num_layers + 1
+        # One prediction head is required per decoder output.  The historical
+        # ``+ 1`` registered a fourth head that neither the 2D nor the 3D
+        # three-layer decoder ever consumed.
+        num_pred = det3d_transformer.decoder.num_layers
         if with_box_refine:
             self.class_embed = _get_clones(self.class_embed, num_pred)
             self.bbox_embed = _get_clones(self.bbox_embed, num_pred)
@@ -408,6 +411,7 @@ class SetCriterion(nn.Module):
     def __init__(self, num_classes, matcher, weight_dict, focal_alpha, losses,
                  inter_losses, group_num=11,
                  geometry_interval_monitoring=None,
+                 query_monitoring=None,
                  use_vectorized_ddn_rasterization=False,
                  use_aligned_giou_loss=False,
                  use_post_match_cache=False):
@@ -446,6 +450,15 @@ class SetCriterion(nn.Module):
             for row in monitor_cfg.get(
                 'decode_mean_sizes', ((0.0, 0.0, 0.0),) * 3))
         self.geometry_conditioned_interval_depth_receipts = {}
+        query_monitor_cfg = query_monitoring or {}
+        self.query_monitoring_enabled = bool(
+            query_monitor_cfg.get('enabled', True))
+        self.query_monitoring_topk = int(
+            query_monitor_cfg.get('inference_topk', 50))
+        self.query_monitoring_score_threshold = float(
+            query_monitor_cfg.get('score_threshold', 0.2))
+        self.query_monitoring_car_class_id = int(
+            query_monitor_cfg.get('car_class_id', 1))
 
     def loss_labels(self, outputs, targets, indices, num_boxes, log=True,
                     matched_cache=None):
@@ -482,16 +495,52 @@ class SetCriterion(nn.Module):
 
     @torch.no_grad()
     def loss_cardinality(self, outputs, targets, indices, num_boxes):
-        """ Compute the cardinality error, ie the absolute error in the number of predicted non-empty boxes
-        This is not really a loss, it is intended for logging purposes only. It doesn't propagate gradients
-        """
+        """Count detections with the same top-k/threshold rule as inference."""
         pred_logits = outputs['pred_logits']
-        device = pred_logits.device
-        tgt_lengths = torch.as_tensor([len(v["labels"]) for v in targets], device=device)
-        # Count the number of predictions that are NOT "no-object" (which is the last class)
-        card_pred = (pred_logits.argmax(-1) != pred_logits.shape[-1] - 1).sum(1)
-        card_err = F.l1_loss(card_pred.float(), tgt_lengths.float())
-        losses = {'cardinality_error': card_err}
+        batch_size, query_count, class_count = pred_logits.shape
+        group_num = self.group_num if self.training else 1
+        if query_count % group_num:
+            raise ValueError(
+                f'{query_count} queries cannot be split into {group_num} groups')
+        queries_per_group = query_count // group_num
+        grouped_scores = pred_logits.sigmoid().view(
+            batch_size, group_num, queries_per_group * class_count)
+        topk = min(self.query_monitoring_topk, grouped_scores.shape[-1])
+        scores, indexes = torch.topk(grouped_scores, topk, dim=-1)
+        kept = scores >= self.query_monitoring_score_threshold
+        labels = indexes.remainder(class_count)
+        predicted = kept.sum(dim=-1).float()
+        predicted_car = (
+            kept & (labels == self.query_monitoring_car_class_id)
+        ).sum(dim=-1).float()
+
+        gt = pred_logits.new_tensor([len(target['labels']) for target in targets])
+        gt_car = torch.stack([
+            (target['labels'] == self.query_monitoring_car_class_id).sum()
+            for target in targets
+        ]).to(dtype=pred_logits.dtype)
+
+        def summarize(prefix, values, car_values):
+            signed = values - gt[:, None]
+            car_signed = car_values - gt_car[:, None]
+            return {
+                f'{prefix}_predicted_count': values.mean(),
+                f'{prefix}_predicted_car_count': car_values.mean(),
+                f'{prefix}_absolute_error': signed.abs().mean(),
+                f'{prefix}_car_absolute_error': car_signed.abs().mean(),
+                f'{prefix}_signed_error': signed.mean(),
+                f'{prefix}_car_signed_error': car_signed.mean(),
+            }
+
+        losses = {
+            'monitor_cardinality_gt_count': gt.mean(),
+            'monitor_cardinality_gt_car_count': gt_car.mean(),
+        }
+        losses.update(summarize(
+            'monitor_cardinality_all_groups', predicted, predicted_car))
+        losses.update(summarize(
+            'monitor_cardinality_group0',
+            predicted[:, :1], predicted_car[:, :1]))
         return losses
 
     def loss_3dcenter(self, outputs, targets, indices, num_boxes,
@@ -559,12 +608,35 @@ class SetCriterion(nn.Module):
                             for t, (_, i) in zip(targets, indices)], dim=0)
             ).squeeze()
          
-        depth_loss = 0
         depth_input, depth_log_variance = src_depths[:, 0], src_depths[:, 1] 
-        depth_loss += 1.4142 * torch.exp(-depth_log_variance) * torch.abs(depth_input - target_depths) + depth_log_variance
+        absolute_error = torch.abs(depth_input - target_depths)
+        weighted_absolute = (
+            1.4142 * torch.exp(-depth_log_variance) * absolute_error)
+        depth_loss = weighted_absolute + depth_log_variance
         
         losses = {}
         losses['loss_depth'] = depth_loss.sum() / num_boxes 
+        with torch.no_grad():
+            normalizer = float(num_boxes)
+            precision = torch.exp(-depth_log_variance)
+            losses.update({
+                'monitor_depth_mae': absolute_error.sum() / normalizer,
+                'monitor_depth_weighted_absolute': (
+                    weighted_absolute.sum() / normalizer),
+                'monitor_depth_log_scale_mean': (
+                    depth_log_variance.sum() / normalizer),
+                'monitor_depth_precision_mean': precision.mean(),
+            })
+            if depth_log_variance.numel():
+                quantiles = depth_log_variance.float().quantile(
+                    depth_log_variance.new_tensor((0.1, 0.5, 0.9)))
+                precision_p90 = precision.float().quantile(0.9)
+                losses.update({
+                    'monitor_depth_log_scale_p10': quantiles[0],
+                    'monitor_depth_log_scale_p50': quantiles[1],
+                    'monitor_depth_log_scale_p90': quantiles[2],
+                    'monitor_depth_precision_p90': precision_p90,
+                })
         return losses  
     
     def loss_dims(self, outputs, targets, indices, num_boxes,
@@ -616,13 +688,21 @@ class SetCriterion(nn.Module):
 
         # regression loss
         heading_input_res = heading_input[:, 12:24]
-        cls_onehot = torch.zeros(heading_target_cls.shape[0], 12).cuda().scatter_(dim=1, index=heading_target_cls.view(-1, 1), value=1)
+        cls_onehot = torch.zeros(
+            heading_target_cls.shape[0], 12,
+            device=heading_target_cls.device).scatter_(
+                dim=1, index=heading_target_cls.view(-1, 1), value=1)
         heading_input_res = torch.sum(heading_input_res * cls_onehot, 1)
         reg_loss = F.l1_loss(heading_input_res, heading_target_res, reduction='none')
         
         angle_loss = cls_loss + reg_loss
         losses = {}
         losses['loss_angle'] = angle_loss.sum() / num_boxes 
+        with torch.no_grad():
+            losses['monitor_angle_classification'] = (
+                cls_loss.sum() / float(num_boxes))
+            losses['monitor_angle_residual'] = (
+                reg_loss.sum() / float(num_boxes))
         return losses
 
     def loss_depth_map(self, outputs, targets, indices, num_boxes):
@@ -698,6 +778,45 @@ class SetCriterion(nn.Module):
         return build_post_match_cache(
             outputs, targets, indices, active_losses)
 
+    @torch.no_grad()
+    def _group0_loss_metrics(self, outputs, targets, indices, num_boxes):
+        """Re-evaluate final-layer matched losses for inference query group 0."""
+        query_count = outputs['pred_logits'].shape[1]
+        if query_count % self.group_num:
+            raise ValueError(
+                f'{query_count} queries cannot be split into '
+                f'{self.group_num} groups')
+        queries_per_group = query_count // self.group_num
+        group0_indices = []
+        for source_index, target_index in indices:
+            keep = source_index < queries_per_group
+            group0_indices.append((source_index[keep], target_index[keep]))
+
+        query_fields = (
+            'pred_logits', 'pred_boxes', 'pred_depth', 'pred_3d_dim',
+            'pred_angle')
+        group0_outputs = {
+            key: outputs[key][:, :queries_per_group]
+            for key in query_fields
+        }
+        active_losses = (
+            'labels', 'boxes', 'depths', 'dims', 'angles', 'center')
+        matched_cache = self._post_match_cache(
+            group0_outputs, targets, group0_indices, active_losses)
+        metrics = {}
+        for loss_name in active_losses:
+            kwargs = {'matched_cache': matched_cache}
+            if loss_name == 'labels':
+                kwargs['log'] = False
+            values = self.get_loss(
+                loss_name, group0_outputs, targets, group0_indices,
+                num_boxes, **kwargs)
+            metrics.update({
+                f'monitor_group0_{key}': value.detach()
+                for key, value in values.items()
+            })
+        return metrics
+
     def forward(self, outputs, targets, mask_dict=None):
         """ This performs the loss computation.
         Parameters:
@@ -743,6 +862,16 @@ class SetCriterion(nn.Module):
             losses.update(self.get_loss(
                 loss, outputs, targets, indices, num_boxes,
                 matched_cache=matched_cache))
+        if (self.query_monitoring_enabled and self.training
+                and group_num > 1):
+            group0_num_boxes = sum(len(t['labels']) for t in targets)
+            group0_num_boxes = torch.as_tensor(
+                [group0_num_boxes], dtype=torch.float,
+                device=next(iter(outputs.values())).device)
+            group0_num_boxes = torch.clamp(
+                group0_num_boxes / get_world_size(), min=1).item()
+            losses.update(self._group0_loss_metrics(
+                outputs_without_aux, targets, indices, group0_num_boxes))
         if self.geometry_interval_monitoring_enabled:
             with torch.no_grad():
                 _, _, receipt = asymmetric_interval_and_uncertainty_loss(
@@ -762,11 +891,11 @@ class SetCriterion(nn.Module):
                     prepared_targets=prepared_matcher_targets)
                 active_losses = [
                     loss for loss in self.losses
-                    if loss not in ('depth_map', 'region')]
+                    if loss not in ('depth_map', 'region', 'cardinality')]
                 matched_cache = self._post_match_cache(
                     aux_outputs, targets, indices, active_losses)
                 for loss in self.losses:
-                    if loss == 'depth_map' or loss == 'region':
+                    if loss in ('depth_map', 'region', 'cardinality'):
                         continue
                     kwargs = {}
                     if loss == 'labels':
@@ -858,6 +987,7 @@ def build(cfg):
         group_num=cfg['group_num'],
         geometry_interval_monitoring=cfg.get(
             'geometry_interval_monitoring'),
+        query_monitoring=cfg.get('query_monitoring'),
         use_vectorized_ddn_rasterization=cfg.get(
             'use_vectorized_ddn_rasterization', False),
         use_aligned_giou_loss=cfg.get('use_aligned_giou_loss', False),

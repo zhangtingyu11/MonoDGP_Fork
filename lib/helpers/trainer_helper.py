@@ -10,11 +10,67 @@ from lib.helpers.save_helper import save_checkpoint
 from lib.helpers.swanlab_helper import ScalarMeanAccumulator
 from lib.helpers.swanlab_helper import GeometryIntervalAccumulator
 from lib.helpers.swanlab_helper import chinese_geometry_metrics
-from lib.helpers.swanlab_helper import chinese_weighted_losses
+from lib.helpers.swanlab_helper import chinese_grouped_monitoring
+from lib.helpers.swanlab_helper import scalar_values_to_floats
 from lib.helpers.gradient_monitor import GradientMonitor
 from lib.helpers.gradient_monitor import chinese_gradient_metrics
 
 from utils import misc
+
+
+_AP_DIFFICULTIES = (
+    ('easy', '简单'),
+    ('moderate', '中等'),
+    ('hard', '困难'),
+)
+
+_CORE_GRADIENT_NAMES = {
+    '全模型梯度L2范数中位数',
+    '全模型梯度L2范数P95',
+    '全模型梯度L2范数最大值',
+}
+
+
+def grouped_gradient_payload(metrics, scope, epoch_summary=False):
+    payload = {}
+    for name, value in chinese_gradient_metrics(metrics).items():
+        group = (
+            f'{scope}核心概览'
+            if epoch_summary and name in _CORE_GRADIENT_NAMES
+            else f'{scope}梯度诊断')
+        payload[f'{group}/{name}'] = value
+    return payload
+
+
+def update_best_ap_snapshots(snapshots, metrics, epoch):
+    """Keep all three AP values from each difficulty's best epoch."""
+    current = {}
+    for difficulty, _ in _AP_DIFFICULTIES:
+        key = f'Car_3d_{difficulty}_R40'
+        if key not in metrics:
+            return snapshots
+        current[difficulty] = float(metrics[key])
+    for selected, _ in _AP_DIFFICULTIES:
+        previous = snapshots.get(selected)
+        if previous is None or current[selected] > previous[selected]:
+            snapshots[selected] = {'epoch': int(epoch), **current}
+    return snapshots
+
+
+def historical_best_ap_payload(snapshots):
+    payload = {}
+    for selected, selected_chinese in _AP_DIFFICULTIES:
+        snapshot = snapshots.get(selected)
+        if snapshot is None:
+            continue
+        prefix = f'历史最佳结果/以{selected_chinese}难度为准'
+        payload[f'{prefix}/对应轮次'] = snapshot['epoch']
+        for difficulty, chinese in _AP_DIFFICULTIES:
+            qualifier = '最高' if difficulty == selected else '同轮'
+            payload[
+                f'{prefix}/{qualifier}{chinese}难度三维AP_R40'
+            ] = snapshot[difficulty]
+    return payload
 
 
 def _tensor_leaves(value):
@@ -190,6 +246,7 @@ class Trainer(object):
 
         best_result = self.best_result
         best_epoch = self.best_epoch
+        best_ap_snapshots = {}
         self.logger.info(
             "Training started: epochs=%d, start_epoch=%d",
             self.cfg['max_epoch'], start_epoch)
@@ -203,24 +260,20 @@ class Trainer(object):
             if self.tracker is not None:
                 payload = {
                     '训练轮次': self.epoch,
-                    '每轮训练集汇总/总损失': train_summary['mean_loss'],
                 }
-                payload.update({
-                    f'每轮训练集汇总/{key}': value
-                    for key, value in chinese_weighted_losses(
+                payload.update(chinese_grouped_monitoring(
                         train_summary['mean_raw_losses'],
-                        self.detr_loss.weight_dict).items()
-                })
+                        self.detr_loss.weight_dict,
+                        scope='每轮训练',
+                        final_query_label='全部11组'))
                 payload.update({
-                    f'每轮训练集汇总/{key}': value
+                    f'每轮训练可行区间诊断/{key}': value
                     for key, value in chinese_geometry_metrics(
                         train_summary['geometry_interval']).items()
                 })
-                payload.update({
-                    f'每轮训练梯度汇总/{key}': value
-                    for key, value in chinese_gradient_metrics(
-                        train_summary['gradient_monitoring']).items()
-                })
+                payload.update(grouped_gradient_payload(
+                    train_summary['gradient_monitoring'],
+                    scope='每轮训练', epoch_summary=True))
                 self.tracker.log(
                     payload, step=self.epoch * len(self.train_loader))
 
@@ -250,6 +303,8 @@ class Trainer(object):
                     results = self.tester.inference()
                     evaluation = self.tester.evaluate(
                         results, return_metrics=True)
+                    update_best_ap_snapshots(
+                        best_ap_snapshots, evaluation['metrics'], self.epoch)
                     cur_result = evaluation['selection_score']
                     if cur_result > best_result:
                         best_result = cur_result
@@ -265,28 +320,21 @@ class Trainer(object):
                             self.tester.last_loss_summary or {})
                         payload = {
                             '训练轮次': self.epoch,
-                            '历史最佳结果/中等难度最佳三维AP_R40': best_result,
-                            '历史最佳结果/最佳轮次': best_epoch,
-                            '每轮验证集汇总/总损失': sum(
-                                value * self.detr_loss.weight_dict[key]
-                                for key, value in validation_loss_summary.items()
-                                if key in self.detr_loss.weight_dict),
                         }
-                        payload.update({
-                            f'每轮验证集汇总/{key}': value
-                            for key, value in chinese_weighted_losses(
+                        payload.update(historical_best_ap_payload(
+                            best_ap_snapshots))
+                        payload.update(chinese_grouped_monitoring(
                                 validation_loss_summary,
-                                self.detr_loss.weight_dict).items()
-                        })
+                                self.detr_loss.weight_dict,
+                                scope='每轮验证',
+                                final_query_label='验证使用查询组'))
                         payload.update({
-                            f'每轮验证集汇总/{key}': value
+                            f'每轮验证可行区间诊断/{key}': value
                             for key, value in chinese_geometry_metrics(
                                 self.tester.last_geometry_interval_summary
                                 or {}).items()
                         })
-                        for difficulty, chinese in (
-                                ('easy', '简单'), ('moderate', '中等'),
-                                ('hard', '困难')):
+                        for difficulty, chinese in _AP_DIFFICULTIES:
                             metric = f'Car_3d_{difficulty}_R40'
                             if metric in evaluation['metrics']:
                                 payload[
@@ -393,31 +441,25 @@ class Trainer(object):
                         and (batch_idx % swanlab_interval == 0
                              or batch_idx + 1 == batch_count)):
                     global_step = epoch * batch_count + batch_idx + 1
-                    raw_values = {
-                        key: float(value.detach().cpu())
-                        for key, value in detr_losses_dict.items()
-                        if torch.is_tensor(value) and value.numel() == 1
-                    }
+                    raw_values = scalar_values_to_floats(detr_losses_dict)
                     swanlab_payload = {
                         '训练轮次': epoch + 1,
-                        '训练中每5批记录/当前批次': batch_idx,
-                        '训练中每5批记录/总损失': detr_losses_log,
+                        '训练进度/当前批次': batch_idx,
                     }
-                    swanlab_payload.update({
-                        f'训练中每5批记录/{key}': value
-                        for key, value in chinese_weighted_losses(
-                            raw_values, weight_dict).items()
-                    })
+                    swanlab_payload.update(chinese_grouped_monitoring(
+                        raw_values, weight_dict,
+                        scope='训练中每5批',
+                        final_query_label='全部11组'))
                     if geometry_receipt is not None:
-                        counts = {
-                            key: float(geometry_receipt[key].detach().cpu())
-                            for key in (
-                                'matched_count', 'unique_matched_car_count',
-                                'eligible_car_count',
-                                'supported_at_gt_count',
-                                'valid_interval_count', 'inside_count',
-                                'outside_count', 'fallback_native_count')
-                        }
+                        count_keys = (
+                            'matched_count', 'unique_matched_car_count',
+                            'eligible_car_count',
+                            'supported_at_gt_count',
+                            'valid_interval_count', 'inside_count',
+                            'outside_count', 'fallback_native_count')
+                        counts = scalar_values_to_floats({
+                            key: geometry_receipt[key] for key in count_keys
+                        })
                         valid = counts['valid_interval_count']
                         eligible = counts['eligible_car_count']
                         counts['valid_interval_fraction'] = (
@@ -425,7 +467,7 @@ class Trainer(object):
                         counts['outside_fraction'] = (
                             counts['outside_count'] / valid if valid else 0.0)
                         swanlab_payload.update({
-                            f'训练中每5批记录/{key}': value
+                            f'训练中每5批可行区间诊断/{key}': value
                             for key, value in chinese_geometry_metrics(
                                 counts).items()
                         })
@@ -451,12 +493,9 @@ class Trainer(object):
                         epoch + 1, self.cfg['max_epoch'],
                         batch_idx + 1, batch_count, gradient_text)
                 if swanlab_payload is not None:
-                    swanlab_payload.update({
-                        f'训练中每5批记录/{key}': float(
-                            value.detach().cpu())
-                        for key, value in chinese_gradient_metrics(
-                            gradient_snapshot).items()
-                    })
+                    swanlab_payload.update(grouped_gradient_payload(
+                        scalar_values_to_floats(gradient_snapshot),
+                        scope='训练中每5批'))
                     self.tracker.log(
                         swanlab_payload, step=swanlab_step)
                 self.optimizer.step()

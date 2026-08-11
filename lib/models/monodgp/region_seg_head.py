@@ -36,9 +36,6 @@ class RegionSegHead(nn.Module):
         self.input_proj = nn.ModuleList(input_proj_list)
         self.pred = nn.ModuleList(pred_list)
         self.upsample = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
-        self.deconv = nn.ModuleList([
-            nn.ConvTranspose2d(d_model, d_model, kernel_size=2, stride=2) for _ in range(n_levels - 1)
-        ])
         self.attention = nn.ModuleList([SEBlock(d_model) for _ in range(n_levels)])
         
     def forward(self, features):

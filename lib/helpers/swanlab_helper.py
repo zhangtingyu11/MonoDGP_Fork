@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import math
 import os
+import re
 
 import torch
 
@@ -49,13 +50,165 @@ LOSS_CHINESE_NAMES = {
     'loss_region': '物体区域损失',
 }
 
+LOSS_DIAGNOSTIC_CHINESE_NAMES = {
+    'monitor_angle_classification': '航向角分类交叉熵',
+    'monitor_angle_residual': '航向角残差绝对误差',
+    'monitor_depth_mae': '深度绝对误差',
+    'monitor_depth_weighted_absolute': '不确定性加权深度绝对误差',
+    'monitor_depth_log_scale_mean': '深度对数尺度均值',
+    'monitor_depth_log_scale_p10': '深度对数尺度P10',
+    'monitor_depth_log_scale_p50': '深度对数尺度P50',
+    'monitor_depth_log_scale_p90': '深度对数尺度P90',
+    'monitor_depth_precision_mean': '深度置信精度均值（exp负对数尺度）',
+    'monitor_depth_precision_p90': '深度置信精度P90（exp负对数尺度）',
+}
 
-def chinese_weighted_losses(raw_losses, weight_dict):
-    return {
-        LOSS_CHINESE_NAMES[key]: value * float(weight_dict[key])
-        for key, value in raw_losses.items()
-        if key in LOSS_CHINESE_NAMES and key in weight_dict
-    }
+CARDINALITY_CHINESE_NAMES = {
+    'monitor_cardinality_gt_count': '每张图真实目标数',
+    'monitor_cardinality_gt_car_count': '每张图真实车辆数',
+    'monitor_cardinality_all_groups_predicted_count': (
+        '全部查询组每图每组预测目标数'),
+    'monitor_cardinality_all_groups_predicted_car_count': (
+        '全部查询组每图每组预测车辆数'),
+    'monitor_cardinality_all_groups_absolute_error': (
+        '全部查询组预测目标数绝对误差'),
+    'monitor_cardinality_all_groups_car_absolute_error': (
+        '全部查询组预测车辆数绝对误差'),
+    'monitor_cardinality_all_groups_signed_error': (
+        '全部查询组预测目标数有符号误差'),
+    'monitor_cardinality_all_groups_car_signed_error': (
+        '全部查询组预测车辆数有符号误差'),
+    'monitor_cardinality_group0_predicted_count': '第0查询组每图预测目标数',
+    'monitor_cardinality_group0_predicted_car_count': '第0查询组每图预测车辆数',
+    'monitor_cardinality_group0_absolute_error': '第0查询组预测目标数绝对误差',
+    'monitor_cardinality_group0_car_absolute_error': (
+        '第0查询组预测车辆数绝对误差'),
+    'monitor_cardinality_group0_signed_error': '第0查询组预测目标数有符号误差',
+    'monitor_cardinality_group0_car_signed_error': (
+        '第0查询组预测车辆数有符号误差'),
+}
+
+
+def _split_layer_suffix(key):
+    inter_match = re.search(r'_inter_(\d+)$', key)
+    if inter_match:
+        layer_index = int(inter_match.group(1))
+        return key[:inter_match.start()], f'二维中间层第{layer_index + 1}层'
+    auxiliary_match = re.search(r'_(\d+)$', key)
+    if auxiliary_match:
+        layer_index = int(auxiliary_match.group(1))
+        return key[:auxiliary_match.start()], f'辅助Decoder第{layer_index + 1}层'
+    return key, '最终Decoder层'
+
+
+def chinese_grouped_monitoring(raw_losses, weight_dict, scope,
+                               final_query_label):
+    """Create non-overlapping, readable SwanLab metric groups."""
+    result = {}
+    final_query_keys = {
+        'loss_ce', 'loss_bbox', 'loss_giou', 'loss_dim', 'loss_angle',
+        'loss_depth', 'loss_center'}
+    shared_keys = {'loss_depth_map', 'loss_region'}
+    final_query_total = 0.0
+    full_total = 0.0
+    auxiliary_totals = {}
+    intermediate_totals = {}
+
+    for full_key, value in raw_losses.items():
+        if full_key not in weight_dict:
+            continue
+        base_key, layer_name = _split_layer_suffix(full_key)
+        if base_key not in LOSS_CHINESE_NAMES:
+            continue
+        weighted = value * float(weight_dict[full_key])
+        full_total += weighted
+        metric_name = f'{LOSS_CHINESE_NAMES[base_key]}（加权）'
+        if layer_name == '最终Decoder层' and base_key in final_query_keys:
+            result[f'{scope}最终查询损失/{metric_name}'] = weighted
+            final_query_total += weighted
+        elif layer_name == '最终Decoder层' and base_key in shared_keys:
+            result[f'{scope}共享损失/{metric_name}'] = weighted
+        elif layer_name.startswith('辅助Decoder'):
+            result[f'{scope}辅助Decoder损失/{layer_name}/{metric_name}'] = weighted
+            auxiliary_totals[layer_name] = (
+                auxiliary_totals.get(layer_name, 0.0) + weighted)
+        elif layer_name.startswith('二维中间层'):
+            result[f'{scope}二维中间层损失/{layer_name}/{metric_name}'] = weighted
+            intermediate_totals[layer_name] = (
+                intermediate_totals.get(layer_name, 0.0) + weighted)
+
+    result[f'{scope}核心概览/完整训练目标总损失'] = full_total
+    result[
+        f'{scope}核心概览/{final_query_label}最终查询损失合计'
+    ] = final_query_total
+    for layer_name, total in auxiliary_totals.items():
+        result[
+            f'{scope}辅助Decoder损失/{layer_name}/该层加权损失合计'
+        ] = total
+    for layer_name, total in intermediate_totals.items():
+        result[
+            f'{scope}二维中间层损失/{layer_name}/该层加权损失合计'
+        ] = total
+
+    for full_key, value in raw_losses.items():
+        base_key, layer_name = _split_layer_suffix(full_key)
+        if base_key in LOSS_DIAGNOSTIC_CHINESE_NAMES:
+            if base_key.startswith('monitor_angle_'):
+                weight_key = 'loss_angle'
+            elif base_key.startswith('monitor_depth_'):
+                weight_key = 'loss_depth'
+            else:
+                weight_key = None
+            suffix = full_key[len(base_key):]
+            coefficient = float(weight_dict.get(
+                f'{weight_key}{suffix}', 1.0)) if weight_key else 1.0
+            diagnostic_group = (
+                '航向角诊断' if base_key.startswith('monitor_angle_')
+                else '深度诊断')
+            result[f'{scope}{diagnostic_group}/{layer_name}/'
+                   f'{LOSS_DIAGNOSTIC_CHINESE_NAMES[base_key]}'] = (
+                       value * coefficient)
+        elif base_key in CARDINALITY_CHINESE_NAMES:
+            result[
+                f'{scope}预测数量诊断/{CARDINALITY_CHINESE_NAMES[base_key]}'
+            ] = value
+
+    group0_prefix = 'monitor_group0_'
+    group0_total = 0.0
+    for full_key, value in raw_losses.items():
+        if not full_key.startswith(group0_prefix):
+            continue
+        base_key = full_key[len(group0_prefix):]
+        if base_key in LOSS_CHINESE_NAMES:
+            coefficient = float(weight_dict.get(base_key, 1.0))
+            name = f'{LOSS_CHINESE_NAMES[base_key]}（加权）'
+            group0_total += value * coefficient
+        elif base_key in LOSS_DIAGNOSTIC_CHINESE_NAMES:
+            coefficient = float(weight_dict.get(
+                'loss_angle' if base_key.startswith('monitor_angle_')
+                else 'loss_depth', 1.0))
+            name = LOSS_DIAGNOSTIC_CHINESE_NAMES[base_key]
+        else:
+            continue
+        result[f'{scope}第0查询组对照/{name}'] = value * coefficient
+    if any(key.startswith(group0_prefix) for key in raw_losses):
+        result[f'{scope}核心概览/第0查询组最终查询损失合计'] = (
+            group0_total)
+    return result
+
+
+def scalar_values_to_floats(values):
+    """Transfer a dictionary of scalar tensors to the host in one sync."""
+    keys = [
+        key for key, value in values.items()
+        if torch.is_tensor(value) and value.numel() == 1
+    ]
+    if not keys:
+        return {}
+    host_values = torch.stack([
+        values[key].detach().reshape(()) for key in keys
+    ]).cpu().tolist()
+    return dict(zip(keys, host_values))
 
 
 def chinese_geometry_metrics(summary):
@@ -85,10 +238,10 @@ class ScalarMeanAccumulator:
             self._counts[key] += 1
 
     def finalize(self):
-        return {
-            key: float((total / self._counts[key]).cpu())
+        return scalar_values_to_floats({
+            key: total / self._counts[key]
             for key, total in self._sums.items()
-        }
+        })
 
 
 class GeometryIntervalAccumulator:

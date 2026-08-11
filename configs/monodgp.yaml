@@ -30,7 +30,7 @@ dataset:
   depth_scale: 'normal'
 
 
-model_name: 'monodgp'
+model_name: 'V2-0021_删除无用参数训练_正式重跑'
 model:
   num_classes: 3
   return_intermediate_dec: True
@@ -92,6 +92,13 @@ model:
   # Gather matched indices and target fields once per output layer so all
   # object losses can reuse them.
   use_post_match_cache: True
+  # Monitoring only: reproduce validation decoding independently in every
+  # training query group, while also exposing the inference-used group 0.
+  query_monitoring:
+    enabled: True
+    inference_topk: &inference_topk 50
+    score_threshold: &inference_score_threshold 0.2
+    car_class_id: 1
   # Passive GT-conditioned feasible-depth interval monitor.  It uses the
   # current projection convention and never contributes to optimization.
   geometry_interval_monitoring:
@@ -172,19 +179,19 @@ trainer:
     required: True
     project: 'MonoDGP'
     workspace: 'Grapymage'
-    experiment_name: 'monodgp-optimized-baseline'
-    description: 'Optimized native baseline for feasible-interval comparisons'
-    group: 'feasible-interval-study'
+    experiment_name: '实验21_删除无用参数训练_正式重跑'
+    description: '删除无消费者参数后的正式训练，用于检查完整训练曲线、梯度与验证表现'
+    group: '可行区间研究'
     projection_geometry_version: 'current'
-    tags: ['baseline', 'kitti', 'feasible-interval-reference']
+    tags: ['实验21', 'KITTI', '删除无用参数']
     mode: 'online'
 
 tester:
   type: *dataset_type
   mode: single  # 'single' or 'all'; 'all' to evaluate all ckpts in the folder
   checkpoint: 195  # the start ckpt epoch for 'all'
-  threshold: 0.2  # confidence filter
-  topk: 50
+  threshold: *inference_score_threshold  # confidence filter
+  topk: *inference_topk
   # Validation stays in memory. Enable only when KITTI text files are needed
   # for an external test-server submission or manual inspection.
   export_predictions: False
