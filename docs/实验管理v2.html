@@ -35,14 +35,26 @@
         radial-gradient(circle at 93% 3%, rgba(52, 120, 246, .12), transparent 24rem),
         var(--canvas);
       color: var(--ink);
-      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
-        "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-family: "Noto Sans CJK SC", "Noto Sans SC", "Source Han Sans SC",
+        "Microsoft YaHei", "PingFang SC", ui-sans-serif, system-ui, sans-serif;
+      font-synthesis: none;
+      -webkit-font-smoothing: antialiased;
+      text-rendering: optimizeLegibility;
       line-height: 1.6;
     }
 
     button, summary { font: inherit; }
     button { color: inherit; }
     a { color: inherit; }
+    code {
+      color: #30415d;
+      font-family: "Noto Sans Mono CJK SC", "Noto Sans Mono", "Cascadia Mono",
+        "SFMono-Regular", Consolas, monospace;
+      font-size: .9em;
+      font-weight: 500;
+      font-variant-ligatures: none;
+      overflow-wrap: anywhere;
+    }
 
     .shell {
       width: min(1220px, calc(100% - 36px));
@@ -319,6 +331,31 @@
 
     .truth p { margin: 6px 0 0; color: var(--muted); font-size: 13px; }
 
+    #overview .truth {
+      display: flex;
+      flex-direction: column;
+      cursor: pointer;
+      outline: none;
+      transition: transform .16s ease, border-color .16s ease, box-shadow .16s ease;
+    }
+
+    #overview .truth p { flex: 1; }
+
+    #overview .truth::after {
+      content: "查看实验 →";
+      margin-top: 14px;
+      color: var(--blue);
+      font-size: 12px;
+      font-weight: 850;
+    }
+
+    #overview .truth:hover,
+    #overview .truth:focus-visible {
+      transform: translateY(-2px);
+      border-color: rgba(52, 120, 246, .48);
+      box-shadow: 0 10px 24px rgba(52, 120, 246, .12);
+    }
+
     .metric-grid {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
@@ -540,7 +577,7 @@
       <h1>实验总览 v2</h1>
       <p>实验总账的可视化索引。每项实验单独记录目的、对比条件、执行过程和客观结果，方便后续持续追加。</p>
       <div class="hero-meta">
-        <span class="pill"><span class="status-dot"></span>20 项实验已记录</span>
+        <span class="pill"><span class="status-dot"></span>21 项实验已记录</span>
         <span class="pill">数据来源：实验总账v2</span>
         <span class="pill">更新日期：2026-08-11</span>
       </div>
@@ -549,13 +586,13 @@
     <section class="top-grid" aria-label="全局摘要">
       <article class="summary-card">
         <span class="label">正式实验</span>
-        <strong>20 项</strong>
+        <strong>21 项</strong>
         <small>从 v2 重新编号</small>
       </article>
       <article class="summary-card">
         <span class="label">已完成</span>
         <strong>20 项</strong>
-        <small>序号20已审核，作为监控基线</small>
+        <small>另有序号21正在训练</small>
       </article>
       <article class="summary-card">
         <span class="label">实验类型</span>
@@ -564,7 +601,7 @@
       </article>
       <article class="summary-card">
         <span class="label">当前编号</span>
-        <strong>01—20</strong>
+        <strong>01—21</strong>
         <small>后续实验继续追加</small>
       </article>
     </section>
@@ -659,6 +696,10 @@
         <button class="nav-button" data-target="exp20" type="button">
           <span class="nav-index">20</span>
           <span class="nav-copy"><strong>可行区间监控基线</strong><small>SwanLab、Loss与梯度</small></span>
+        </button>
+        <button class="nav-button" data-target="exp21" type="button">
+          <span class="nav-index">21</span>
+          <span class="nav-copy"><strong>删除无消费者参数</strong><small>正式B16训练基线·进行中</small></span>
         </button>
       </nav>
 
@@ -768,6 +809,16 @@
                 <h3>真值整理前移到CPU</h3>
                 <p>在CPU压缩逐物体字段，锁页后按字段异步搬运，并在GPU按每图物体数重建视图。</p>
               </div>
+              <div class="truth">
+                <span class="number">20</span>
+                <h3>可行深度区间与完整训练监控</h3>
+                <p>建立不参与优化的可行区间、全部Loss、11组与第0组对照、梯度和验证AP监控基线。</p>
+              </div>
+              <div class="truth">
+                <span class="number">21</span>
+                <h3>删除无消费者参数后的正式训练</h3>
+                <p>删除27个无梯度参数张量，以新结构从头训练250轮，形成后续几何修复实验的正式对照。</p>
+              </div>
             </div>
           </article>
 
@@ -855,10 +906,18 @@
                 <h3>实验 19：对照序号17累计代码</h3>
                 <p>只改变逐物体真值删除填充行和H2D搬运的时机；模型、匹配、Loss和稠密区域图不变。</p>
               </div>
+              <div class="mini-card good">
+                <h3>实验 20：累计监控基线</h3>
+                <p>不是长期精度A/B；验证可行区间、Loss、梯度及训练/验证耗时后，作为后续正式训练的监控口径。</p>
+              </div>
+              <div class="mini-card good">
+                <h3>实验 21：新结构完整训练基线</h3>
+                <p>删除无消费者参数会改变初始化随机数消耗，因此不和旧结构做同seed逐权重比较；本轮结果将作为后续实验的正式对照。</p>
+              </div>
             </div>
             <div class="callout warning" style="margin-top:14px">
               <h4>每项实验只和自己明确的对照比</h4>
-              <p>序号1是B8完整运行栈对比；序号2是B16单组基准；序号3—10依次对照上一项已审核累计代码；序号11分析序号10累计代码；序号12、13分别测试死深度计算和cuDNN自动调优；序号14只诊断局部编译边界；序号15、16分别测试区域头编译和channels-last；序号17在共同修复11组decoder后测试2D查询布局；序号18、19分别对照序号17累计代码测试零mask构造和CPU真值整理。</p>
+              <p>序号1是B8完整运行栈对比；序号2是B16单组基准；序号3—10依次对照上一项已审核累计代码；序号11分析序号10累计代码；序号12、13分别测试死深度计算和cuDNN自动调优；序号14只诊断局部编译边界；序号15、16分别测试区域头编译和channels-last；序号17在共同修复11组decoder后测试2D查询布局；序号18、19分别测试零mask构造和CPU真值整理；序号20固定监控口径；序号21以删除无消费者参数后的新结构做完整训练基线。</p>
             </div>
           </article>
         </section>
@@ -2560,16 +2619,83 @@
             <p class="plain-note">训练车辆数使用去重真值计数，匹配预测数保留11组全部结果，两者不再混称。SwanLab采用中文完整指标名，记录每项Loss、区间内外数量与比例、AP和梯度趋势。</p>
           </article>
         </section>
+
+        <section id="exp21" class="content-panel" aria-labelledby="exp21-title">
+          <article class="section-card">
+            <div class="section-head">
+              <div>
+                <span class="section-kicker">Experiment 21 · 08-11</span>
+                <h2 id="exp21-title">删除无消费者参数后的正式B16训练基线</h2>
+                <p class="section-subtitle">以新结构重新初始化并训练250轮；本轮不是删除前后的同初始化A/B，完成后作为后续负坐标切片修复实验的正式对照。</p>
+              </div>
+              <span class="done-badge">进行中·已完成218轮</span>
+            </div>
+            <div class="condition-grid">
+              <article class="condition-card">
+                <header><strong>结构清理</strong><span>只删无消费者状态</span></header>
+                <dl>
+                  <div><dt>无梯度张量</dt><dd>27个 → 0个</dd></div>
+                  <div><dt>可训练标量</dt><dd>减少1,141,542个</dd></div>
+                  <div><dt>来源</dt><dd>第4套预测头20个、反卷积6个、深度位置嵌入1个</dd></div>
+                  <div><dt>旧权重</dt><dd>只对白名单废弃key兼容，其余仍严格加载</dd></div>
+                </dl>
+              </article>
+              <article class="condition-card new">
+                <header><strong>正式训练</strong><span>后续实验基线</span></header>
+                <dl>
+                  <div><dt>数据与批量</dt><dd>KITTI train/val · B16</dd></div>
+                  <div><dt>轮次</dt><dd>250轮，第120轮起逐轮验证</dd></div>
+                  <div><dt>随机种子</dt><dd>444</dd></div>
+                  <div><dt>监控</dt><dd>全部Loss、11组/第0组、区间、梯度、三档AP</dd></div>
+                </dl>
+              </article>
+            </div>
+          </article>
+          <article class="section-card">
+            <div class="section-head"><div><span class="section-kicker">Snapshot · 2026-08-11 19:04</span><h2>训练中途状态</h2></div></div>
+            <div class="metric-grid">
+              <div class="metric"><span>训练进度</span><strong>218 / 250</strong><em>第219轮正在训练</em></div>
+              <div class="metric"><span>已完成验证</span><strong>99 次</strong><em>第120—218轮</em></div>
+              <div class="metric"><span>当前中等最佳</span><strong>23.1712</strong><em>第217轮 · Car 3D AP_R40</em></div>
+              <div class="metric"><span>梯度有限性</span><strong>全部有限</strong><em>NaN/Inf批次数为0</em></div>
+              <div class="metric"><span>无梯度参数张量</span><strong>0</strong><em>删除前为27</em></div>
+              <div class="metric"><span>SwanLab运行</span><strong>farusgz0</strong><em>在线持续记录</em></div>
+            </div>
+          </article>
+          <article class="section-card">
+            <div class="section-head"><div><span class="section-kicker">Interim AP</span><h2>三种历史最佳口径的当前快照</h2></div></div>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>选择口径</th><th>对应轮次</th><th>简单 3D AP_R40</th><th>中等 3D AP_R40</th><th>困难 3D AP_R40</th></tr></thead>
+                <tbody>
+                  <tr><td>简单难度最高</td><td>181</td><td>30.7596</td><td>23.1129</td><td>20.1178</td></tr>
+                  <tr><td>中等难度最高</td><td>217</td><td>30.5622</td><td>23.1712</td><td>20.1353</td></tr>
+                  <tr><td>困难难度最高</td><td>217</td><td>30.5622</td><td>23.1712</td><td>20.1353</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="callout warning" style="margin-top:14px">
+              <h4>中途数据，不是最终结论</h4>
+              <p>上述快照只覆盖到第218轮。训练完成后必须重新扫描全部第120—250轮结果，回填三种历史最佳轮次、对应三档AP、总耗时和用户审核结论。</p>
+            </div>
+          </article>
+          <article class="section-card">
+            <div class="section-head"><div><span class="section-kicker">Reproducibility</span><h2>环境、代码与运行入口</h2></div></div>
+            <p class="plain-note">Git提交：<code>17de3131824eba44a06f475e10378ee3d980398f</code>。Python 3.10.20，PyTorch 2.8.0+cu129，torchvision 0.23.0+cu129，CUDA 12.9，cuDNN 9.10.2，Numba 0.66.0，Numba-CUDA 0.30.4；矩阵与卷积TF32开启，<code>cudnn.deterministic=True</code>，<code>cudnn.benchmark=False</code>。</p>
+            <p class="plain-note">tmux会话：<code>monodgp_exp21</code>。启动命令：<code>/home/zhangtingyu/Project/Mono3D/MonoDGP/.venv-cu129/bin/python tools/train_val.py --config configs/monodgp.yaml</code>。日志：<code>outputs/V2-0021_删除无用参数训练_正式重跑/train.20260811_104126.log</code>。</p>
+          </article>
+        </section>
       </div>
     </div>
 
-    <footer class="footer">MonoDGP 实验总览 v2 · 序号01—20</footer>
+    <footer class="footer">MonoDGP 实验总览 v2 · 序号01—21</footer>
   </main>
 
   <script>
     (() => {
       const buttons = [...document.querySelectorAll('.nav-button')];
       const panels = [...document.querySelectorAll('.content-panel')];
+      const experimentCards = [...document.querySelectorAll('#overview .truth')];
       const validTargets = new Set(panels.map((panel) => panel.id));
 
       function activate(target, updateHash = true) {
@@ -2581,6 +2707,20 @@
       }
 
       buttons.forEach((button) => button.addEventListener('click', () => activate(button.dataset.target)));
+      experimentCards.forEach((card) => {
+        const index = Number.parseInt(card.querySelector('.number')?.textContent || '', 10);
+        const target = `exp${index}`;
+        if (!Number.isInteger(index) || !validTargets.has(target)) return;
+        card.setAttribute('role', 'link');
+        card.setAttribute('tabindex', '0');
+        card.setAttribute('aria-label', `查看实验 ${index}`);
+        card.addEventListener('click', () => activate(target));
+        card.addEventListener('keydown', (event) => {
+          if (event.key !== 'Enter' && event.key !== ' ') return;
+          event.preventDefault();
+          activate(target);
+        });
+      });
       window.addEventListener('hashchange', () => activate(location.hash.slice(1), false));
       activate(location.hash.slice(1) || 'overview', false);
     })();

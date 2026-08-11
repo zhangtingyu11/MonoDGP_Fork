@@ -45,7 +45,7 @@ class VectorizedDDNRasterizationTest(unittest.TestCase):
         torch.testing.assert_close(
             legacy_boxes, vector_boxes, rtol=0, atol=0, equal_nan=True)
 
-    def test_overlap_empty_and_python_slice_boundaries(self):
+    def test_overlap_empty_and_clipped_canvas_boundaries(self):
         boxes = torch.tensor([
             [-1.2, -1.2, 3.1, 3.1],
             [-7.0, -6.0, 10.0, 9.0],
@@ -62,6 +62,53 @@ class VectorizedDDNRasterizationTest(unittest.TestCase):
         self.compare_case(boxes, depths, [6, 3], height=6, width=8)
         self.compare_case(
             torch.empty((0, 4)), torch.empty((0,)), [0, 0], 4, 5)
+
+    def test_negative_start_keeps_visible_canvas_region(self):
+        boxes = torch.tensor(
+            [[-2.0, 1.0, 3.0, 5.0]], dtype=torch.float32,
+            device=self.device)
+        depths = torch.tensor([7.0], device=self.device)
+        logits = torch.zeros(
+            (1, 81, 6, 8), dtype=torch.float32, device=self.device)
+
+        for vectorized in (False, True):
+            working_boxes = boxes.clone()
+            loss = DDNLoss(use_vectorized_rasterization=vectorized)
+            depth_map = loss.build_target_depth_from_3dcenter(
+                logits, working_boxes, depths.clone(), [1])
+            expected_depth = torch.zeros_like(depth_map)
+            expected_depth[:, 1:5, 0:3] = 7.0
+            torch.testing.assert_close(
+                depth_map, expected_depth, rtol=0, atol=0)
+
+            foreground = (
+                compute_fg_mask_vectorized
+                if vectorized else compute_fg_mask)(
+                    working_boxes, depth_map.shape, [1], device=self.device)
+            expected_foreground = torch.zeros_like(foreground)
+            expected_foreground[:, 1:5, 0:3] = True
+            self.assertTrue(torch.equal(foreground, expected_foreground))
+
+    def test_fully_negative_box_does_not_wrap_from_canvas_end(self):
+        boxes = torch.tensor(
+            [[-7.0, 1.0, -1.0, 5.0]], dtype=torch.float32,
+            device=self.device)
+        depths = torch.tensor([7.0], device=self.device)
+        logits = torch.zeros(
+            (1, 81, 6, 8), dtype=torch.float32, device=self.device)
+
+        for vectorized in (False, True):
+            working_boxes = boxes.clone()
+            loss = DDNLoss(use_vectorized_rasterization=vectorized)
+            depth_map = loss.build_target_depth_from_3dcenter(
+                logits, working_boxes, depths.clone(), [1])
+            self.assertFalse((depth_map > 0).any())
+
+            foreground = (
+                compute_fg_mask_vectorized
+                if vectorized else compute_fg_mask)(
+                    working_boxes, depth_map.shape, [1], device=self.device)
+            self.assertFalse(foreground.any())
 
     def test_randomized_exact_equivalence(self):
         generator = torch.Generator().manual_seed(20260810)

@@ -25,6 +25,7 @@ from lib.datasets.kitti.pd import PhotometricDistort
 from lib.datasets.utils import angle2class
 from lib.datasets.utils import gaussian_radius
 from lib.datasets.utils import draw_umich_gaussian
+from lib.datasets.utils import paint_clipped_box
 from lib.datasets.kitti.kitti_utils import get_objects_from_label
 from lib.datasets.kitti.kitti_utils import Calibration
 from lib.datasets.kitti.kitti_utils import get_affine_transform
@@ -364,9 +365,7 @@ class KITTI_Dataset(data.Dataset):
             center_2d = np.array([(bbox_2d[0] + bbox_2d[2]) / 2, (bbox_2d[1] + bbox_2d[3]) / 2], dtype=np.float32)  # W * H
             
             # create object region
-            ymin, ymax = int(max(bbox_2d[1], 0)), int(min(bbox_2d[3], img.shape[1]))
-            xmin, xmax = int(max(bbox_2d[0], 0)), int(min(bbox_2d[2], img.shape[2]))
-            obj_region[ymin:ymax, xmin:xmax] = 1
+            paint_clipped_box(obj_region, bbox_2d)
 
             corner_2d = bbox_2d.copy()
 
@@ -482,9 +481,7 @@ class KITTI_Dataset(data.Dataset):
                     center_2d = np.array([(bbox_2d[0] + bbox_2d[2]) / 2, (bbox_2d[1] + bbox_2d[3]) / 2], dtype=np.float32)  # W * H
                     
                     # create object region
-                    ymin, ymax = int(max(bbox_2d[1], 0)), int(min(bbox_2d[3], img.shape[1]))
-                    xmin, xmax = int(max(bbox_2d[0], 0)), int(min(bbox_2d[2], img.shape[2]))
-                    obj_region[ymin:ymax, xmin:xmax] = 1
+                    paint_clipped_box(obj_region, bbox_2d)
 
                     corner_2d = bbox_2d.copy()
 

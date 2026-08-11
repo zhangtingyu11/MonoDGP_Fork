@@ -80,6 +80,9 @@ def compute_fg_mask(gt_boxes2d, shape, num_gt_per_img, downsample_factor=1, devi
     gt_boxes2d[:, :2] = torch.floor(gt_boxes2d[:, :2])
     gt_boxes2d[:, 2:] = torch.ceil(gt_boxes2d[:, 2:])
     gt_boxes2d = gt_boxes2d.long()
+    height, width = int(shape[-2]), int(shape[-1])
+    gt_boxes2d[:, 0::2].clamp_(0, width)
+    gt_boxes2d[:, 1::2].clamp_(0, height)
 
     # Set all values within each box to True
     gt_boxes2d = gt_boxes2d.split(num_gt_per_img, dim=0)
@@ -132,8 +135,7 @@ def pad_flat_by_batch(values, shape, num_gt_per_img):
 
 
 def _normalize_slice_endpoint(endpoint, size):
-    """Match Python tensor slicing for negative and out-of-range endpoints."""
-    endpoint = torch.where(endpoint < 0, endpoint + size, endpoint)
+    """Clip a spatial box endpoint to its raster canvas."""
     return endpoint.clamp(0, size)
 
 

@@ -5,6 +5,25 @@ import cv2
 
 num_heading_bin = 12  # hyper param
 
+
+def clipped_box_bounds(box, height, width):
+    """Convert an ``xyxy`` box to canvas-safe integer slice bounds."""
+    ymin = int(np.clip(box[1], 0, height))
+    ymax = int(np.clip(box[3], 0, height))
+    xmin = int(np.clip(box[0], 0, width))
+    xmax = int(np.clip(box[2], 0, width))
+    return ymin, ymax, xmin, xmax
+
+
+def paint_clipped_box(mask, box):
+    """Paint the visible part of an ``xyxy`` box without negative slicing."""
+    ymin, ymax, xmin, xmax = clipped_box_bounds(
+        box, height=mask.shape[-2], width=mask.shape[-1])
+    if ymax > ymin and xmax > xmin:
+        mask[ymin:ymax, xmin:xmax] = True
+    return mask
+
+
 def angle2class(angle):
     ''' Convert continuous angle to discrete class and residual. '''
     angle = angle % (2 * np.pi)

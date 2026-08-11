@@ -30,7 +30,7 @@ dataset:
   depth_scale: 'normal'
 
 
-model_name: 'V2-0021_删除无用参数训练_正式重跑'
+model_name: 'V2-0022_四处负坐标切片修复_正式训练'
 model:
   num_classes: 3
   return_intermediate_dec: True
@@ -179,11 +179,11 @@ trainer:
     required: True
     project: 'MonoDGP'
     workspace: 'Grapymage'
-    experiment_name: '实验21_删除无用参数训练_正式重跑'
-    description: '删除无消费者参数后的正式训练，用于检查完整训练曲线、梯度与验证表现'
+    experiment_name: '实验22_四处负坐标切片修复_正式训练'
+    description: '与实验21同配置从头训练，仅修复主图区域掩码、MixUp区域掩码、稠密深度目标和前景掩码的负坐标切片'
     group: '可行区间研究'
     projection_geometry_version: 'current'
-    tags: ['实验21', 'KITTI', '删除无用参数']
+    tags: ['实验22', 'KITTI', '负坐标切片修复']
     mode: 'online'
 
 tester:

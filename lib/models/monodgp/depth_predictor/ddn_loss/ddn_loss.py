@@ -62,6 +62,8 @@ class DDNLoss(nn.Module):
         gt_boxes2d[:, :2] = torch.floor(gt_boxes2d[:, :2])
         gt_boxes2d[:, 2:] = torch.ceil(gt_boxes2d[:, 2:])
         gt_boxes2d = gt_boxes2d.long()
+        gt_boxes2d[:, 0::2].clamp_(0, W)
+        gt_boxes2d[:, 1::2].clamp_(0, H)
 
         # Set all values within each box to True
         gt_boxes2d = gt_boxes2d.split(num_gt_per_img, dim=0)
