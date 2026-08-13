@@ -27,6 +27,67 @@ def _get_clones(module, N):
     return nn.ModuleList([copy.deepcopy(module) for i in range(N)])
 
 
+class _ClipDepthMeanGradients(torch.autograd.Function):
+    """Identity forward that clips only the predicted mean-depth gradient."""
+
+    @staticmethod
+    def forward(ctx, values, max_norm, receipt_sink):
+        ctx.max_norm = float(max_norm)
+        ctx.receipt_sink = receipt_sink
+        return values
+
+    @staticmethod
+    def backward(ctx, gradients):
+        float_gradients = gradients.float()
+        mean_gradients = float_gradients[..., :1]
+        absolute_mean_gradients = mean_gradients.abs()
+        finite_pairs = torch.isfinite(float_gradients).all(
+            dim=-1, keepdim=True)
+        supervised = finite_pairs & (float_gradients != 0).any(
+            dim=-1, keepdim=True)
+        finite_mean = torch.isfinite(absolute_mean_gradients)
+        mean_scales = torch.where(
+            finite_mean,
+            (ctx.max_norm / absolute_mean_gradients.clamp_min(1e-12))
+            .clamp_max(1.0),
+            torch.ones_like(absolute_mean_gradients))
+        clipped = finite_mean & (absolute_mean_gradients > ctx.max_norm)
+        pre_clip_energy = torch.where(
+            finite_mean, mean_gradients.square(),
+            torch.zeros_like(mean_gradients)).sum()
+        post_clip_energy = torch.where(
+            finite_mean, (mean_gradients * mean_scales).square(),
+            torch.zeros_like(mean_gradients)).sum()
+        ctx.receipt_sink.append({
+            'prediction_count': supervised.sum().detach(),
+            'clipped_count': clipped.sum().detach(),
+            'pre_clip_max_absolute_gradient': torch.where(
+                finite_mean, absolute_mean_gradients,
+                torch.zeros_like(absolute_mean_gradients)).max().detach(),
+            'minimum_scale': torch.where(
+                clipped, mean_scales,
+                torch.ones_like(mean_scales)).min().detach(),
+            'pre_clip_energy': pre_clip_energy.detach(),
+            'post_clip_energy': post_clip_energy.detach(),
+        })
+        channel_scales = torch.cat((
+            mean_scales, torch.ones_like(mean_scales)), dim=-1)
+        return (gradients * channel_scales.to(dtype=gradients.dtype),
+                None, None)
+
+
+def clip_depth_mean_gradients(values, max_norm, receipt_sink=None):
+    """Clip ``depth_mean`` gradients while leaving ``log_scale`` untouched."""
+    max_norm = float(max_norm)
+    if max_norm <= 0:
+        raise ValueError('depth mean gradient max_norm must be positive')
+    if values.shape[-1] != 2:
+        raise ValueError('depth output must have exactly two channels')
+    if receipt_sink is None:
+        receipt_sink = []
+    return _ClipDepthMeanGradients.apply(values, max_norm, receipt_sink)
+
+
 _POST_MATCH_TARGET_FIELDS = {
     'labels': ('labels',),
     'boxes': ('boxes_3d',),
@@ -120,7 +181,8 @@ class MonoDGP(nn.Module):
     """ This is the MonoDGP module that performs monocualr 3D object detection """
     def __init__(self, backbone, depth_predictor, det2d_transformer, det3d_transformer,
                   num_classes, num_queries, num_feature_levels, 
-                  aux_loss=True, with_box_refine=False, init_box=False, group_num=11):
+                  aux_loss=True, with_box_refine=False, init_box=False,
+                  group_num=11, depth_mean_gradient_clipping=None):
         """ Initializes the model.
         Parameters:
             backbone: torch module of the backbone to be used. See backbone.py
@@ -189,6 +251,17 @@ class MonoDGP(nn.Module):
         self.aux_loss = aux_loss
         self.with_box_refine = with_box_refine
         self.num_classes = num_classes
+        depth_clip_cfg = depth_mean_gradient_clipping or {}
+        self.depth_mean_gradient_clipping_enabled = bool(
+            depth_clip_cfg.get('enabled', False))
+        self.depth_mean_gradient_clipping_max_norm = float(
+            depth_clip_cfg.get('max_absolute_gradient', 0.03))
+        if (self.depth_mean_gradient_clipping_enabled
+                and self.depth_mean_gradient_clipping_max_norm <= 0):
+            raise ValueError(
+                'depth_mean_gradient_clipping.max_absolute_gradient '
+                'must be positive')
+        self.depth_mean_gradient_clipping_receipts = []
 
         for proj in self.input_proj:
             nn.init.xavier_uniform_(proj[0].weight, gain=1)
@@ -366,7 +439,13 @@ class MonoDGP(nn.Module):
         outputs_coord = torch.stack(outputs_coords)
         outputs_class = torch.stack(outputs_classes)
         outputs_3d_dim = torch.stack(outputs_3d_dims)
-        outputs_depth = torch.stack(outputs_depths) 
+        outputs_depth = torch.stack(outputs_depths)
+        self.depth_mean_gradient_clipping_receipts = []
+        if self.training and self.depth_mean_gradient_clipping_enabled:
+            outputs_depth = clip_depth_mean_gradients(
+                outputs_depth,
+                self.depth_mean_gradient_clipping_max_norm,
+                self.depth_mean_gradient_clipping_receipts)
         outputs_angle = torch.stack(outputs_angles)
   
         out = dict()
@@ -400,6 +479,42 @@ class MonoDGP(nn.Module):
     def _set_inter_loss(self, outputs_class, outputs_coord):
         return [{'pred_logits': a, 'pred_boxes': b}
                 for a, b in zip(outputs_class, outputs_coord)]
+
+    def depth_mean_gradient_clipping_metrics(self):
+        """Return the most recent backward's mean-depth clipping receipt."""
+        if not self.depth_mean_gradient_clipping_receipts:
+            return {}
+        receipts = self.depth_mean_gradient_clipping_receipts
+        prediction_count = torch.stack(tuple(
+            receipt['prediction_count'] for receipt in receipts)).sum()
+        clipped_count = torch.stack(tuple(
+            receipt['clipped_count'] for receipt in receipts)).sum()
+        pre_clip_max = torch.stack(tuple(
+            receipt['pre_clip_max_absolute_gradient']
+            for receipt in receipts)).max()
+        minimum_scale = torch.stack(tuple(
+            receipt['minimum_scale'] for receipt in receipts)).min()
+        pre_clip_energy = torch.stack(tuple(
+            receipt['pre_clip_energy'] for receipt in receipts)).sum()
+        post_clip_energy = torch.stack(tuple(
+            receipt['post_clip_energy'] for receipt in receipts)).sum()
+        fraction = (clipped_count.float()
+                    / prediction_count.clamp_min(1).float())
+        retained_energy_fraction = torch.where(
+            pre_clip_energy > 0,
+            post_clip_energy / pre_clip_energy.clamp_min(1e-30),
+            torch.ones_like(pre_clip_energy))
+        return {
+            'depth_mean_clip_prediction_count': prediction_count,
+            'depth_mean_clip_applied_count': clipped_count,
+            'depth_mean_clip_applied_fraction': fraction,
+            'depth_mean_pre_clip_max_absolute_gradient': pre_clip_max,
+            'depth_mean_clip_minimum_retained_fraction': minimum_scale,
+            'depth_mean_pre_clip_energy': pre_clip_energy,
+            'depth_mean_post_clip_energy': post_clip_energy,
+            'depth_mean_clip_retained_energy_fraction': (
+                retained_energy_fraction),
+        }
 
 
 class SetCriterion(nn.Module):
@@ -619,6 +734,39 @@ class SetCriterion(nn.Module):
         with torch.no_grad():
             normalizer = float(num_boxes)
             precision = torch.exp(-depth_log_variance)
+            finite_count = max(int(absolute_error.numel()), 1)
+            error_mean = absolute_error.mean()
+            precision_mean = precision.mean()
+            if absolute_error.numel() > 1:
+                centered_error = absolute_error - error_mean
+                centered_precision = precision - precision_mean
+                correlation_denominator = torch.sqrt(
+                    centered_error.square().sum()
+                    * centered_precision.square().sum())
+                error_precision_correlation = (
+                    (centered_error * centered_precision).sum()
+                    / correlation_denominator.clamp_min(
+                        torch.finfo(absolute_error.dtype).eps))
+            else:
+                error_precision_correlation = absolute_error.new_zeros(())
+
+            # For the depth mean output, |dL/d(depth)| is sqrt(2) * precision
+            # whenever the residual is non-zero. The common normalizer and
+            # sqrt(2) cancel when reporting each MAE bin's share of local
+            # gradient energy. This is intentionally an output-gradient
+            # diagnostic, not a claim about full parameter-gradient share.
+            local_gradient_energy = precision.square() * (
+                absolute_error != 0).to(dtype=precision.dtype)
+            total_gradient_energy = local_gradient_energy.sum().clamp_min(
+                torch.finfo(local_gradient_energy.dtype).eps)
+            error_bins = (
+                ('lt_0_1m', absolute_error < 0.1),
+                ('0_1_to_0_5m',
+                 (absolute_error >= 0.1) & (absolute_error < 0.5)),
+                ('0_5_to_1m',
+                 (absolute_error >= 0.5) & (absolute_error < 1.0)),
+                ('ge_1m', absolute_error >= 1.0),
+            )
             losses.update({
                 'monitor_depth_mae': absolute_error.sum() / normalizer,
                 'monitor_depth_weighted_absolute': (
@@ -626,7 +774,24 @@ class SetCriterion(nn.Module):
                 'monitor_depth_log_scale_mean': (
                     depth_log_variance.sum() / normalizer),
                 'monitor_depth_precision_mean': precision.mean(),
+                'monitor_depth_mae_precision_correlation': (
+                    error_precision_correlation),
+                'monitor_depth_precision_gt_2_fraction': (
+                    (precision > 2).sum() / finite_count),
+                'monitor_depth_precision_gt_4_fraction': (
+                    (precision > 4).sum() / finite_count),
+                'monitor_depth_precision_gt_8_fraction': (
+                    (precision > 8).sum() / finite_count),
             })
+            for bin_name, bin_mask in error_bins:
+                losses[
+                    f'monitor_depth_target_fraction_{bin_name}'
+                ] = bin_mask.sum() / finite_count
+                losses[
+                    f'monitor_depth_local_gradient_energy_fraction_{bin_name}'
+                ] = (
+                    local_gradient_energy[bin_mask].sum()
+                    / total_gradient_energy)
             if depth_log_variance.numel():
                 quantiles = depth_log_variance.float().quantile(
                     depth_log_variance.new_tensor((0.1, 0.5, 0.9)))
@@ -945,7 +1110,9 @@ def build(cfg):
         num_feature_levels=cfg['num_feature_levels'],
         with_box_refine=cfg['with_box_refine'],
         init_box=cfg['init_box'],
-        group_num=cfg['group_num'])
+        group_num=cfg['group_num'],
+        depth_mean_gradient_clipping=cfg.get(
+            'depth_mean_gradient_clipping'))
 
     # matcher
     matcher = build_matcher(cfg)

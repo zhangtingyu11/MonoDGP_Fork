@@ -115,6 +115,12 @@ model:
   depth_loss_coef: 1
   depth_map_loss_coef: 1
   region_loss_coef: 1
+  # Clip only the mean-depth output gradient of each matched prediction before
+  # it reaches the depth head and shared decoder. Log-uncertainty and every
+  # other task gradient remain unchanged; forward values are identical.
+  depth_mean_gradient_clipping:
+    enabled: False
+    max_absolute_gradient: 0.03
 
   # Matcher
   set_cost_class: 2

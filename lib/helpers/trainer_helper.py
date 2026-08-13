@@ -30,16 +30,61 @@ _CORE_GRADIENT_NAMES = {
     '全模型梯度L2范数最大值',
 }
 
+_DEPTH_MEAN_CLIP_LABELS = {
+    'depth_mean_clip_applied_fraction': '裁剪预测比例',
+    'depth_mean_pre_clip_max_absolute_gradient': (
+        '裁剪前最大深度均值梯度绝对值'),
+    'depth_mean_pre_clip_max_absolute_gradient_max': (
+        '裁剪前最大深度均值梯度绝对值'),
+    'depth_mean_clip_minimum_retained_fraction': (
+        '最严重裁剪预测的梯度保留比例'),
+    'depth_mean_clip_minimum_retained_fraction_min': (
+        '最严重裁剪预测的梯度保留比例'),
+    'depth_mean_clip_retained_energy_fraction': (
+        '整体深度均值梯度能量保留比例'),
+}
+
+_CLIPPING_DEPTH_CONTEXT = (
+    ('loss_depth', '最终Decoder深度损失'),
+    ('loss_depth_0', '辅助Decoder第0层深度损失'),
+    ('loss_depth_1', '辅助Decoder第1层深度损失'),
+    ('monitor_depth_mae', '最终Decoder匹配深度MAE'),
+    ('monitor_depth_mae_0', '辅助Decoder第0层匹配深度MAE'),
+    ('monitor_depth_mae_1', '辅助Decoder第1层匹配深度MAE'),
+    ('monitor_depth_precision_p90', '最终Decoder深度precision_P90'),
+    ('monitor_depth_precision_p90_0', '辅助Decoder第0层深度precision_P90'),
+    ('monitor_depth_precision_p90_1', '辅助Decoder第1层深度precision_P90'),
+)
+
 
 def grouped_gradient_payload(metrics, scope, epoch_summary=False):
     payload = {}
     for name, value in chinese_gradient_metrics(metrics).items():
+        if '梯度与参数范数比' in name:
+            continue
         group = (
             f'{scope}核心概览'
             if epoch_summary and name in _CORE_GRADIENT_NAMES
             else f'{scope}梯度诊断')
         payload[f'{group}/{name}'] = value
     return payload
+
+
+def depth_mean_clipping_payload(metrics, scope):
+    return {
+        f'{scope}深度均值梯度裁剪/{label}': float(metrics[key])
+        for key, label in _DEPTH_MEAN_CLIP_LABELS.items()
+        if key in metrics
+    }
+
+
+def clipping_depth_context_payload(losses):
+    return {
+        f'训练中梯度裁剪事件/触发批次深度上下文/{label}': float(
+            losses[key].detach())
+        for key, label in _CLIPPING_DEPTH_CONTEXT
+        if key in losses
+    }
 
 
 def update_best_ap_snapshots(snapshots, metrics, epoch):
@@ -274,6 +319,8 @@ class Trainer(object):
                 payload.update(grouped_gradient_payload(
                     train_summary['gradient_monitoring'],
                     scope='每轮训练', epoch_summary=True))
+                payload.update(depth_mean_clipping_payload(
+                    train_summary['gradient_monitoring'], scope='每轮训练'))
                 self.tracker.log(
                     payload, step=self.epoch * len(self.train_loader))
 
@@ -353,6 +400,8 @@ class Trainer(object):
         self.detr_loss.train()
         batch_count = len(self.train_loader)
         log_frequency = max(1, int(self.cfg.get('log_frequency', 30)))
+        swanlab_interval = max(
+            1, int(self.cfg.get('swanlab_batch_interval', 5)))
         self.logger.info(
             "Train epoch started: epoch=%d/%d, batches=%d",
             epoch + 1, self.cfg['max_epoch'], batch_count)
@@ -368,6 +417,7 @@ class Trainer(object):
                 self.model,
                 module_interval=gradient_cfg.get('module_interval', 30))
             if gradient_cfg.get('enabled', False) else None)
+        depth_mean_clip_receipts = []
         if prefetched:
             batch_source = CudaBatchPrefetcher(
                 iter(self.train_loader), self.device,
@@ -435,8 +485,6 @@ class Trainer(object):
 
                 swanlab_payload = None
                 swanlab_step = None
-                swanlab_interval = max(
-                    1, int(self.cfg.get('swanlab_batch_interval', 5)))
                 if (self.tracker is not None
                         and (batch_idx % swanlab_interval == 0
                              or batch_idx + 1 == batch_count)):
@@ -474,6 +522,17 @@ class Trainer(object):
                     swanlab_step = global_step
 
                 detr_losses.backward()
+                unwrapped_model = (
+                    self.model.module
+                    if hasattr(self.model, 'module') else self.model)
+                depth_mean_clip_snapshot = (
+                    unwrapped_model.depth_mean_gradient_clipping_metrics()
+                    if hasattr(
+                        unwrapped_model,
+                        'depth_mean_gradient_clipping_metrics') else {})
+                if depth_mean_clip_snapshot:
+                    depth_mean_clip_receipts.append(
+                        depth_mean_clip_snapshot)
                 gradient_snapshot = (
                     gradient_monitor.observe(
                         batch_idx, is_last_batch=(
@@ -503,15 +562,60 @@ class Trainer(object):
         finally:
             if prefetched:
                 batch_source.close()
+        gradient_summary = (
+            gradient_monitor.finalize()
+            if gradient_monitor is not None else {})
+        if depth_mean_clip_receipts:
+            prediction_count = torch.stack(tuple(
+                receipt['depth_mean_clip_prediction_count']
+                for receipt in depth_mean_clip_receipts)).sum()
+            clipped_count = torch.stack(tuple(
+                receipt['depth_mean_clip_applied_count']
+                for receipt in depth_mean_clip_receipts)).sum()
+            pre_clip_max = torch.stack(tuple(
+                receipt['depth_mean_pre_clip_max_absolute_gradient']
+                for receipt in depth_mean_clip_receipts)).max()
+            minimum_scale = torch.stack(tuple(
+                receipt['depth_mean_clip_minimum_retained_fraction']
+                for receipt in depth_mean_clip_receipts)).min()
+            pre_clip_energy = torch.stack(tuple(
+                receipt['depth_mean_pre_clip_energy']
+                for receipt in depth_mean_clip_receipts)).sum()
+            post_clip_energy = torch.stack(tuple(
+                receipt['depth_mean_post_clip_energy']
+                for receipt in depth_mean_clip_receipts)).sum()
+            clipped_batches = torch.stack(tuple(
+                receipt['depth_mean_clip_applied_count'] > 0
+                for receipt in depth_mean_clip_receipts)).sum()
+            gradient_summary.update({
+                'depth_mean_clip_applied_count': int(
+                    clipped_count.cpu()),
+                'depth_mean_clip_prediction_count': int(
+                    prediction_count.cpu()),
+                'depth_mean_clip_applied_fraction': float(
+                    (clipped_count.float()
+                     / prediction_count.clamp_min(1).float()).cpu()),
+                'depth_mean_clip_applied_batch_fraction': float(
+                    (clipped_batches.float()
+                     / len(depth_mean_clip_receipts)).cpu()),
+                'depth_mean_pre_clip_max_absolute_gradient_max': float(
+                    pre_clip_max.cpu()),
+                'depth_mean_clip_minimum_retained_fraction_min': float(
+                    minimum_scale.cpu()),
+                'depth_mean_clip_retained_energy_fraction': float(
+                    torch.where(
+                        pre_clip_energy > 0,
+                        post_clip_energy
+                        / pre_clip_energy.clamp_min(1e-30),
+                        torch.ones_like(pre_clip_energy)).cpu()),
+            })
         summary = {
             'batch_count': epoch_batch_count,
             'mean_loss': (epoch_loss_sum / epoch_batch_count
                           if epoch_batch_count else float('nan')),
             'mean_raw_losses': raw_loss_accumulator.finalize(),
             'geometry_interval': geometry_interval_accumulator.finalize(),
-            'gradient_monitoring': (
-                gradient_monitor.finalize()
-                if gradient_monitor is not None else {}),
+            'gradient_monitoring': gradient_summary,
         }
         self.logger.info(
             "Train epoch completed: epoch=%d/%d, batches=%d, "
