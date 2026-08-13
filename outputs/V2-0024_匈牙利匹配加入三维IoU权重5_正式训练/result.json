@@ -1,0 +1,50 @@
+{
+  "experiment": 24,
+  "status": "completed",
+  "started_at": "2026-08-13T08:23:33+08:00",
+  "finished_at": "2026-08-13T21:03:03+08:00",
+  "baseline_experiment": 22,
+  "method": "add exact 3D IoU Hungarian cost with weight 5 from epoch 1",
+  "batch_size": 16,
+  "epochs": 250,
+  "validation_epoch_first": 120,
+  "validation_count": 131,
+  "best_easy": {
+    "epoch": 223,
+    "car_3d_ap_r40_easy": 29.8799,
+    "car_3d_ap_r40_moderate": 22.1853,
+    "car_3d_ap_r40_hard": 19.2132
+  },
+  "best_moderate": {
+    "epoch": 223,
+    "car_3d_ap_r40_easy": 29.8799,
+    "car_3d_ap_r40_moderate": 22.1853,
+    "car_3d_ap_r40_hard": 19.2132
+  },
+  "best_hard": {
+    "epoch": 228,
+    "car_3d_ap_r40_easy": 29.7542,
+    "car_3d_ap_r40_moderate": 22.1534,
+    "car_3d_ap_r40_hard": 19.2468
+  },
+  "final_epoch": {
+    "epoch": 250,
+    "car_3d_ap_r40_easy": 29.4337,
+    "car_3d_ap_r40_moderate": 21.3986,
+    "car_3d_ap_r40_hard": 19.1394
+  },
+  "moderate_delta_vs_experiment_22": -0.13,
+  "swanlab_run_id": "ni7mz08z",
+  "swanlab_finished": true,
+  "adoption": "not_default",
+  "diagnosis": {
+    "checkpoint_epoch": 175,
+    "iou_ge_0_7_pairs": 10133,
+    "matched_to_correct_gt": 3597,
+    "matched_to_other_gt": 23,
+    "unmatched_classification_negatives": 6513,
+    "unmatched_fraction": 0.6428,
+    "unmatched_score_median": 0.0332,
+    "unmatched_iou3d_median": 0.7611
+  }
+}

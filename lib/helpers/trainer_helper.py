@@ -441,6 +441,9 @@ class Trainer(object):
                 outputs = self.model(inputs, calibs, targets, img_sizes, dn_args=dn_args)
                 mask_dict=None
                 #ipdb.set_trace()
+                self.detr_loss.collect_iou3d_matching_comparison = (
+                    batch_idx % swanlab_interval == 0
+                    or batch_idx + 1 == batch_count)
                 detr_losses_dict = self.detr_loss(outputs, targets, mask_dict)
 
                 weight_dict = self.detr_loss.weight_dict

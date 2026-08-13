@@ -61,6 +61,79 @@ LOSS_DIAGNOSTIC_CHINESE_NAMES = {
     'monitor_depth_log_scale_p90': '深度对数尺度P90',
     'monitor_depth_precision_mean': '深度置信精度均值（exp负对数尺度）',
     'monitor_depth_precision_p90': '深度置信精度P90（exp负对数尺度）',
+    'monitor_depth_mae_precision_correlation': '深度误差与置信精度相关系数',
+    'monitor_depth_precision_gt_2_fraction': '深度置信精度大于2的匹配预测占比',
+    'monitor_depth_precision_gt_4_fraction': '深度置信精度大于4的匹配预测占比',
+    'monitor_depth_precision_gt_8_fraction': '深度置信精度大于8的匹配预测占比',
+    'monitor_depth_target_fraction_lt_0_1m': '深度误差小于0.1米的匹配预测占比',
+    'monitor_depth_target_fraction_0_1_to_0_5m': '深度误差0.1至0.5米的匹配预测占比',
+    'monitor_depth_target_fraction_0_5_to_1m': '深度误差0.5至1米的匹配预测占比',
+    'monitor_depth_target_fraction_ge_1m': '深度误差大于等于1米的匹配预测占比',
+    'monitor_depth_local_gradient_energy_fraction_lt_0_1m': '深度误差小于0.1米的输出局部梯度能量占比',
+    'monitor_depth_local_gradient_energy_fraction_0_1_to_0_5m': '深度误差0.1至0.5米的输出局部梯度能量占比',
+    'monitor_depth_local_gradient_energy_fraction_0_5_to_1m': '深度误差0.5至1米的输出局部梯度能量占比',
+    'monitor_depth_local_gradient_energy_fraction_ge_1m': '深度误差大于等于1米的输出局部梯度能量占比',
+    'monitor_iou3d_matching_identity_change_fraction': (
+        '三个三维Decoder层中匹配身份改变比例'),
+    'monitor_iou3d_matching_mean_iou3d_gain': (
+        '三个三维Decoder层中匹配后三维IoU平均增量'),
+    'monitor_iou3d_matching_mean_giou2d_delta': (
+        '三个三维Decoder层中匹配后二维GIoU平均变化'),
+    'monitor_iou3d_matching_mean_gt_class_score_delta': (
+        '三个三维Decoder层中匹配GT类别分数平均变化'),
+    'monitor_iou3d_matching_current_mean_iou3d': (
+        '三个三维Decoder层中当前匹配预测的平均三维IoU'),
+    'monitor_iou3d_matching_current_mean_giou2d': (
+        '三个三维Decoder层中当前匹配预测的平均二维GIoU'),
+    'monitor_iou3d_matching_current_mean_gt_class_score': (
+        '三个三维Decoder层中当前匹配预测的GT类别平均分数'),
+}
+
+_IOU3D_MATCHING_DIAGNOSTICS = {
+    'monitor_iou3d_matching_identity_change_fraction',
+    'monitor_iou3d_matching_mean_iou3d_gain',
+    'monitor_iou3d_matching_mean_giou2d_delta',
+    'monitor_iou3d_matching_mean_gt_class_score_delta',
+    'monitor_iou3d_matching_current_mean_iou3d',
+    'monitor_iou3d_matching_current_mean_giou2d',
+    'monitor_iou3d_matching_current_mean_gt_class_score',
+}
+
+_ONLINE_FINAL_DIAGNOSTICS = {
+    'monitor_angle_classification',
+    'monitor_angle_residual',
+    'monitor_depth_mae',
+    'monitor_depth_log_scale_mean',
+    'monitor_depth_precision_mean',
+    'monitor_depth_precision_p90',
+    'monitor_depth_mae_precision_correlation',
+    'monitor_depth_precision_gt_2_fraction',
+    'monitor_depth_precision_gt_4_fraction',
+    'monitor_depth_precision_gt_8_fraction',
+    'monitor_depth_target_fraction_lt_0_1m',
+    'monitor_depth_target_fraction_0_1_to_0_5m',
+    'monitor_depth_target_fraction_0_5_to_1m',
+    'monitor_depth_target_fraction_ge_1m',
+    'monitor_depth_local_gradient_energy_fraction_lt_0_1m',
+    'monitor_depth_local_gradient_energy_fraction_0_1_to_0_5m',
+    'monitor_depth_local_gradient_energy_fraction_0_5_to_1m',
+    'monitor_depth_local_gradient_energy_fraction_ge_1m',
+}
+
+_ONLINE_GROUP0_DIAGNOSTICS = {
+    'monitor_angle_classification',
+    'monitor_angle_residual',
+    'monitor_depth_mae',
+    'monitor_depth_log_scale_mean',
+    'monitor_depth_precision_mean',
+}
+
+_ONLINE_CARDINALITY_METRICS = {
+    'monitor_cardinality_gt_car_count',
+    'monitor_cardinality_all_groups_predicted_car_count',
+    'monitor_cardinality_all_groups_car_absolute_error',
+    'monitor_cardinality_group0_predicted_car_count',
+    'monitor_cardinality_group0_car_absolute_error',
 }
 
 CARDINALITY_CHINESE_NAMES = {
@@ -129,11 +202,9 @@ def chinese_grouped_monitoring(raw_losses, weight_dict, scope,
         elif layer_name == '最终Decoder层' and base_key in shared_keys:
             result[f'{scope}共享损失/{metric_name}'] = weighted
         elif layer_name.startswith('辅助Decoder'):
-            result[f'{scope}辅助Decoder损失/{layer_name}/{metric_name}'] = weighted
             auxiliary_totals[layer_name] = (
                 auxiliary_totals.get(layer_name, 0.0) + weighted)
         elif layer_name.startswith('二维中间层'):
-            result[f'{scope}二维中间层损失/{layer_name}/{metric_name}'] = weighted
             intermediate_totals[layer_name] = (
                 intermediate_totals.get(layer_name, 0.0) + weighted)
 
@@ -152,7 +223,8 @@ def chinese_grouped_monitoring(raw_losses, weight_dict, scope,
 
     for full_key, value in raw_losses.items():
         base_key, layer_name = _split_layer_suffix(full_key)
-        if base_key in LOSS_DIAGNOSTIC_CHINESE_NAMES:
+        if (base_key in _ONLINE_FINAL_DIAGNOSTICS
+                and layer_name == '最终Decoder层'):
             if base_key.startswith('monitor_angle_'):
                 weight_key = 'loss_angle'
             elif base_key.startswith('monitor_depth_'):
@@ -168,9 +240,14 @@ def chinese_grouped_monitoring(raw_losses, weight_dict, scope,
             result[f'{scope}{diagnostic_group}/{layer_name}/'
                    f'{LOSS_DIAGNOSTIC_CHINESE_NAMES[base_key]}'] = (
                        value * coefficient)
-        elif base_key in CARDINALITY_CHINESE_NAMES:
+        elif base_key in _ONLINE_CARDINALITY_METRICS:
             result[
                 f'{scope}预测数量诊断/{CARDINALITY_CHINESE_NAMES[base_key]}'
+            ] = value
+        elif base_key in _IOU3D_MATCHING_DIAGNOSTICS:
+            result[
+                f'{scope}三维IoU匹配诊断/'
+                f'{LOSS_DIAGNOSTIC_CHINESE_NAMES[base_key]}'
             ] = value
 
     group0_prefix = 'monitor_group0_'
@@ -183,7 +260,7 @@ def chinese_grouped_monitoring(raw_losses, weight_dict, scope,
             coefficient = float(weight_dict.get(base_key, 1.0))
             name = f'{LOSS_CHINESE_NAMES[base_key]}（加权）'
             group0_total += value * coefficient
-        elif base_key in LOSS_DIAGNOSTIC_CHINESE_NAMES:
+        elif base_key in _ONLINE_GROUP0_DIAGNOSTICS:
             coefficient = float(weight_dict.get(
                 'loss_angle' if base_key.startswith('monitor_angle_')
                 else 'loss_depth', 1.0))

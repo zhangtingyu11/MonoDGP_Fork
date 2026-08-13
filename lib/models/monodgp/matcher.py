@@ -9,6 +9,7 @@ from torch import nn
 import numpy as np
 
 from utils.box_ops import box_cxcywh_to_xyxy, generalized_box_iou, box_xyxy_to_cxcywh, box_cxcylrtb_to_xyxy
+from .iou3d_match_cost import pairwise_iou3d_match_cost
 
 
 class QuerySelection(nn.Module):
@@ -110,7 +111,9 @@ class HungarianMatcher(nn.Module):
 
     def __init__(self, cost_class: float = 1, cost_3dcenter: float = 1,
                  cost_bbox: float = 1, cost_giou: float = 1,
-                 use_batched_same_image_cost=False):
+                 use_batched_same_image_cost=False,
+                 cost_iou3d: float = 0,
+                 iou3d_decode_mean_sizes=None):
         """Creates the matcher
         Params:
             cost_class: This is the relative weight of the classification error in the matching cost
@@ -122,8 +125,19 @@ class HungarianMatcher(nn.Module):
         self.cost_3dcenter = cost_3dcenter
         self.cost_bbox = cost_bbox
         self.cost_giou = cost_giou
+        self.cost_iou3d = float(cost_iou3d)
         self.use_batched_same_image_cost = bool(
             use_batched_same_image_cost)
+        decode_means = (
+            iou3d_decode_mean_sizes
+            if iou3d_decode_mean_sizes is not None
+            else ((0.0, 0.0, 0.0),) * 3)
+        self.register_buffer(
+            'iou3d_decode_mean_sizes',
+            torch.as_tensor(decode_means, dtype=torch.float32),
+            persistent=False)
+        self.last_iou3d_receipt = {}
+        self.collect_iou3d_comparison = False
         assert cost_class != 0 or cost_bbox != 0 or cost_giou != 0, "all costs cant be 0"
 
     def prepare_targets(self, targets):
@@ -209,13 +223,60 @@ class HungarianMatcher(nn.Module):
                 + self.cost_3dcenter * cost_3dcenter
                 + self.cost_class * cost_class
                 + self.cost_giou * cost_giou)
-        cost = torch.nan_to_num(
-            cost, nan=0.0, posinf=0.0, neginf=0.0).cpu().numpy()
+        required_3d_fields = {
+            'pred_depth', 'pred_3d_dim', 'pred_angle'}
+        use_iou3d = (self.cost_iou3d != 0
+                     and required_3d_fields.issubset(outputs))
+        pair_count = 0
+        exact_pair_count = 0
+        collect_comparison = bool(
+            use_iou3d and self.collect_iou3d_comparison)
+        baseline_cost = cost.clone() if collect_comparison else None
+        iou3d_matrix = torch.zeros_like(cost) if collect_comparison else None
+        if use_iou3d:
+            for batch_index, target_count in enumerate(
+                    prepared_targets['sizes']):
+                if target_count == 0:
+                    continue
+                image_outputs = {
+                    key: value[batch_index]
+                    for key, value in outputs.items()
+                    if key in (
+                        'pred_logits', 'pred_boxes', 'pred_depth',
+                        'pred_3d_dim', 'pred_angle')}
+                image_iou3d, receipt = pairwise_iou3d_match_cost(
+                    image_outputs, targets[batch_index],
+                    self.iou3d_decode_mean_sizes)
+                cost[batch_index, :, :target_count].sub_(
+                    self.cost_iou3d * image_iou3d)
+                if collect_comparison:
+                    iou3d_matrix[
+                        batch_index, :, :target_count].copy_(image_iou3d)
+                pair_count += receipt['pair_count']
+                exact_pair_count += receipt['exact_pair_count']
+        cost = torch.nan_to_num(cost, nan=0.0, posinf=0.0, neginf=0.0)
+        cost_numpy = cost.cpu().numpy()
+        if collect_comparison:
+            baseline_cost_numpy = torch.nan_to_num(
+                baseline_cost, nan=0.0, posinf=0.0,
+                neginf=0.0).cpu().numpy()
+            iou3d_numpy = iou3d_matrix.cpu().numpy()
+            giou2d_numpy = (-cost_giou).cpu().numpy()
+            target_class_score_numpy = torch.gather(
+                out_prob, 2, gather_index).cpu().numpy()
 
         queries_per_group = num_queries // group_num
         if queries_per_group * group_num != num_queries:
             raise ValueError("query count is not divisible by group count")
         indices = []
+        comparison_count = 0
+        changed_count = 0
+        iou3d_gain_sum = 0.0
+        giou2d_delta_sum = 0.0
+        class_score_delta_sum = 0.0
+        current_iou3d_sum = 0.0
+        current_giou2d_sum = 0.0
+        current_class_score_sum = 0.0
         for batch_index, target_count in enumerate(
                 prepared_targets["sizes"]):
             source_parts = []
@@ -224,13 +285,63 @@ class HungarianMatcher(nn.Module):
                 begin = group_index * queries_per_group
                 end = begin + queries_per_group
                 source, target = linear_sum_assignment(
-                    cost[batch_index, begin:end, :target_count])
+                    cost_numpy[batch_index, begin:end, :target_count])
                 source_parts.append(source + begin)
                 target_parts.append(target)
+                if collect_comparison and target_count:
+                    baseline_source, baseline_target = linear_sum_assignment(
+                        baseline_cost_numpy[
+                            batch_index, begin:end, :target_count])
+                    candidate_by_target = np.empty(target_count, dtype=np.int64)
+                    baseline_by_target = np.empty(target_count, dtype=np.int64)
+                    candidate_by_target[target] = source + begin
+                    baseline_by_target[baseline_target] = (
+                        baseline_source + begin)
+                    target_index = np.arange(target_count)
+                    comparison_count += target_count
+                    changed_count += int(np.count_nonzero(
+                        candidate_by_target != baseline_by_target))
+                    iou3d_gain_sum += float(np.sum(
+                        iou3d_numpy[
+                            batch_index, candidate_by_target, target_index]
+                        - iou3d_numpy[
+                            batch_index, baseline_by_target, target_index]))
+                    giou2d_delta_sum += float(np.sum(
+                        giou2d_numpy[
+                            batch_index, candidate_by_target, target_index]
+                        - giou2d_numpy[
+                            batch_index, baseline_by_target, target_index]))
+                    class_score_delta_sum += float(np.sum(
+                        target_class_score_numpy[
+                            batch_index, candidate_by_target, target_index]
+                        - target_class_score_numpy[
+                            batch_index, baseline_by_target, target_index]))
+                    current_iou3d_sum += float(np.sum(
+                        iou3d_numpy[
+                            batch_index, candidate_by_target, target_index]))
+                    current_giou2d_sum += float(np.sum(
+                        giou2d_numpy[
+                            batch_index, candidate_by_target, target_index]))
+                    current_class_score_sum += float(np.sum(
+                        target_class_score_numpy[
+                            batch_index, candidate_by_target, target_index]))
             source = np.concatenate(source_parts)
             target = np.concatenate(target_parts)
             indices.append((torch.as_tensor(source, dtype=torch.int64),
                             torch.as_tensor(target, dtype=torch.int64)))
+        self.last_iou3d_receipt = {
+            'enabled_for_layer': use_iou3d,
+            'pair_count': pair_count,
+            'exact_pair_count': exact_pair_count,
+            'comparison_count': comparison_count,
+            'changed_count': changed_count,
+            'iou3d_gain_sum': iou3d_gain_sum,
+            'giou2d_delta_sum': giou2d_delta_sum,
+            'class_score_delta_sum': class_score_delta_sum,
+            'current_iou3d_sum': current_iou3d_sum,
+            'current_giou2d_sum': current_giou2d_sum,
+            'current_class_score_sum': current_class_score_sum,
+        }
         return indices
 
     @torch.no_grad()
@@ -252,7 +363,7 @@ class HungarianMatcher(nn.Module):
             For each batch element, it holds:
                 len(index_i) = len(index_j) = min(num_queries, num_target_boxes)
         """
-        if self.use_batched_same_image_cost:
+        if self.use_batched_same_image_cost or self.cost_iou3d != 0:
             return self._forward_batched(
                 outputs, targets, group_num, prepared_targets)
 
@@ -316,5 +427,8 @@ def build_matcher(cfg):
         cost_bbox=cfg['set_cost_bbox'],
         cost_3dcenter=cfg['set_cost_3dcenter'],
         cost_giou=cfg['set_cost_giou'],
+        cost_iou3d=cfg.get('set_cost_iou3d', 0),
+        iou3d_decode_mean_sizes=cfg.get(
+            'iou3d_decode_mean_sizes', ((0.0, 0.0, 0.0),) * 3),
         use_batched_same_image_cost=cfg.get(
             'use_batched_same_image_matcher_cost', False))

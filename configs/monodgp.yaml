@@ -26,11 +26,10 @@ dataset:
   random_mixup3d: 0.5
   scale: 0.05
   shift: 0.05
-
   depth_scale: 'normal'
 
 
-model_name: 'V2-0022_四处负坐标切片修复_正式训练'
+model_name: 'V2-0024_匈牙利匹配加入三维IoU权重5_正式训练'
 model:
   num_classes: 3
   return_intermediate_dec: True
@@ -127,6 +126,20 @@ model:
   set_cost_bbox: 5
   set_cost_giou: 2
   set_cost_3dcenter: 10
+  # Add exact 3D IoU to the existing 2D/class/center Hungarian cost from the
+  # first epoch. IoU is bounded in [0, 1], so weight 5 contributes [0, -5].
+  set_cost_iou3d: 5
+  # dataset.meanshape=False: dimension predictions are already absolute sizes.
+  iou3d_decode_mean_sizes:
+    - [0.0, 0.0, 0.0]
+    - [0.0, 0.0, 0.0]
+    - [0.0, 0.0, 0.0]
+  # Compare the new assignment with the original assignment only on batches
+  # that are uploaded to SwanLab. Final + two auxiliary 3D decoder layers are
+  # aggregated into seven concise metrics: four changes versus the original
+  # assignment plus three absolute quality values for the current assignment.
+  iou3d_matching_monitoring:
+    enabled: True
   # Build matching costs only between predictions and targets from the same
   # image; SciPy still solves each of the 11 query groups independently.
   use_batched_same_image_matcher_cost: True
@@ -185,11 +198,11 @@ trainer:
     required: True
     project: 'MonoDGP'
     workspace: 'Grapymage'
-    experiment_name: '实验22_四处负坐标切片修复_正式训练'
-    description: '与实验21同配置从头训练，仅修复主图区域掩码、MixUp区域掩码、稠密深度目标和前景掩码的负坐标切片'
+    experiment_name: '实验24_匈牙利匹配加入三维IoU权重5_正式训练'
+    description: '以实验22为严格方法基线从头训练，不启用实验23的深度均值梯度裁剪；保留原分类、二维框、二维GIoU和投影三维中心匹配代价，从第1轮起额外加入权重5的精确三维IoU匹配代价；每5批用原匹配作只读对照，汇总三个三维Decoder层的匹配变化与增量，并记录当前匹配的平均三维IoU、平均二维GIoU和GT类别分数均值'
     group: '可行区间研究'
     projection_geometry_version: 'current'
-    tags: ['实验22', 'KITTI', '负坐标切片修复']
+    tags: ['实验24', 'KITTI', '三维IoU匈牙利匹配', '权重5']
     mode: 'online'
 
 tester:

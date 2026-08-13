@@ -1,8 +1,10 @@
 import unittest
+from unittest.mock import patch
 
 import torch
 
 from lib.models.monodgp.matcher import HungarianMatcher
+from lib.models.monodgp.monodgp import SetCriterion
 
 
 def make_case(device, sizes, tied=False):
@@ -84,3 +86,75 @@ class BatchedSameImageMatcherTest(unittest.TestCase):
             use_batched_same_image_cost=True)
         with self.assertRaisesRegex(ValueError, 'disagree'):
             matcher.prepare_targets(targets)
+
+    def test_iou3d_comparison_receipt_tracks_changed_match(self):
+        outputs, targets = make_case(torch.device('cpu'), [1], tied=True)
+        outputs = {key: value[:, :2] for key, value in outputs.items()}
+        outputs.update({
+            'pred_depth': torch.zeros(1, 2, 2),
+            'pred_3d_dim': torch.zeros(1, 2, 6),
+            'pred_angle': torch.zeros(1, 2, 24),
+        })
+        matcher = HungarianMatcher(
+            cost_class=2.0, cost_3dcenter=10.0, cost_bbox=5.0,
+            cost_giou=2.0, cost_iou3d=5.0,
+            use_batched_same_image_cost=True)
+        matcher.collect_iou3d_comparison = True
+        fake_iou = torch.tensor([[0.0], [1.0]])
+        fake_receipt = {'pair_count': 2, 'exact_pair_count': 1}
+        with patch(
+                'lib.models.monodgp.matcher.pairwise_iou3d_match_cost',
+                return_value=(fake_iou, fake_receipt)):
+            matcher.collect_iou3d_comparison = False
+            unmonitored_indices = matcher(outputs, targets, group_num=1)
+            matcher.collect_iou3d_comparison = True
+            indices = matcher(outputs, targets, group_num=1)
+        self.assertEqual(
+            unmonitored_indices[0][0].tolist(), indices[0][0].tolist())
+        self.assertEqual(
+            unmonitored_indices[0][1].tolist(), indices[0][1].tolist())
+        self.assertEqual(indices[0][0].tolist(), [1])
+        receipt = matcher.last_iou3d_receipt
+        self.assertEqual(receipt['comparison_count'], 1)
+        self.assertEqual(receipt['changed_count'], 1)
+        self.assertAlmostEqual(receipt['iou3d_gain_sum'], 1.0)
+        self.assertAlmostEqual(receipt['giou2d_delta_sum'], 0.0)
+        self.assertAlmostEqual(receipt['class_score_delta_sum'], 0.0)
+        self.assertAlmostEqual(receipt['current_iou3d_sum'], 1.0)
+        self.assertAlmostEqual(receipt['current_giou2d_sum'], 1.0)
+        self.assertAlmostEqual(receipt['current_class_score_sum'], 0.5)
+
+    def test_iou3d_receipts_aggregate_absolute_and_delta_metrics(self):
+        receipts = [{
+            'comparison_count': 2,
+            'changed_count': 1,
+            'iou3d_gain_sum': 0.4,
+            'giou2d_delta_sum': -0.2,
+            'class_score_delta_sum': -0.1,
+            'current_iou3d_sum': 1.2,
+            'current_giou2d_sum': 1.0,
+            'current_class_score_sum': 1.5,
+        }, {
+            'comparison_count': 3,
+            'changed_count': 2,
+            'iou3d_gain_sum': 0.6,
+            'giou2d_delta_sum': -0.3,
+            'class_score_delta_sum': 0.2,
+            'current_iou3d_sum': 0.8,
+            'current_giou2d_sum': 0.5,
+            'current_class_score_sum': 1.0,
+        }]
+        metrics = SetCriterion._iou3d_matching_metrics(
+            receipts, torch.device('cpu'))
+        expected = {
+            'monitor_iou3d_matching_identity_change_fraction': 0.6,
+            'monitor_iou3d_matching_mean_iou3d_gain': 0.2,
+            'monitor_iou3d_matching_mean_giou2d_delta': -0.1,
+            'monitor_iou3d_matching_mean_gt_class_score_delta': 0.02,
+            'monitor_iou3d_matching_current_mean_iou3d': 0.4,
+            'monitor_iou3d_matching_current_mean_giou2d': 0.3,
+            'monitor_iou3d_matching_current_mean_gt_class_score': 0.5,
+        }
+        self.assertEqual(set(metrics), set(expected))
+        for key, expected_value in expected.items():
+            self.assertAlmostEqual(float(metrics[key]), expected_value)

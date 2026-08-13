@@ -527,6 +527,7 @@ class SetCriterion(nn.Module):
                  inter_losses, group_num=11,
                  geometry_interval_monitoring=None,
                  query_monitoring=None,
+                 iou3d_matching_monitoring=None,
                  use_vectorized_ddn_rasterization=False,
                  use_aligned_giou_loss=False,
                  use_post_match_cache=False):
@@ -574,6 +575,51 @@ class SetCriterion(nn.Module):
             query_monitor_cfg.get('score_threshold', 0.2))
         self.query_monitoring_car_class_id = int(
             query_monitor_cfg.get('car_class_id', 1))
+        iou3d_monitor_cfg = iou3d_matching_monitoring or {}
+        self.iou3d_matching_monitoring_enabled = bool(
+            iou3d_monitor_cfg.get('enabled', False))
+        self.collect_iou3d_matching_comparison = False
+
+    @staticmethod
+    def _append_iou3d_matching_receipt(matcher, receipts):
+        receipt = getattr(matcher, 'last_iou3d_receipt', {})
+        if int(receipt.get('comparison_count', 0)) > 0:
+            receipts.append(receipt.copy())
+
+    @staticmethod
+    def _iou3d_matching_metrics(receipts, device):
+        comparison_count = sum(
+            int(receipt['comparison_count']) for receipt in receipts)
+        if comparison_count == 0:
+            return {}
+        denominator = float(comparison_count)
+        values = {
+            'monitor_iou3d_matching_identity_change_fraction': sum(
+                int(receipt['changed_count']) for receipt in receipts)
+                / denominator,
+            'monitor_iou3d_matching_mean_iou3d_gain': sum(
+                float(receipt['iou3d_gain_sum']) for receipt in receipts)
+                / denominator,
+            'monitor_iou3d_matching_mean_giou2d_delta': sum(
+                float(receipt['giou2d_delta_sum']) for receipt in receipts)
+                / denominator,
+            'monitor_iou3d_matching_mean_gt_class_score_delta': sum(
+                float(receipt['class_score_delta_sum'])
+                for receipt in receipts) / denominator,
+            'monitor_iou3d_matching_current_mean_iou3d': sum(
+                float(receipt['current_iou3d_sum'])
+                for receipt in receipts) / denominator,
+            'monitor_iou3d_matching_current_mean_giou2d': sum(
+                float(receipt['current_giou2d_sum'])
+                for receipt in receipts) / denominator,
+            'monitor_iou3d_matching_current_mean_gt_class_score': sum(
+                float(receipt['current_class_score_sum'])
+                for receipt in receipts) / denominator,
+        }
+        return {
+            key: torch.tensor(value, dtype=torch.float32, device=device)
+            for key, value in values.items()
+        }
 
     def loss_labels(self, outputs, targets, indices, num_boxes, log=True,
                     matched_cache=None):
@@ -990,6 +1036,12 @@ class SetCriterion(nn.Module):
                       The expected keys in each dict depends on the losses applied, see each loss' doc
         """
         self.geometry_conditioned_interval_depth_receipts = {}
+        collect_iou3d_comparison = bool(
+            self.training
+            and self.iou3d_matching_monitoring_enabled
+            and self.collect_iou3d_matching_comparison)
+        self.matcher.collect_iou3d_comparison = collect_iou3d_comparison
+        iou3d_matching_receipts = []
         group_num = self.group_num if self.training else 1
         # Compute the average number of target boxes accross all nodes, for normalization purposes
         num_boxes = sum(len(t["labels"]) for t in targets) * group_num
@@ -1021,6 +1073,9 @@ class SetCriterion(nn.Module):
         indices = self.matcher(
             outputs_without_aux, targets, group_num=group_num,
             prepared_targets=prepared_matcher_targets)
+        if collect_iou3d_comparison:
+            self._append_iou3d_matching_receipt(
+                self.matcher, iou3d_matching_receipts)
         matched_cache = self._post_match_cache(
             outputs, targets, indices, self.losses)
         for loss in self.losses:
@@ -1054,6 +1109,9 @@ class SetCriterion(nn.Module):
                 indices = self.matcher(
                     aux_outputs, targets, group_num=group_num,
                     prepared_targets=prepared_matcher_targets)
+                if collect_iou3d_comparison:
+                    self._append_iou3d_matching_receipt(
+                        self.matcher, iou3d_matching_receipts)
                 active_losses = [
                     loss for loss in self.losses
                     if loss not in ('depth_map', 'region', 'cardinality')]
@@ -1070,6 +1128,10 @@ class SetCriterion(nn.Module):
                     l_dict = self.get_loss(loss, aux_outputs, targets, indices, num_boxes, **kwargs)
                     l_dict = {k + f'_{i}': v for k, v in l_dict.items()}
                     losses.update(l_dict)
+        self.matcher.collect_iou3d_comparison = False
+        losses.update(self._iou3d_matching_metrics(
+            iou3d_matching_receipts,
+            outputs['pred_logits'].device))
         return losses
 
 
@@ -1155,6 +1217,8 @@ def build(cfg):
         geometry_interval_monitoring=cfg.get(
             'geometry_interval_monitoring'),
         query_monitoring=cfg.get('query_monitoring'),
+        iou3d_matching_monitoring=cfg.get(
+            'iou3d_matching_monitoring'),
         use_vectorized_ddn_rasterization=cfg.get(
             'use_vectorized_ddn_rasterization', False),
         use_aligned_giou_loss=cfg.get('use_aligned_giou_loss', False),
