@@ -44,21 +44,12 @@ _DEPTH_MEAN_CLIP_LABELS = {
         '整体深度均值梯度能量保留比例'),
 }
 
-_CLIPPING_DEPTH_CONTEXT = (
-    ('loss_depth', '最终Decoder深度损失'),
-    ('loss_depth_0', '辅助Decoder第0层深度损失'),
-    ('loss_depth_1', '辅助Decoder第1层深度损失'),
-    ('monitor_depth_mae', '最终Decoder匹配深度MAE'),
-    ('monitor_depth_mae_0', '辅助Decoder第0层匹配深度MAE'),
-    ('monitor_depth_mae_1', '辅助Decoder第1层匹配深度MAE'),
-    ('monitor_depth_precision_p90', '最终Decoder深度precision_P90'),
-    ('monitor_depth_precision_p90_0', '辅助Decoder第0层深度precision_P90'),
-    ('monitor_depth_precision_p90_1', '辅助Decoder第1层深度precision_P90'),
-)
-
-
 def grouped_gradient_payload(metrics, scope, epoch_summary=False):
     payload = {}
+    metrics = {
+        key: value for key, value in metrics.items()
+        if not key.startswith('depth_mean_')
+    }
     for name, value in chinese_gradient_metrics(metrics).items():
         if '梯度与参数范数比' in name:
             continue
@@ -75,15 +66,6 @@ def depth_mean_clipping_payload(metrics, scope):
         f'{scope}深度均值梯度裁剪/{label}': float(metrics[key])
         for key, label in _DEPTH_MEAN_CLIP_LABELS.items()
         if key in metrics
-    }
-
-
-def clipping_depth_context_payload(losses):
-    return {
-        f'训练中梯度裁剪事件/触发批次深度上下文/{label}': float(
-            losses[key].detach())
-        for key, label in _CLIPPING_DEPTH_CONTEXT
-        if key in losses
     }
 
 
@@ -541,6 +523,7 @@ class Trainer(object):
                         batch_idx, is_last_batch=(
                             batch_idx + 1 == batch_count))
                     if gradient_monitor is not None else {})
+                gradient_snapshot.update(depth_mean_clip_snapshot)
                 if should_log and gradient_snapshot:
                     gradient_keys = sorted(gradient_snapshot)
                     gradient_values = torch.stack(tuple(
@@ -556,6 +539,9 @@ class Trainer(object):
                         batch_idx + 1, batch_count, gradient_text)
                 if swanlab_payload is not None:
                     swanlab_payload.update(grouped_gradient_payload(
+                        scalar_values_to_floats(gradient_snapshot),
+                        scope='训练中每5批'))
+                    swanlab_payload.update(depth_mean_clipping_payload(
                         scalar_values_to_floats(gradient_snapshot),
                         scope='训练中每5批'))
                     self.tracker.log(
