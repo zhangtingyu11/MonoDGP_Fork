@@ -577,22 +577,22 @@
       <h1>实验总览 v2</h1>
       <p>实验总账的可视化索引。每项实验单独记录目的、对比条件、执行过程和客观结果，方便后续持续追加。</p>
       <div class="hero-meta">
-        <span class="pill"><span class="status-dot"></span>26 项实验已记录</span>
+        <span class="pill"><span class="status-dot"></span>27 项实验已记录</span>
         <span class="pill">数据来源：实验总账v2</span>
-        <span class="pill">更新日期：2026-08-15</span>
+        <span class="pill">更新日期：2026-08-16</span>
       </div>
     </header>
 
     <section class="top-grid" aria-label="全局摘要">
       <article class="summary-card">
         <span class="label">正式实验</span>
-        <strong>26 项</strong>
+        <strong>27 项</strong>
         <small>从 v2 重新编号</small>
       </article>
       <article class="summary-card">
-        <span class="label">已完成</span>
-        <strong>26 项</strong>
-        <small>序号01—26均已完成</small>
+        <span class="label">最新状态</span>
+        <strong>27 已停止</strong>
+        <small>首次运行作废，修正重跑中途停止</small>
       </article>
       <article class="summary-card">
         <span class="label">实验类型</span>
@@ -601,7 +601,7 @@
       </article>
       <article class="summary-card">
         <span class="label">当前编号</span>
-        <strong>01—26</strong>
+        <strong>01—27</strong>
         <small>后续实验继续追加</small>
       </article>
     </section>
@@ -720,6 +720,10 @@
         <button class="nav-button" data-target="exp26" type="button">
           <span class="nav-index">26</span>
           <span class="nav-copy"><strong>取消0.2分类门槛</strong><small>重训250轮·已完成</small></span>
+        </button>
+        <button class="nav-button" data-target="exp27" type="button">
+          <span class="nav-index">27</span>
+          <span class="nav-copy"><strong>组内一对多辅助监督</strong><small>修正重跑·中途停止</small></span>
         </button>
       </nav>
 
@@ -844,6 +848,7 @@
               <div class="truth"><span class="number">24</span><h3>Hungarian加入精确3D IoU</h3><p>在一对一匹配代价中加入权重5的精确三维IoU，让重合更好的三维框更容易成为正样本。</p></div>
               <div class="truth"><span class="number">25</span><h3>减弱高IoU未匹配预测的负分类</h3><p>保持一对一匹配和回归不变，对3D IoU较高却未匹配的query逐步减弱负分类权重。</p></div>
               <div class="truth"><span class="number">26</span><h3>取消0.2分类门槛并重训</h3><p>保持实验24训练目标，验证时不设分类分数门槛，并以无NMS中等AP选择best。</p></div>
+              <div class="truth"><span class="number">27</span><h3>组内高IoU一对多辅助监督</h3><p>首次运行因漏掉辅助负样本而作废；修正后完成至第134轮并由用户提前停止，不作为完整实验结果。</p></div>
             </div>
           </article>
 
@@ -959,10 +964,14 @@
                 <h3>实验 26：取消0.2分类门槛并从头训练</h3>
                 <p>保持实验24训练目标，验证解码阈值改为0并用无NMS中等AP选best；best刷新时额外诊断BEV NMS 0.3—0.9。</p>
               </div>
+              <div class="mini-card">
+                <h3>实验 27：组内高IoU一对多辅助监督</h3>
+                <p>首次运行实现错误作废；修正运行的无NMS AP长期处于低位，第134轮验证后由用户决定停止，未完成250轮。</p>
+              </div>
             </div>
             <div class="callout warning" style="margin-top:14px">
               <h4>每项实验只和自己明确的对照比</h4>
-              <p>序号1是B8完整运行栈对比；序号2是B16单组基准；序号3—10依次对照上一项已审核累计代码；序号11分析序号10累计代码；序号12—21记录工程优化、正确性修复与正式基线；序号22修复负坐标标签；序号23测试深度梯度裁剪；序号24加入3D IoU匹配；序号25减弱高IoU未匹配query的负分类；序号26取消0.2验证门槛并重新训练。</p>
+              <p>序号1是B8完整运行栈对比；序号2是B16单组基准；序号3—10依次对照上一项已审核累计代码；序号11分析序号10累计代码；序号12—21记录工程优化、正确性修复与正式基线；序号22修复负坐标标签；序号23测试深度梯度裁剪；序号24加入3D IoU匹配；序号25减弱高IoU未匹配query的负分类；序号26取消0.2验证门槛并重新训练；序号27测试组内一对多辅助监督，但只形成中途停止的部分证据。</p>
             </div>
           </article>
         </section>
@@ -2923,10 +2932,68 @@
             <div class="callout warning" style="margin-top:14px"><h4>结论：零门槛口径有效，但不能把全部提升只归因于门槛</h4><p>实验26刷新了实验24系列的无NMS中等best，且同一best上的BEV NMS 0.8进一步提升到24.0972。不过本项是从头重新训练，不是把实验24同一个checkpoint只切换阈值，因此相对实验24的1.6478 AP差值同时包含新训练轨迹和推理门槛影响。NMS结果只作诊断，没有参与checkpoint选择。</p></div>
           </article>
         </section>
+
+        <section id="exp27" class="content-panel" aria-labelledby="exp27-title">
+          <article class="section-card">
+            <div class="section-head"><div><span class="section-kicker">实验 27 · 08-15</span><h2 id="exp27-title">组内高IoU一对多辅助监督</h2><p class="section-subtitle">一句话：保留一对一主匹配，同时让每个GT在每个查询组内最多再监督3个高IoU query；首次实现错误作废，修正运行因效果持续很差而中途停止。</p></div><span class="done-badge" style="background:var(--red-soft);color:var(--red)">中途停止 · 不采用</span></div>
+            <div class="condition-grid">
+              <article class="condition-card"><header><strong>主分支与验证口径</strong><span>沿用实验26</span></header><dl><div><dt>主匹配</dt><dd>11组内一对一Hungarian保持</dd></div><div><dt>主分类灰区</dt><dd>未匹配且最大3D IoU≥0.5不作负分类惩罚</dd></div><div><dt>推理</dt><dd>门槛0、每图top-50、无NMS中等AP选best</dd></div><div><dt>NMS</dt><dd>best刷新时诊断类别内BEV NMS 0.3—0.9</dd></div></dl></article>
+              <article class="condition-card new"><header><strong>辅助一对多分支</strong><span>总权重0.1</span></header><dl><div><dt>辅助正样本</dt><dd>IoU≥0.7，每组每GT最多top-3</dd></div><div><dt>辅助灰区</dt><dd>IoU 0.5—0.7及top-3溢出候选忽略</dd></div><div><dt>辅助负样本</dt><dd>未匹配且最大IoU&lt;0.5</dd></div><div><dt>辅助回归</dt><dd>二维框、GIoU、中心、深度、尺寸和航向</dd></div></dl></article>
+            </div>
+            <div class="section-head" style="margin-top:24px"><div><span class="section-kicker">One-to-Many Procedure</span><h2>一个GT具体怎么对应多个query</h2><p class="section-subtitle">没有增加query，也没有新增预测头；只在同一批预测上额外生成一套训练标签。最终层和两个中间Decoder监督层都分别执行一次。</p></div></div>
+            <div class="stage-grid">
+              <div class="stage"><span>1 · 主匹配</span><h3>先保留原一对一Hungarian</h3><p>每个查询组内，每个GT先得到1个主匹配query。它照常计算正分类和全部主回归Loss，不再进入辅助候选。</p></div>
+              <div class="stage"><span>2 · 唯一归属</span><h3>未匹配query只归给一个GT</h3><p>计算每个未匹配query与本图所有GT的3D IoU，并把它归给IoU最大的GT，避免同一个query同时监督多个GT。</p></div>
+              <div class="stage"><span>3 · 组内top-3</span><h3>每个GT最多再选3个</h3><p>在每个组、每个GT内部，从IoU≥0.7的未匹配query中按IoU降序取前3个。少于3个就全部使用，不补齐；超过3个的直接忽略。</p></div>
+            </div>
+            <div class="condition-common" style="margin-top:14px">
+              <strong>最终正样本数量</strong>
+              <span>每个GT在每个查询组内最多得到<code>1个主匹配正样本 + 3个辅助正样本</code>。一对多只影响训练；推理仍使用原预测头、第0查询组和top-50，不会额外输出一条“辅助分支”。</span>
+            </div>
+            <div class="table-wrap" style="margin-top:14px">
+              <table>
+                <thead><tr><th>query类型</th><th>主分类</th><th>主回归</th><th>辅助分类</th><th>辅助回归</th></tr></thead>
+                <tbody>
+                  <tr><td>Hungarian主匹配query</td><td>对应GT类别正样本</td><td>计算全部主回归</td><td>忽略</td><td>不计算</td></tr>
+                  <tr><td>IoU≥0.7且进入top-3</td><td>忽略，不再当主负样本</td><td>不计算</td><td>对应GT类别正样本</td><td>计算框、GIoU、中心、深度、尺寸、航向</td></tr>
+                  <tr><td>IoU≥0.7但超过top-3</td><td>忽略</td><td>不计算</td><td>忽略，不转成负样本</td><td>不计算</td></tr>
+                  <tr><td>0.5≤IoU&lt;0.7</td><td>忽略</td><td>不计算</td><td>忽略</td><td>不计算</td></tr>
+                  <tr><td>IoU&lt;0.5的未匹配query</td><td>背景负样本</td><td>不计算</td><td>背景负样本</td><td>不计算</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="condition-common" style="margin-top:14px">
+              <strong>总Loss</strong>
+              <span><code>L总 = L主一对一 + 0.1 × L辅助一对多</code>。辅助一对多Loss包含选中正样本的分类与全部回归，以及IoU&lt;0.5未匹配query的辅助背景分类。</span>
+            </div>
+            <div class="callout" style="margin-top:14px"><h4>具体例子</h4><p>某组内一个GT已有1个Hungarian主匹配query；其余query归给这个GT后的IoU依次为0.82、0.78、0.73、0.71、0.62、0.41。0.82、0.78、0.73是3个辅助正样本；0.71因超过top-3而忽略；0.62落在0.5—0.7灰区而忽略；0.41作为辅助分类负样本且不做回归。如果IoU≥0.7的query只有2个，就只增加2个辅助正样本，不凑满3个。</p></div>
+            <div class="callout danger" style="margin-top:14px"><h4>首次运行作废：不进入实验结论</h4><p>首次实现只监督了IoU≥0.7的辅助正样本，遗漏方案规定的IoU&lt;0.5辅助分类负样本，因此训练目标与已批准设计不一致。用户授权SIGTERM停止，退出码143。失败说明中的“第160轮验证”是较早记录；原始日志显示实际完成第162轮训练，并在第162轮验证尚未完成时终止。该运行的AP不用于评价方法。</p></div>
+            <div class="table-wrap" style="margin-top:14px">
+              <table>
+                <thead><tr><th>运行</th><th>实现与停止位置</th><th>证据资格</th><th>产物</th></tr></thead>
+                <tbody>
+                  <tr><td>首次运行</td><td>遗漏IoU&lt;0.5辅助负样本；第162轮验证中SIGTERM，退出码143</td><td>实现错误，完全作废</td><td><code>outputs/_failed/V2-0027_首次运行无效_遗漏辅助负样本_20260815/</code></td></tr>
+                  <tr><td>修正重跑</td><td>完成第1—134轮；第135轮训练到31/232步后由用户停止</td><td>仅作为中途部分证据，不是250轮最终结果</td><td><code>outputs/V2-0027_组内高IoU一对多辅助监督/</code></td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="metric-grid">
+              <div class="metric"><span>完整验证范围</span><strong>第120—134轮</strong><em>共15次</em></div>
+              <div class="metric"><span>无NMS中等best</span><strong>6.2470</strong><em>第124轮</em></div>
+              <div class="metric"><span>best三档</span><strong>5.9349 / 6.2470 / 5.4980</strong><em>简单 / 中等 / 困难</em></div>
+              <div class="metric"><span>最后完整验证</span><strong>4.9655 / 5.0324 / 4.5902</strong><em>第134轮</em></div>
+              <div class="metric"><span>对实验26中等best</span><strong>−17.5861</strong><em>但实验27只训练到第134轮</em></div>
+              <div class="metric"><span>BEV NMS组内最佳</span><strong>24.4572 / 19.5163 / 16.9679</strong><em>阈值0.7，仅作诊断</em></div>
+              <div class="metric"><span>NMS 0.7保留 / 删除</span><strong>146,127 / 42,323</strong><em>原始预测188,450个</em></div>
+              <div class="metric"><span>修正运行SwanLab</span><strong>k5497r1b</strong><em>停止后正常收尾标记</em></div>
+            </div>
+            <div class="callout warning" style="margin-top:14px"><h4>结论边界：这次运行表现很差，但不是完整收敛实验</h4><p>修正后连续15次正式验证的无NMS中等AP仅约5—6，明显低于实验26；即使NMS大幅删除重复预测，阈值组内最佳中等AP 19.5163仍未超过实验26。因此用户决定停止本轮是有数据依据的。不过它没有跑满250轮，最多只能说明当前实现和早期训练轨迹失败，不能据此证明所有一对多方法或更长训练必然无效。实验27代码和配置后来按用户决定删除且不推送，日志、checkpoint和诊断JSON继续保留作为历史证据。</p></div>
+          </article>
+        </section>
       </div>
     </div>
 
-    <footer class="footer">MonoDGP 实验总览 v2 · 序号01—26</footer>
+    <footer class="footer">MonoDGP 实验总览 v2 · 序号01—27</footer>
   </main>
 
   <script>
