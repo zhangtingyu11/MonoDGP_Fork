@@ -87,6 +87,18 @@ LOSS_DIAGNOSTIC_CHINESE_NAMES = {
         '三个三维Decoder层中当前匹配预测的平均二维GIoU'),
     'monitor_iou3d_matching_current_mean_gt_class_score': (
         '三个三维Decoder层中当前匹配预测的GT类别平均分数'),
+    'monitor_iou3d_matching_best_iou3d_query_mean_gt_class_score': (
+        '三个三维Decoder层中每个GT三维IoU最高预测的GT类别平均分数'),
+    'monitor_high_iou_negative_downweighted_fraction': (
+        '未匹配预测中负分类权重被降低的比例'),
+    'monitor_high_iou_negative_ignored_fraction': (
+        '未匹配预测中负分类权重降为零的比例'),
+    'monitor_high_iou_negative_mean_weight': (
+        '未匹配预测的负分类权重均值'),
+    'monitor_high_iou_negative_mean_gt_class_score': (
+        '三维IoU大于等于0.5未匹配预测的GT类别平均分数'),
+    'monitor_high_iou_negative_ignored_mean_gt_class_score': (
+        '三维IoU大于等于0.7未匹配预测的GT类别平均分数'),
 }
 
 _IOU3D_MATCHING_DIAGNOSTICS = {
@@ -97,6 +109,7 @@ _IOU3D_MATCHING_DIAGNOSTICS = {
     'monitor_iou3d_matching_current_mean_iou3d',
     'monitor_iou3d_matching_current_mean_giou2d',
     'monitor_iou3d_matching_current_mean_gt_class_score',
+    'monitor_iou3d_matching_best_iou3d_query_mean_gt_class_score',
 }
 
 _ONLINE_FINAL_DIAGNOSTICS = {
@@ -118,6 +131,11 @@ _ONLINE_FINAL_DIAGNOSTICS = {
     'monitor_depth_local_gradient_energy_fraction_0_1_to_0_5m',
     'monitor_depth_local_gradient_energy_fraction_0_5_to_1m',
     'monitor_depth_local_gradient_energy_fraction_ge_1m',
+    'monitor_high_iou_negative_downweighted_fraction',
+    'monitor_high_iou_negative_ignored_fraction',
+    'monitor_high_iou_negative_mean_weight',
+    'monitor_high_iou_negative_mean_gt_class_score',
+    'monitor_high_iou_negative_ignored_mean_gt_class_score',
 }
 
 _ONLINE_GROUP0_DIAGNOSTICS = {
@@ -234,9 +252,12 @@ def chinese_grouped_monitoring(raw_losses, weight_dict, scope,
             suffix = full_key[len(base_key):]
             coefficient = float(weight_dict.get(
                 f'{weight_key}{suffix}', 1.0)) if weight_key else 1.0
-            diagnostic_group = (
-                '航向角诊断' if base_key.startswith('monitor_angle_')
-                else '深度诊断')
+            if base_key.startswith('monitor_angle_'):
+                diagnostic_group = '航向角诊断'
+            elif base_key.startswith('monitor_depth_'):
+                diagnostic_group = '深度诊断'
+            else:
+                diagnostic_group = '高IoU未匹配预测诊断'
             result[f'{scope}{diagnostic_group}/{layer_name}/'
                    f'{LOSS_DIAGNOSTIC_CHINESE_NAMES[base_key]}'] = (
                        value * coefficient)

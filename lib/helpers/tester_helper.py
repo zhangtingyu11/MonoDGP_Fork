@@ -8,6 +8,7 @@ from lib.helpers.decode_helper import decode_detections
 import time
 from lib.helpers.swanlab_helper import ScalarMeanAccumulator
 from lib.helpers.swanlab_helper import GeometryIntervalAccumulator
+from lib.helpers.bev_nms_helper import classwise_bev_nms_variants
 
 
 class CudaEvalBatchPrefetcher:
@@ -297,3 +298,23 @@ class Tester(object):
             results=results, logger=self.logger,
             return_metrics=return_metrics)
         return result
+
+    def evaluate_best_refresh_bev_nms(self, results):
+        """Evaluate the pre-registered NMS grid without another forward pass."""
+        thresholds = self.cfg.get('best_refresh_bev_nms_thresholds', ())
+        variants = classwise_bev_nms_variants(results, thresholds)
+        report = {}
+        baseline_count = sum(len(items) for items in results.values())
+        for threshold, filtered in variants.items():
+            self.logger.info(
+                'Best-refresh class-wise BEV NMS evaluation: threshold=%.2f',
+                threshold)
+            evaluation = self.evaluate(filtered, return_metrics=True)
+            remaining = sum(len(items) for items in filtered.values())
+            report[f'{threshold:.2f}'] = {
+                'selection_score': float(evaluation['selection_score']),
+                'prediction_count': int(remaining),
+                'removed_prediction_count': int(baseline_count - remaining),
+                'metrics': evaluation['metrics'],
+            }
+        return report

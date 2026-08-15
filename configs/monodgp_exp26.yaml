@@ -1,0 +1,24 @@
+base_config: monodgp.yaml
+
+model_name: 'V2-0026_实验24取消0.2分类门槛重训'
+
+model:
+  query_monitoring:
+    enabled: true
+    inference_topk: 50
+    score_threshold: 0.0
+    car_class_id: 1
+  high_iou_unmatched_negative_weighting:
+    enabled: false
+    full_weight_below_iou: 0.5
+    zero_weight_at_iou: 0.7
+trainer:
+  swanlab:
+    experiment_name: '实验26_实验24取消0.2分类门槛重训'
+    description: '以实验24为严格方法基线从头训练，关闭实验25的高IoU负分类软忽略；训练目标保持权重5的精确三维IoU一对一匈牙利匹配不变，仅将验证解码置信度门槛从0.2改为0.0；从第120轮开始以无NMS中等难度3D AP_R40选择best，仅在best刷新时诊断预注册的类别内BEV NMS阈值'
+    tags: ['实验26', 'KITTI', '零置信度门槛', '三维IoU匈牙利匹配']
+
+tester:
+  threshold: 0.0
+  topk: 50
+  best_refresh_bev_nms_thresholds: [0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]

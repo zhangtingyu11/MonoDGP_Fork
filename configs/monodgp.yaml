@@ -29,7 +29,7 @@ dataset:
   depth_scale: 'normal'
 
 
-model_name: 'V2-0024_匈牙利匹配加入三维IoU权重5_正式训练'
+model_name: 'V2-0025_高IoU未匹配预测减弱负分类监督'
 model:
   num_classes: 3
   return_intermediate_dec: True
@@ -136,10 +136,18 @@ model:
     - [0.0, 0.0, 0.0]
   # Compare the new assignment with the original assignment only on batches
   # that are uploaded to SwanLab. Final + two auxiliary 3D decoder layers are
-  # aggregated into seven concise metrics: four changes versus the original
-  # assignment plus three absolute quality values for the current assignment.
+  # aggregated into eight concise metrics: four changes versus the original,
+  # three absolute qualities for the current assignment, and the GT-class
+  # score of each GT's highest-3D-IoU query.
   iou3d_matching_monitoring:
     enabled: True
+  # Keep one-to-one Hungarian positives and all regression losses unchanged.
+  # Only unmatched queries are affected: negative classification keeps full
+  # weight below IoU 0.5, falls linearly to zero at 0.7, and stays zero above.
+  high_iou_unmatched_negative_weighting:
+    enabled: True
+    full_weight_below_iou: 0.5
+    zero_weight_at_iou: 0.7
   # Build matching costs only between predictions and targets from the same
   # image; SciPy still solves each of the 11 query groups independently.
   use_batched_same_image_matcher_cost: True
@@ -198,11 +206,11 @@ trainer:
     required: True
     project: 'MonoDGP'
     workspace: 'Grapymage'
-    experiment_name: '实验24_匈牙利匹配加入三维IoU权重5_正式训练'
-    description: '以实验22为严格方法基线从头训练，不启用实验23的深度均值梯度裁剪；保留原分类、二维框、二维GIoU和投影三维中心匹配代价，从第1轮起额外加入权重5的精确三维IoU匹配代价；每5批用原匹配作只读对照，汇总三个三维Decoder层的匹配变化与增量，并记录当前匹配的平均三维IoU、平均二维GIoU和GT类别分数均值'
+    experiment_name: '实验25_高IoU未匹配预测减弱负分类监督'
+    description: '以实验24为严格基线，保留权重5的三维IoU一对一匹配和全部回归监督；仅对未匹配query按最大三维IoU减弱负分类监督：低于0.5权重1，0.5至0.7线性降到0，达到0.7后权重0；不启用全模型梯度裁剪或实验23深度梯度裁剪'
     group: '可行区间研究'
     projection_geometry_version: 'current'
-    tags: ['实验24', 'KITTI', '三维IoU匈牙利匹配', '权重5']
+    tags: ['实验25', 'KITTI', '高IoU未匹配预测', '负分类软忽略']
     mode: 'online'
 
 tester:

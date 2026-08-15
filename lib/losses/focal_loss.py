@@ -66,7 +66,9 @@ def focal_loss_cornernet(input, target, gamma=2.):
     return loss.mean()
 
 
-def sigmoid_focal_loss(inputs, targets, num_boxes, alpha: float = 0.25, gamma: float = 2):
+def sigmoid_focal_loss(
+        inputs, targets, num_boxes, alpha: float = 0.25,
+        gamma: float = 2, query_weights=None):
     """
     Loss used in RetinaNet for dense detection: https://arxiv.org/abs/1708.02002.
     Args:
@@ -90,6 +92,13 @@ def sigmoid_focal_loss(inputs, targets, num_boxes, alpha: float = 0.25, gamma: f
     if alpha >= 0:
         alpha_t = alpha * targets + (1 - alpha) * (1 - targets)
         loss = alpha_t * loss
+
+    if query_weights is not None:
+        if query_weights.shape != inputs.shape[:-1]:
+            raise ValueError(
+                'query_weights must match inputs without the class dimension')
+        loss = loss * query_weights.unsqueeze(-1).to(
+            device=loss.device, dtype=loss.dtype)
 
     return loss.mean(1).sum() / num_boxes
 

@@ -114,6 +114,9 @@ class BatchedSameImageMatcherTest(unittest.TestCase):
         self.assertEqual(
             unmonitored_indices[0][1].tolist(), indices[0][1].tolist())
         self.assertEqual(indices[0][0].tolist(), [1])
+        self.assertTrue(torch.equal(
+            matcher.last_iou3d_matrix,
+            fake_iou.view(1, 2, 1)))
         receipt = matcher.last_iou3d_receipt
         self.assertEqual(receipt['comparison_count'], 1)
         self.assertEqual(receipt['changed_count'], 1)
@@ -123,6 +126,8 @@ class BatchedSameImageMatcherTest(unittest.TestCase):
         self.assertAlmostEqual(receipt['current_iou3d_sum'], 1.0)
         self.assertAlmostEqual(receipt['current_giou2d_sum'], 1.0)
         self.assertAlmostEqual(receipt['current_class_score_sum'], 0.5)
+        self.assertAlmostEqual(
+            receipt['best_iou3d_query_class_score_sum'], 0.5)
 
     def test_iou3d_receipts_aggregate_absolute_and_delta_metrics(self):
         receipts = [{
@@ -134,6 +139,7 @@ class BatchedSameImageMatcherTest(unittest.TestCase):
             'current_iou3d_sum': 1.2,
             'current_giou2d_sum': 1.0,
             'current_class_score_sum': 1.5,
+            'best_iou3d_query_class_score_sum': 1.2,
         }, {
             'comparison_count': 3,
             'changed_count': 2,
@@ -143,6 +149,7 @@ class BatchedSameImageMatcherTest(unittest.TestCase):
             'current_iou3d_sum': 0.8,
             'current_giou2d_sum': 0.5,
             'current_class_score_sum': 1.0,
+            'best_iou3d_query_class_score_sum': 1.8,
         }]
         metrics = SetCriterion._iou3d_matching_metrics(
             receipts, torch.device('cpu'))
@@ -154,6 +161,8 @@ class BatchedSameImageMatcherTest(unittest.TestCase):
             'monitor_iou3d_matching_current_mean_iou3d': 0.4,
             'monitor_iou3d_matching_current_mean_giou2d': 0.3,
             'monitor_iou3d_matching_current_mean_gt_class_score': 0.5,
+            ('monitor_iou3d_matching_'
+             'best_iou3d_query_mean_gt_class_score'): 0.6,
         }
         self.assertEqual(set(metrics), set(expected))
         for key, expected_value in expected.items():

@@ -1,3 +1,4 @@
+import json
 import os
 
 import torch
@@ -97,6 +98,21 @@ def historical_best_ap_payload(snapshots):
             payload[
                 f'{prefix}/{qualifier}{chinese}难度三维AP_R40'
             ] = snapshot[difficulty]
+    return payload
+
+
+def best_refresh_nms_payload(report):
+    payload = {}
+    for threshold, values in report.items():
+        prefix = f'best刷新时BEV NMS诊断/阈值{threshold}'
+        metrics = values['metrics']
+        for difficulty, chinese in _AP_DIFFICULTIES:
+            key = f'Car_3d_{difficulty}_R40'
+            if key in metrics:
+                payload[f'{prefix}/{chinese}难度三维AP_R40'] = metrics[key]
+        payload[f'{prefix}/保留预测数量'] = values['prediction_count']
+        payload[f'{prefix}/删除预测数量'] = values[
+            'removed_prediction_count']
     return payload
 
 
@@ -335,6 +351,7 @@ class Trainer(object):
                     update_best_ap_snapshots(
                         best_ap_snapshots, evaluation['metrics'], self.epoch)
                     cur_result = evaluation['selection_score']
+                    nms_report = {}
                     if cur_result > best_result:
                         best_result = cur_result
                         best_epoch = self.epoch
@@ -342,6 +359,27 @@ class Trainer(object):
                         save_checkpoint(
                             get_checkpoint_state(self.model, self.optimizer, self.epoch, best_result, best_epoch),
                             ckpt_name)
+                        nms_report = self.tester.evaluate_best_refresh_bev_nms(
+                            results)
+                        if nms_report:
+                            diagnostics_dir = os.path.join(
+                                self.output_dir, 'diagnostics')
+                            os.makedirs(diagnostics_dir, exist_ok=True)
+                            report_path = os.path.join(
+                                diagnostics_dir,
+                                'best_refresh_bev_nms.json')
+                            temporary_path = report_path + '.tmp'
+                            with open(temporary_path, 'w', encoding='utf-8') as handle:
+                                json.dump({
+                                    'checkpoint_selection': {
+                                        'metric': 'Car_3d_moderate_R40',
+                                        'nms': 'none',
+                                        'epoch': int(self.epoch),
+                                        'score': float(cur_result),
+                                    },
+                                    'bev_nms': nms_report,
+                                }, handle, indent=2, ensure_ascii=False)
+                            os.replace(temporary_path, report_path)
                     self.logger.info("Best Result:{}, epoch:{}".format(best_result, best_epoch))
 
                     if self.tracker is not None:
@@ -352,6 +390,7 @@ class Trainer(object):
                         }
                         payload.update(historical_best_ap_payload(
                             best_ap_snapshots))
+                        payload.update(best_refresh_nms_payload(nms_report))
                         payload.update(chinese_grouped_monitoring(
                                 validation_loss_summary,
                                 self.detr_loss.weight_dict,

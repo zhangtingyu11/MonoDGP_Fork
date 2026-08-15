@@ -137,6 +137,7 @@ class HungarianMatcher(nn.Module):
             torch.as_tensor(decode_means, dtype=torch.float32),
             persistent=False)
         self.last_iou3d_receipt = {}
+        self.last_iou3d_matrix = None
         self.collect_iou3d_comparison = False
         assert cost_class != 0 or cost_bbox != 0 or cost_giou != 0, "all costs cant be 0"
 
@@ -232,7 +233,7 @@ class HungarianMatcher(nn.Module):
         collect_comparison = bool(
             use_iou3d and self.collect_iou3d_comparison)
         baseline_cost = cost.clone() if collect_comparison else None
-        iou3d_matrix = torch.zeros_like(cost) if collect_comparison else None
+        iou3d_matrix = torch.zeros_like(cost) if use_iou3d else None
         if use_iou3d:
             for batch_index, target_count in enumerate(
                     prepared_targets['sizes']):
@@ -249,12 +250,12 @@ class HungarianMatcher(nn.Module):
                     self.iou3d_decode_mean_sizes)
                 cost[batch_index, :, :target_count].sub_(
                     self.cost_iou3d * image_iou3d)
-                if collect_comparison:
-                    iou3d_matrix[
-                        batch_index, :, :target_count].copy_(image_iou3d)
+                iou3d_matrix[
+                    batch_index, :, :target_count].copy_(image_iou3d)
                 pair_count += receipt['pair_count']
                 exact_pair_count += receipt['exact_pair_count']
         cost = torch.nan_to_num(cost, nan=0.0, posinf=0.0, neginf=0.0)
+        self.last_iou3d_matrix = iou3d_matrix
         cost_numpy = cost.cpu().numpy()
         if collect_comparison:
             baseline_cost_numpy = torch.nan_to_num(
@@ -277,6 +278,7 @@ class HungarianMatcher(nn.Module):
         current_iou3d_sum = 0.0
         current_giou2d_sum = 0.0
         current_class_score_sum = 0.0
+        best_iou3d_query_class_score_sum = 0.0
         for batch_index, target_count in enumerate(
                 prepared_targets["sizes"]):
             source_parts = []
@@ -325,6 +327,16 @@ class HungarianMatcher(nn.Module):
                     current_class_score_sum += float(np.sum(
                         target_class_score_numpy[
                             batch_index, candidate_by_target, target_index]))
+                    best_iou3d_source_by_target = (
+                        np.argmax(
+                            iou3d_numpy[
+                                batch_index, begin:end, :target_count],
+                            axis=0)
+                        + begin)
+                    best_iou3d_query_class_score_sum += float(np.sum(
+                        target_class_score_numpy[
+                            batch_index, best_iou3d_source_by_target,
+                            target_index]))
             source = np.concatenate(source_parts)
             target = np.concatenate(target_parts)
             indices.append((torch.as_tensor(source, dtype=torch.int64),
@@ -341,6 +353,8 @@ class HungarianMatcher(nn.Module):
             'current_iou3d_sum': current_iou3d_sum,
             'current_giou2d_sum': current_giou2d_sum,
             'current_class_score_sum': current_class_score_sum,
+            'best_iou3d_query_class_score_sum': (
+                best_iou3d_query_class_score_sum),
         }
         return indices
 

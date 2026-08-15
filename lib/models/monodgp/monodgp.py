@@ -528,6 +528,7 @@ class SetCriterion(nn.Module):
                  geometry_interval_monitoring=None,
                  query_monitoring=None,
                  iou3d_matching_monitoring=None,
+                 high_iou_unmatched_negative_weighting=None,
                  use_vectorized_ddn_rasterization=False,
                  use_aligned_giou_loss=False,
                  use_post_match_cache=False):
@@ -579,6 +580,86 @@ class SetCriterion(nn.Module):
         self.iou3d_matching_monitoring_enabled = bool(
             iou3d_monitor_cfg.get('enabled', False))
         self.collect_iou3d_matching_comparison = False
+        negative_cfg = high_iou_unmatched_negative_weighting or {}
+        self.high_iou_unmatched_negative_weighting_enabled = bool(
+            negative_cfg.get('enabled', False))
+        self.high_iou_unmatched_negative_lower = float(
+            negative_cfg.get('full_weight_below_iou', 0.5))
+        self.high_iou_unmatched_negative_upper = float(
+            negative_cfg.get('zero_weight_at_iou', 0.7))
+        if not (0 <= self.high_iou_unmatched_negative_lower
+                < self.high_iou_unmatched_negative_upper <= 1):
+            raise ValueError(
+                'high-IoU negative thresholds must satisfy '
+                '0 <= lower < upper <= 1')
+        if (self.high_iou_unmatched_negative_weighting_enabled
+                and self.matcher.cost_iou3d == 0):
+            raise ValueError(
+                'high-IoU negative weighting requires 3D-IoU matching cost')
+
+    @torch.no_grad()
+    def _classification_query_weights(self, src_logits, indices,
+                                      targets=None):
+        """Downweight only unmatched queries that already have high 3D IoU."""
+        weights = src_logits.new_ones(src_logits.shape[:2])
+        if not self.high_iou_unmatched_negative_weighting_enabled:
+            return None, {}
+        iou3d = getattr(self.matcher, 'last_iou3d_matrix', None)
+        if iou3d is None:
+            return None, {}
+        if iou3d.shape[:2] != src_logits.shape[:2]:
+            raise ValueError('matcher 3D-IoU matrix does not match logits')
+
+        max_iou = (iou3d.max(dim=-1).values if iou3d.shape[-1]
+                   else weights.new_zeros(weights.shape))
+        matched = torch.zeros_like(weights, dtype=torch.bool)
+        for batch_index, (source, _) in enumerate(indices):
+            matched[batch_index, source.to(device=matched.device)] = True
+        lower = self.high_iou_unmatched_negative_lower
+        upper = self.high_iou_unmatched_negative_upper
+        weights = ((upper - max_iou) / (upper - lower)).clamp(0, 1)
+        weights.masked_fill_(matched, 1)
+
+        unmatched = ~matched
+        unmatched_count = unmatched.sum().clamp_min(1)
+        downweighted = unmatched & (weights < 1)
+        ignored = unmatched & (weights == 0)
+        metrics = {
+            'monitor_high_iou_negative_downweighted_fraction': (
+                downweighted.sum() / unmatched_count),
+            'monitor_high_iou_negative_ignored_fraction': (
+                ignored.sum() / unmatched_count),
+            'monitor_high_iou_negative_mean_weight': (
+                weights[unmatched].mean() if unmatched.any()
+                else weights.new_ones(())),
+        }
+        high_iou_unmatched = unmatched & (max_iou >= lower)
+        high_iou_scores = []
+        ignored_high_iou_scores = []
+        if targets is not None:
+            probabilities = src_logits.sigmoid()
+            for batch_index, target in enumerate(targets):
+                target_labels = target['labels'].reshape(-1).long()
+                if (target_labels.numel() == 0
+                        or not high_iou_unmatched[batch_index].any()):
+                    continue
+                closest_target = iou3d[
+                    batch_index, :, :target_labels.numel()].argmax(dim=-1)
+                selected = high_iou_unmatched[batch_index]
+                high_iou_scores.append(probabilities[batch_index][
+                    selected, target_labels[closest_target[selected]]])
+                ignored_selected = ignored[batch_index]
+                if ignored_selected.any():
+                    ignored_high_iou_scores.append(probabilities[batch_index][
+                        ignored_selected,
+                        target_labels[closest_target[ignored_selected]]])
+        metrics['monitor_high_iou_negative_mean_gt_class_score'] = (
+            torch.cat(high_iou_scores).mean()
+            if high_iou_scores else weights.new_zeros(()))
+        metrics['monitor_high_iou_negative_ignored_mean_gt_class_score'] = (
+            torch.cat(ignored_high_iou_scores).mean()
+            if ignored_high_iou_scores else weights.new_zeros(()))
+        return weights, metrics
 
     @staticmethod
     def _append_iou3d_matching_receipt(matcher, receipts):
@@ -615,6 +696,9 @@ class SetCriterion(nn.Module):
             'monitor_iou3d_matching_current_mean_gt_class_score': sum(
                 float(receipt['current_class_score_sum'])
                 for receipt in receipts) / denominator,
+            'monitor_iou3d_matching_best_iou3d_query_mean_gt_class_score': sum(
+                float(receipt['best_iou3d_query_class_score_sum'])
+                for receipt in receipts) / denominator,
         }
         return {
             key: torch.tensor(value, dtype=torch.float32, device=device)
@@ -622,7 +706,7 @@ class SetCriterion(nn.Module):
         }
 
     def loss_labels(self, outputs, targets, indices, num_boxes, log=True,
-                    matched_cache=None):
+                    matched_cache=None, apply_high_iou_weighting=True):
         """Classification loss (Binary focal loss)
         targets dicts must contain the key "labels" containing a tensor of dim [nb_target_boxes]
         """
@@ -646,8 +730,17 @@ class SetCriterion(nn.Module):
         target_classes_onehot.scatter_(2, target_classes.unsqueeze(-1), 1)
 
         target_classes_onehot = target_classes_onehot[:, :, :-1]
-        loss_ce = sigmoid_focal_loss(src_logits, target_classes_onehot, num_boxes, alpha=self.focal_alpha, gamma=2) * src_logits.shape[1]
-        losses = {'loss_ce': loss_ce}
+        if apply_high_iou_weighting:
+            query_weights, weighting_metrics = (
+                self._classification_query_weights(
+                    src_logits, indices, targets=targets))
+        else:
+            query_weights, weighting_metrics = None, {}
+        loss_ce = sigmoid_focal_loss(
+            src_logits, target_classes_onehot, num_boxes,
+            alpha=self.focal_alpha, gamma=2,
+            query_weights=query_weights) * src_logits.shape[1]
+        losses = {'loss_ce': loss_ce, **weighting_metrics}
 
         if log:
             # TODO this should probably be a separate loss, not hacked in this one here
@@ -1019,6 +1112,10 @@ class SetCriterion(nn.Module):
             kwargs = {'matched_cache': matched_cache}
             if loss_name == 'labels':
                 kwargs['log'] = False
+                # This is a read-only diagnostic over a 50-query slice.  Its
+                # logits do not correspond to the matcher's cached 550-query
+                # IoU matrix and it must not affect the optimized loss.
+                kwargs['apply_high_iou_weighting'] = False
             values = self.get_loss(
                 loss_name, group0_outputs, targets, group0_indices,
                 num_boxes, **kwargs)
@@ -1188,7 +1285,7 @@ def build(cfg):
     weight_dict['loss_center'] = cfg['3dcenter_loss_coef']
     weight_dict['loss_depth_map'] = cfg['depth_map_loss_coef']
     weight_dict['loss_region'] = cfg['region_loss_coef']
-    
+
     if cfg['aux_loss']:
         aux_weight_dict = {}
         for i in range(cfg['dec_layers'] - 1):
@@ -1202,7 +1299,7 @@ def build(cfg):
     for i in range(layers):
         inter_weight_dict.update({k + f'_inter_{i}': v for k, v in weight_dict.items() if k in inter_keys})
     weight_dict.update(inter_weight_dict)
-        
+
     inter_losses = ['labels', 'boxes', 'center']
     losses = ['labels', 'boxes', 'cardinality', 'depths', 'dims', 'angles', 'center', 'depth_map', 'region']
 
@@ -1219,6 +1316,8 @@ def build(cfg):
         query_monitoring=cfg.get('query_monitoring'),
         iou3d_matching_monitoring=cfg.get(
             'iou3d_matching_monitoring'),
+        high_iou_unmatched_negative_weighting=cfg.get(
+            'high_iou_unmatched_negative_weighting'),
         use_vectorized_ddn_rasterization=cfg.get(
             'use_vectorized_ddn_rasterization', False),
         use_aligned_giou_loss=cfg.get('use_aligned_giou_loss', False),

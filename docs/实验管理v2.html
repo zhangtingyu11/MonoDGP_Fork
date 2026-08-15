@@ -577,22 +577,22 @@
       <h1>实验总览 v2</h1>
       <p>实验总账的可视化索引。每项实验单独记录目的、对比条件、执行过程和客观结果，方便后续持续追加。</p>
       <div class="hero-meta">
-        <span class="pill"><span class="status-dot"></span>21 项实验已记录</span>
+        <span class="pill"><span class="status-dot"></span>26 项实验已记录</span>
         <span class="pill">数据来源：实验总账v2</span>
-        <span class="pill">更新日期：2026-08-11</span>
+        <span class="pill">更新日期：2026-08-15</span>
       </div>
     </header>
 
     <section class="top-grid" aria-label="全局摘要">
       <article class="summary-card">
         <span class="label">正式实验</span>
-        <strong>21 项</strong>
+        <strong>26 项</strong>
         <small>从 v2 重新编号</small>
       </article>
       <article class="summary-card">
         <span class="label">已完成</span>
-        <strong>20 项</strong>
-        <small>另有序号21正在训练</small>
+        <strong>26 项</strong>
+        <small>序号01—26均已完成</small>
       </article>
       <article class="summary-card">
         <span class="label">实验类型</span>
@@ -601,7 +601,7 @@
       </article>
       <article class="summary-card">
         <span class="label">当前编号</span>
-        <strong>01—21</strong>
+        <strong>01—26</strong>
         <small>后续实验继续追加</small>
       </article>
     </section>
@@ -712,6 +712,14 @@
         <button class="nav-button" data-target="exp24" type="button">
           <span class="nav-index">24</span>
           <span class="nav-copy"><strong>用三维重合度帮助配对</strong><small>权重5·已完成</small></span>
+        </button>
+        <button class="nav-button" data-target="exp25" type="button">
+          <span class="nav-index">25</span>
+          <span class="nav-copy"><strong>减弱高IoU负分类</strong><small>软权重·未采用</small></span>
+        </button>
+        <button class="nav-button" data-target="exp26" type="button">
+          <span class="nav-index">26</span>
+          <span class="nav-copy"><strong>取消0.2分类门槛</strong><small>重训250轮·已完成</small></span>
         </button>
       </nav>
 
@@ -831,6 +839,11 @@
                 <h3>删除无消费者参数后的正式训练</h3>
                 <p>删除27个无梯度参数张量，以新结构从头训练250轮，形成后续几何修复实验的正式对照。</p>
               </div>
+              <div class="truth"><span class="number">22</span><h3>修复负坐标标签回绕</h3><p>只修复四处越界框在辅助标签中绕到图片另一侧的问题，并从头训练250轮。</p></div>
+              <div class="truth"><span class="number">23</span><h3>逐预测深度梯度裁剪</h3><p>把匹配预测的深度均值输出梯度限制在0.03以内，其他任务和深度不确定性不裁剪。</p></div>
+              <div class="truth"><span class="number">24</span><h3>Hungarian加入精确3D IoU</h3><p>在一对一匹配代价中加入权重5的精确三维IoU，让重合更好的三维框更容易成为正样本。</p></div>
+              <div class="truth"><span class="number">25</span><h3>减弱高IoU未匹配预测的负分类</h3><p>保持一对一匹配和回归不变，对3D IoU较高却未匹配的query逐步减弱负分类权重。</p></div>
+              <div class="truth"><span class="number">26</span><h3>取消0.2分类门槛并重训</h3><p>保持实验24训练目标，验证时不设分类分数门槛，并以无NMS中等AP选择best。</p></div>
             </div>
           </article>
 
@@ -938,10 +951,18 @@
                 <h3>实验 24：让三维框更准的预测优先配上真值</h3>
                 <p>确实产生了更多高质量三维框，但大量好框没有被一对一配对选中，随后又被分类任务当成负样本压低分数；完整训练没有超过实验22。</p>
               </div>
+              <div class="mini-card good">
+                <h3>实验 25：减弱高IoU未匹配预测的负分类</h3>
+                <p>严格保留实验24的一对一匹配和回归监督，只按最大3D IoU软化未匹配query的负分类；正式中等best低于实验24。</p>
+              </div>
+              <div class="mini-card good">
+                <h3>实验 26：取消0.2分类门槛并从头训练</h3>
+                <p>保持实验24训练目标，验证解码阈值改为0并用无NMS中等AP选best；best刷新时额外诊断BEV NMS 0.3—0.9。</p>
+              </div>
             </div>
             <div class="callout warning" style="margin-top:14px">
               <h4>每项实验只和自己明确的对照比</h4>
-              <p>序号1是B8完整运行栈对比；序号2是B16单组基准；序号3—10依次对照上一项已审核累计代码；序号11分析序号10累计代码；序号12、13分别测试死深度计算和cuDNN自动调优；序号14只诊断局部编译边界；序号15、16分别测试区域头编译和channels-last；序号17在共同修复11组decoder后测试2D查询布局；序号18、19分别测试零mask构造和CPU真值整理；序号20固定监控口径；序号21以删除无消费者参数后的新结构做完整训练基线。</p>
+              <p>序号1是B8完整运行栈对比；序号2是B16单组基准；序号3—10依次对照上一项已审核累计代码；序号11分析序号10累计代码；序号12—21记录工程优化、正确性修复与正式基线；序号22修复负坐标标签；序号23测试深度梯度裁剪；序号24加入3D IoU匹配；序号25减弱高IoU未匹配query的负分类；序号26取消0.2验证门槛并重新训练。</p>
             </div>
           </article>
         </section>
@@ -2840,10 +2861,72 @@
             <div class="callout warning" style="margin-top:14px"><h4>结论：三维好框变多了，但分类分数没有跟上</h4><p>实验24比实验21多产生4,204个三维重合度至少0.7的好框，但真正被选为正样本的只多120个，另外多出4,066个好框反而被当成分类负样本。这能解释为什么候选框更好却没有变成更高AP。不过它还不能证明这是唯一原因。最终中等最佳仍比实验22低0.1300，因此当前不采用权重5的三维配对作为默认方案。</p></div>
           </article>
         </section>
+
+        <section id="exp25" class="content-panel" aria-labelledby="exp25-title">
+          <article class="section-card">
+            <div class="section-head"><div><span class="section-kicker">实验 25 · 08-13—08-14</span><h2 id="exp25-title">不再强力压低“框已经很准但没被配上”的预测</h2><p class="section-subtitle">一句话：仍然只给每辆真车选一个正样本，但对其余三维重合度较高的预测，逐步减弱“这里没有车”的分类惩罚。</p></div><span class="done-badge">已完成 · 未采用</span></div>
+            <div class="condition-grid">
+              <article class="condition-card"><header><strong>实验24基线</strong><span>一对一匹配保持不变</span></header><dl><div><dt>匹配方式</dt><dd>11组内分别进行一对一Hungarian匹配</dd></div><div><dt>三维匹配代价</dt><dd>继续使用权重5的精确3D IoU</dd></div><div><dt>正样本</dt><dd>每组每个GT仍只匹配一个query</dd></div><div><dt>回归监督</dt><dd>二维框、中心、深度、尺寸和航向全部保持原样</dd></div></dl></article>
+              <article class="condition-card new"><header><strong>实验25唯一训练变量</strong><span>未匹配query的负分类软权重</span></header><dl><div><dt>最大3D IoU &lt; 0.5</dt><dd>负分类权重保持1</dd></div><div><dt>0.5—0.7</dt><dd>权重从1线性下降到0</dd></div><div><dt>最大3D IoU ≥ 0.7</dt><dd>不计算该query的负分类惩罚</dd></div><div><dt>正式推理</dt><dd>第0组top50，分类门槛仍为0.2</dd></div></dl></article>
+            </div>
+            <div class="section-head" style="margin-top:24px"><div><span class="section-kicker">Weight Function</span><h2>“从1线性下降到0”具体怎么算</h2><p class="section-subtitle">先计算每个未匹配query与当前图片所有GT的最大3D IoU，记为 i；再用下面的权重乘该query的负分类Focal Loss。</p></div></div>
+            <div class="condition-common">
+              <strong>分段公式</strong>
+              <span><code>i &lt; 0.5：w=1</code>；<code>0.5 ≤ i &lt; 0.7：w=(0.7-i)/(0.7-0.5)</code>；<code>i ≥ 0.7：w=0</code>。实际分类项为<code>加权负分类损失 = 原负分类Focal Loss × w</code>。</span>
+            </div>
+            <div class="table-wrap" style="margin-top:14px">
+              <table>
+                <thead><tr><th>未匹配query的最大3D IoU</th><th>负分类权重 w</th><th>若原负分类Loss为0.08</th><th>训练含义</th></tr></thead>
+                <tbody>
+                  <tr><td>0.50</td><td>1.00</td><td>0.080</td><td>仍按完整负样本惩罚</td></tr>
+                  <tr><td>0.55</td><td>0.75</td><td>0.060</td><td>保留四分之三惩罚</td></tr>
+                  <tr><td>0.60</td><td>0.50</td><td>0.040</td><td>负分类惩罚减半</td></tr>
+                  <tr><td>0.65</td><td>0.25</td><td>0.020</td><td>只保留四分之一惩罚</td></tr>
+                  <tr><td>0.70及以上</td><td>0.00</td><td>0.000</td><td>不再把它作为分类负样本压低</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <p class="plain-note">边界说明：Hungarian已经匹配的正样本权重始终为1，正常计算正分类和全部回归Loss。这个软权重只作用于未匹配query的分类Loss；未匹配query本来就没有尺寸、深度、角度等回归监督，因此不会给它们新增回归目标。</p>
+            <div class="metric-grid">
+              <div class="metric"><span>中等best</span><strong>21.7125</strong><em>第197轮</em></div>
+              <div class="metric"><span>best三档</span><strong>29.2521 / 21.7125 / 19.0015</strong><em>简单 / 中等 / 困难</em></div>
+              <div class="metric"><span>简单历史最佳</span><strong>29.4787</strong><em>第181轮</em></div>
+              <div class="metric"><span>困难历史最佳</span><strong>19.0017</strong><em>第159轮</em></div>
+              <div class="metric"><span>最终第250轮</span><strong>26.7026 / 20.2911 / 17.7355</strong><em>三档Car 3D AP_R40</em></div>
+              <div class="metric"><span>对实验24中等best</span><strong>−0.4728</strong><em>没有取得正式收益</em></div>
+              <div class="metric"><span>BS1取消门槛</span><strong>22.2177</strong><em>同一best诊断，不是正式选择值</em></div>
+              <div class="metric"><span>一对一oracle中等上限</span><strong>28.8750</strong><em>依赖GT，不可部署</em></div>
+              <div class="metric"><span>SwanLab</span><strong>b5eektju</strong><em>正常收尾</em></div>
+            </div>
+            <div class="callout warning" style="margin-top:14px"><h4>结论：减弱负分类本身没有解决公开AP问题</h4><p>实验25保留实验24的候选生成与一对一回归，只改变高IoU未匹配query的分类负权重，但正式中等best仍比实验24低0.4728。取消门槛、NMS和oracle诊断说明候选池中仍有可用框，但当前软权重没有把它们稳定转化为更高的可部署分类排序，因此不采用。</p></div>
+          </article>
+        </section>
+
+        <section id="exp26" class="content-panel" aria-labelledby="exp26-title">
+          <article class="section-card">
+            <div class="section-head"><div><span class="section-kicker">实验 26 · 08-14—08-15</span><h2 id="exp26-title">取消0.2分类门槛，并按新口径从头训练</h2><p class="section-subtitle">一句话：训练方法回到实验24，只把验证解码的分类门槛改成0；每轮先看无NMS结果，只有best刷新时才补算多档BEV NMS。</p></div><span class="done-badge">已完成</span></div>
+            <div class="condition-grid">
+              <article class="condition-card"><header><strong>保持实验24训练目标</strong><span>不使用实验25软权重</span></header><dl><div><dt>匹配</dt><dd>权重5精确3D IoU的一对一Hungarian</dd></div><div><dt>分类与回归</dt><dd>实验24训练监督全部保持不变</dd></div><div><dt>训练规模</dt><dd>B16、种子444、完整250轮</dd></div><div><dt>验证范围</dt><dd>第120—250轮，共131次完整验证</dd></div></dl></article>
+              <article class="condition-card new"><header><strong>实验26验证口径</strong><span>无NMS选best</span></header><dl><div><dt>分类门槛</dt><dd>0.2 → 0.0</dd></div><div><dt>候选上限</dt><dd>每图仍只取分类概率最高的50个query</dd></div><div><dt>best指标</dt><dd>无NMS Moderate 3D AP_R40</dd></div><div><dt>NMS诊断</dt><dd>best刷新时计算类别内BEV NMS 0.3—0.9</dd></div></dl></article>
+            </div>
+            <div class="metric-grid">
+              <div class="metric"><span>无NMS中等best</span><strong>23.8331</strong><em>第175轮</em></div>
+              <div class="metric"><span>best三档</span><strong>31.6083 / 23.8331 / 20.9009</strong><em>简单 / 中等 / 困难</em></div>
+              <div class="metric"><span>简单历史最佳</span><strong>31.8362</strong><em>第129轮</em></div>
+              <div class="metric"><span>最终第250轮</span><strong>29.6732 / 22.3100 / 19.5368</strong><em>三档Car 3D AP_R40</em></div>
+              <div class="metric"><span>对实验24中等best</span><strong>+1.6478</strong><em>新训练run，不是同checkpoint阈值A/B</em></div>
+              <div class="metric"><span>BEV NMS 0.8</span><strong>31.7070 / 24.0972 / 21.2307</strong><em>best刷新诊断</em></div>
+              <div class="metric"><span>NMS 0.8保留 / 删除</span><strong>166,945 / 21,505</strong><em>原始预测188,450个</em></div>
+              <div class="metric"><span>NMS对无NMS中等增量</span><strong>+0.2641</strong><em>不参与best选择</em></div>
+              <div class="metric"><span>SwanLab</span><strong>pzteg3h3</strong><em>退出码0，正常收尾</em></div>
+            </div>
+            <div class="callout warning" style="margin-top:14px"><h4>结论：零门槛口径有效，但不能把全部提升只归因于门槛</h4><p>实验26刷新了实验24系列的无NMS中等best，且同一best上的BEV NMS 0.8进一步提升到24.0972。不过本项是从头重新训练，不是把实验24同一个checkpoint只切换阈值，因此相对实验24的1.6478 AP差值同时包含新训练轨迹和推理门槛影响。NMS结果只作诊断，没有参与checkpoint选择。</p></div>
+          </article>
+        </section>
       </div>
     </div>
 
-    <footer class="footer">MonoDGP 实验总览 v2 · 序号01—24</footer>
+    <footer class="footer">MonoDGP 实验总览 v2 · 序号01—26</footer>
   </main>
 
   <script>

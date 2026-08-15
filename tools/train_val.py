@@ -9,7 +9,6 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT_DIR = os.path.dirname(BASE_DIR)
 sys.path.append(ROOT_DIR)
 
-import yaml
 import argparse
 import datetime
 
@@ -22,6 +21,7 @@ from lib.helpers.tester_helper import Tester
 from lib.helpers.utils_helper import create_logger
 from lib.helpers.utils_helper import set_random_seed
 from lib.helpers.swanlab_helper import SwanLabTracker
+from lib.helpers.config_helper import load_config
 
 
 parser = argparse.ArgumentParser(description='Monocular 3D Object Detection with Decoupled-Query and Geometry-Error Priors')
@@ -32,7 +32,7 @@ args = parser.parse_args()
 
 def main():
     assert (os.path.exists(args.config))
-    cfg = yaml.load(open(args.config, 'r'), Loader=yaml.Loader)
+    cfg = load_config(args.config)
     set_random_seed(cfg.get('random_seed', 444))
 
     model_name = cfg['model_name']
