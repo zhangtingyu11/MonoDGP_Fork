@@ -577,7 +577,7 @@
       <h1>实验总览 v2</h1>
       <p>实验总账的可视化索引。每项实验单独记录目的、对比条件、执行过程和客观结果，方便后续持续追加。</p>
       <div class="hero-meta">
-        <span class="pill"><span class="status-dot"></span>27 项实验已记录</span>
+        <span class="pill"><span class="status-dot"></span>28 项实验已记录</span>
         <span class="pill">数据来源：实验总账v2</span>
         <span class="pill">更新日期：2026-08-16</span>
       </div>
@@ -586,13 +586,13 @@
     <section class="top-grid" aria-label="全局摘要">
       <article class="summary-card">
         <span class="label">正式实验</span>
-        <strong>27 项</strong>
+        <strong>28 项</strong>
         <small>从 v2 重新编号</small>
       </article>
       <article class="summary-card">
         <span class="label">最新状态</span>
-        <strong>27 已停止</strong>
-        <small>首次运行作废，修正重跑中途停止</small>
+        <strong>28 已完成</strong>
+        <small>软忽略未超过实验26，代码已回退</small>
       </article>
       <article class="summary-card">
         <span class="label">实验类型</span>
@@ -601,7 +601,7 @@
       </article>
       <article class="summary-card">
         <span class="label">当前编号</span>
-        <strong>01—27</strong>
+        <strong>01—28</strong>
         <small>后续实验继续追加</small>
       </article>
     </section>
@@ -724,6 +724,10 @@
         <button class="nav-button" data-target="exp27" type="button">
           <span class="nav-index">27</span>
           <span class="nav-copy"><strong>组内一对多辅助监督</strong><small>修正重跑·中途停止</small></span>
+        </button>
+        <button class="nav-button" data-target="exp28" type="button">
+          <span class="nav-index">28</span>
+          <span class="nav-copy"><strong>软忽略 + 零分类门槛</strong><small>完整250轮·已回退</small></span>
         </button>
       </nav>
 
@@ -849,6 +853,7 @@
               <div class="truth"><span class="number">25</span><h3>减弱高IoU未匹配预测的负分类</h3><p>保持一对一匹配和回归不变，对3D IoU较高却未匹配的query逐步减弱负分类权重。</p></div>
               <div class="truth"><span class="number">26</span><h3>取消0.2分类门槛并重训</h3><p>保持实验24训练目标，验证时不设分类分数门槛，并以无NMS中等AP选择best。</p></div>
               <div class="truth"><span class="number">27</span><h3>组内高IoU一对多辅助监督</h3><p>首次运行因漏掉辅助负样本而作废；修正后完成至第134轮并由用户提前停止，不作为完整实验结果。</p></div>
+              <div class="truth"><span class="number">28</span><h3>高IoU负分类软忽略加零门槛</h3><p>组合实验25训练方法与实验26验证口径，完整训练250轮；结果低于实验26，实验专用代码已回退。</p></div>
             </div>
           </article>
 
@@ -968,10 +973,14 @@
                 <h3>实验 27：组内高IoU一对多辅助监督</h3>
                 <p>首次运行实现错误作废；修正运行的无NMS AP长期处于低位，第134轮验证后由用户决定停止，未完成250轮。</p>
               </div>
+              <div class="mini-card good">
+                <h3>实验 28：实验25训练方法 + 实验26零门槛</h3>
+                <p>高IoU未匹配query继续使用软化负分类，同时取消0.2验证门槛并从头训练；完整结果没有超过实验26。</p>
+              </div>
             </div>
             <div class="callout warning" style="margin-top:14px">
               <h4>每项实验只和自己明确的对照比</h4>
-              <p>序号1是B8完整运行栈对比；序号2是B16单组基准；序号3—10依次对照上一项已审核累计代码；序号11分析序号10累计代码；序号12—21记录工程优化、正确性修复与正式基线；序号22修复负坐标标签；序号23测试深度梯度裁剪；序号24加入3D IoU匹配；序号25减弱高IoU未匹配query的负分类；序号26取消0.2验证门槛并重新训练；序号27测试组内一对多辅助监督，但只形成中途停止的部分证据。</p>
+              <p>序号1是B8完整运行栈对比；序号2是B16单组基准；序号3—10依次对照上一项已审核累计代码；序号11分析序号10累计代码；序号12—21记录工程优化、正确性修复与正式基线；序号22修复负坐标标签；序号23测试深度梯度裁剪；序号24加入3D IoU匹配；序号25减弱高IoU未匹配query的负分类；序号26取消0.2验证门槛并重新训练；序号27测试组内一对多辅助监督，但只形成中途停止的部分证据；序号28组合实验25软忽略与实验26零门槛，并完整训练后回退。</p>
             </div>
           </article>
         </section>
@@ -2990,10 +2999,34 @@
             <div class="callout warning" style="margin-top:14px"><h4>结论边界：这次运行表现很差，但不是完整收敛实验</h4><p>修正后连续15次正式验证的无NMS中等AP仅约5—6，明显低于实验26；即使NMS大幅删除重复预测，阈值组内最佳中等AP 19.5163仍未超过实验26。因此用户决定停止本轮是有数据依据的。不过它没有跑满250轮，最多只能说明当前实现和早期训练轨迹失败，不能据此证明所有一对多方法或更长训练必然无效。实验27代码和配置后来按用户决定删除且不推送，日志、checkpoint和诊断JSON继续保留作为历史证据。</p></div>
           </article>
         </section>
+
+        <section id="exp28" class="content-panel" aria-labelledby="exp28-title">
+          <article class="section-card">
+            <div class="section-head"><div><span class="section-kicker">实验 28 · 08-15—08-16</span><h2 id="exp28-title">高IoU负分类软忽略 + 零分类门槛</h2><p class="section-subtitle">一句话：把实验25的训练方法和实验26的零门槛验证口径组合起来完整训练；结果没有超过实验26，因此回退实验专用配置和脚本。</p></div><span class="done-badge" style="background:var(--red-soft);color:var(--red)">已完成 · 已回退</span></div>
+            <div class="condition-grid">
+              <article class="condition-card"><header><strong>沿用实验25训练目标</strong><span>仍是一对一匹配</span></header><dl><div><dt>匹配</dt><dd>权重5精确3D IoU的一对一Hungarian</dd></div><div><dt>未匹配IoU&lt;0.5</dt><dd>负分类权重保持1</dd></div><div><dt>IoU 0.5—0.7</dt><dd>负分类权重从1线性降到0</dd></div><div><dt>IoU≥0.7</dt><dd>不计算未匹配query的负分类惩罚</dd></div></dl></article>
+              <article class="condition-card new"><header><strong>加入实验26验证口径</strong><span>零门槛、无NMS选best</span></header><dl><div><dt>分类门槛</dt><dd>0.2 → 0.0</dd></div><div><dt>候选上限</dt><dd>每图仍取top-50</dd></div><div><dt>best指标</dt><dd>无NMS Moderate 3D AP_R40</dd></div><div><dt>NMS诊断</dt><dd>best刷新时计算类别内BEV NMS 0.1—0.9</dd></div></dl></article>
+            </div>
+            <div class="metric-grid">
+              <div class="metric"><span>无NMS中等best</span><strong>23.1141</strong><em>第141轮</em></div>
+              <div class="metric"><span>best三档</span><strong>30.5688 / 23.1141 / 19.6278</strong><em>简单 / 中等 / 困难</em></div>
+              <div class="metric"><span>困难历史最佳</span><strong>19.9429</strong><em>第244轮；同轮29.7189 / 22.6172 / 19.9429</em></div>
+              <div class="metric"><span>最终第250轮</span><strong>28.0959 / 21.5541 / 18.8474</strong><em>三档Car 3D AP_R40</em></div>
+              <div class="metric"><span>对实验25中等best</span><strong>+1.4016</strong><em>不同训练run，不能全归因于门槛</em></div>
+              <div class="metric"><span>对实验26中等best</span><strong>−0.7190</strong><em>同为零门槛从头训练</em></div>
+              <div class="metric"><span>BEV NMS 0.8</span><strong>30.7981 / 23.5843 / 20.0968</strong><em>阈值组中等最优</em></div>
+              <div class="metric"><span>NMS 0.8保留 / 删除</span><strong>170,631 / 17,819</strong><em>原始预测188,450个</em></div>
+              <div class="metric"><span>对实验26 NMS 0.8</span><strong>−0.5129</strong><em>23.5843 对 24.0972</em></div>
+              <div class="metric"><span>SwanLab</span><strong>hcqetjs8</strong><em>退出码0，正常收尾</em></div>
+            </div>
+            <div class="callout warning" style="margin-top:14px"><h4>结论：取消门槛仍有价值，但软忽略没有超过正常负分类</h4><p>实验28比实验25正式结果高，但它们是两次独立从头训练，不能把1.4016 AP全部归因于门槛。更直接的对照是实验26：两者都采用零门槛、top-50、无NMS中等AP选best，实验28只多了高IoU未匹配query的负分类软忽略，却在无NMS和NMS 0.8下分别低0.7190和0.5129 AP。因此当前不保留软忽略方法；即使query的三维框较好，一对一之外继续压低其分类分数，在现有推理和训练体系下反而更稳定。</p></div>
+            <div class="callout" style="margin-top:14px"><h4>回退范围</h4><p>只删除实验28专用配置和启动脚本，不删除训练结果。最新checkpoint、best checkpoint、完整日志、SwanLab记录、运行清单、退出状态和NMS诊断继续保留在<code>outputs/V2-0028_实验25取消0.2分类门槛重训/</code>，也不影响正在实现的实验29。</p></div>
+          </article>
+        </section>
       </div>
     </div>
 
-    <footer class="footer">MonoDGP 实验总览 v2 · 序号01—27</footer>
+    <footer class="footer">MonoDGP 实验总览 v2 · 序号01—28</footer>
   </main>
 
   <script>
