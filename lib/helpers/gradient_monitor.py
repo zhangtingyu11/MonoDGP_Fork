@@ -47,7 +47,7 @@ class GradientMonitor:
         claimed = set()
         prediction_modules = [getattr(model, name, None) for name in (
             'class_embed', 'bbox_embed', 'dim_embed_3d', 'angle_embed',
-            'depth_embed', 'query_embed')]
+            'depth_embed', 'iou_quality_embed', 'query_embed')]
         specifications = (
             ('prediction_heads', prediction_modules),
             ('backbone', [getattr(model, 'backbone', None)]),

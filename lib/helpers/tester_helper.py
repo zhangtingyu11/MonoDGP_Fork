@@ -1,14 +1,17 @@
 import os
 import shutil
 
+import numpy as np
 import torch
 from lib.helpers.save_helper import load_checkpoint
 from lib.helpers.decode_helper import extract_dets_from_outputs
+from lib.helpers.decode_helper import fused_quality_score
 from lib.helpers.decode_helper import decode_detections
 import time
 from lib.helpers.swanlab_helper import ScalarMeanAccumulator
 from lib.helpers.swanlab_helper import GeometryIntervalAccumulator
 from lib.helpers.bev_nms_helper import classwise_bev_nms_variants
+from lib.helpers.quality_ranking_monitor import QualityRankingAccumulator
 
 
 class CudaEvalBatchPrefetcher:
@@ -112,6 +115,28 @@ class Tester(object):
         self.last_loss_summary = None
         self.last_geometry_interval_summary = None
         self.last_inference_stats = None
+        self.last_score_variant_results = {}
+        self.last_quality_ranking_summary = None
+        self.quality_score_specs = tuple(
+            {
+                'name': str(spec['name']),
+                'alpha': float(spec.get('alpha', 1.0)),
+                'beta': float(spec.get('beta', 1.0)),
+                'gamma': float(spec.get('gamma', 1.0)),
+                'historical_topk': bool(
+                    spec.get('historical_topk', False)),
+            }
+            for spec in cfg.get('quality_score_fusions', ()))
+        score_names = [spec['name'] for spec in self.quality_score_specs]
+        if len(score_names) != len(set(score_names)):
+            raise ValueError('quality score fusion names must be unique')
+        self.primary_quality_score = cfg.get('primary_quality_score')
+        if self.quality_score_specs and self.primary_quality_score is None:
+            raise ValueError(
+                'quality score fusions require primary_quality_score')
+        if (self.primary_quality_score is not None
+                and self.primary_quality_score not in score_names):
+            raise ValueError('primary quality score is not registered')
         self.use_cuda_eval_prefetch = bool(
             train_cfg.get('use_cuda_eval_prefetch', False))
         if self.use_cuda_eval_prefetch and self.device.type != 'cuda':
@@ -166,6 +191,14 @@ class Tester(object):
             self.criterion.eval()
 
         results = {}
+        variant_results = {
+            spec['name']: {} for spec in self.quality_score_specs}
+        ranking_monitor = (
+            QualityRankingAccumulator(
+                self.quality_score_specs,
+                car_class_id=int(self.cfg.get(
+                    'quality_ranking_car_class_id', 1)))
+            if self.cfg.get('quality_ranking_monitoring', False) else None)
         loss_accumulator = ScalarMeanAccumulator()
         geometry_interval_accumulator = GeometryIntervalAccumulator()
         validation_start = time.time()
@@ -227,22 +260,53 @@ class Tester(object):
                         'geometry_conditioned_interval_depth_receipts', {}
                     ).get('final'))
 
-                dets = extract_dets_from_outputs(outputs=outputs, K=self.max_objs, topk=self.cfg['topk'])
-
-                dets = dets.detach().cpu().numpy()
+                    if ranking_monitor is not None:
+                        ranking_monitor.add(
+                            outputs,
+                            self.criterion.last_final_iou3d_matrix,
+                            prepared_targets,
+                            info,
+                            self.dataloader.dataset,
+                            targets['mask_2d'])
 
                 # get corresponding calibs & transform tensor to numpy
                 calibs = [self.dataloader.dataset.get_calib(index) for index in info['img_id']]
                 info = {key: val.detach().cpu().numpy() for key, val in info.items()}
                 cls_mean_size = self.dataloader.dataset.cls_mean_size
-                dets = decode_detections(
-                    dets=dets,
-                    info=info,
-                    calibs=calibs,
-                    cls_mean_size=cls_mean_size,
-                    threshold=self.cfg.get('threshold', 0.2))
-
-                results.update(dets)
+                if self.quality_score_specs:
+                    for spec in self.quality_score_specs:
+                        ranking_scores = (
+                            None if spec['historical_topk'] else
+                            fused_quality_score(
+                                outputs, alpha=spec['alpha'],
+                                beta=spec['beta'], gamma=spec['gamma']))
+                        dets = extract_dets_from_outputs(
+                            outputs=outputs, K=self.max_objs,
+                            topk=self.cfg['topk'],
+                            ranking_scores=ranking_scores)
+                        decoded = decode_detections(
+                            dets=dets.detach().cpu().numpy(),
+                            info=info, calibs=calibs,
+                            cls_mean_size=cls_mean_size,
+                            threshold=self.cfg.get('threshold', 0.2))
+                        decoded = {
+                            image_id: np.asarray(
+                                predictions, dtype=np.float32)
+                            for image_id, predictions in decoded.items()
+                        }
+                        variant_results[spec['name']].update(decoded)
+                    results = variant_results[self.primary_quality_score]
+                else:
+                    dets = extract_dets_from_outputs(
+                        outputs=outputs, K=self.max_objs,
+                        topk=self.cfg['topk'])
+                    dets = decode_detections(
+                        dets=dets.detach().cpu().numpy(),
+                        info=info,
+                        calibs=calibs,
+                        cls_mean_size=cls_mean_size,
+                        threshold=self.cfg.get('threshold', 0.2))
+                    results.update(dets)
         finally:
             if prefetched:
                 batch_source.close()
@@ -258,6 +322,9 @@ class Tester(object):
             'images': image_count,
             'batches': len(self.dataloader),
         }
+        self.last_score_variant_results = variant_results
+        self.last_quality_ranking_summary = (
+            ranking_monitor.finalize() if ranking_monitor is not None else None)
         self.logger.info(
             'Validation inference completed: batches=%d, images=%d, '
             'seconds=%.3f, images_per_second=%.3f',
@@ -270,6 +337,18 @@ class Tester(object):
             self.logger.info('==> Exporting KITTI prediction files ...')
             self.save_results(results)
         return results
+
+    def evaluate_quality_score_variants(self, primary_evaluation=None):
+        """Evaluate every pre-registered score from the same forward pass."""
+        report = {}
+        for name, results in self.last_score_variant_results.items():
+            if (name == self.primary_quality_score
+                    and primary_evaluation is not None):
+                report[name] = primary_evaluation
+                continue
+            self.logger.info('Quality score evaluation: %s', name)
+            report[name] = self.evaluate(results, return_metrics=True)
+        return report
 
     def save_results(self, results):
         output_dir = os.path.join(self.output_dir, 'outputs', 'data')

@@ -116,6 +116,69 @@ def best_refresh_nms_payload(report):
     return payload
 
 
+def quality_score_payload(current_report, best_report):
+    payload = {}
+    for name, evaluation in current_report.items():
+        prefix = f'质量排序分数/{name}'
+        payload[f'{prefix}/当前中等难度三维AP_R40'] = float(
+            evaluation['selection_score'])
+        for selected, selected_chinese in _AP_DIFFICULTIES:
+            best = best_report.get(name, {}).get(selected)
+            if best is None:
+                continue
+            best_prefix = f'{prefix}/以{selected_chinese}难度为准'
+            payload[f'{best_prefix}/历史最优轮次'] = int(best['epoch'])
+            for difficulty, chinese in _AP_DIFFICULTIES:
+                key = f'Car_3d_{difficulty}_R40'
+                if key in best['metrics']:
+                    qualifier = '最高' if difficulty == selected else '同轮'
+                    payload[f'{best_prefix}/{qualifier}{chinese}AP_R40'] = (
+                        best['metrics'][key])
+    return payload
+
+
+def quality_ranking_payload(summary):
+    payload = {}
+    if not summary:
+        return payload
+    for score_name, values in summary.get(
+            'query_correlation', {}).items():
+        prefix = f'质量排序相关度/{score_name}'
+        payload[f'{prefix}/Pearson'] = values['pearson']
+        payload[f'{prefix}/Spearman'] = values['spearman']
+    for score_name, values in summary.get(
+            'one_to_one_oracle', {}).get('all', {}).items():
+        prefix = f'质量排序最优query/{score_name}'
+        labels = {
+            'best_iou_mean': '每个GT最高三维IoU均值',
+            'best_query_rank_median': '每GT最高IoU query排名中位数',
+            'best_query_rank_p90': '每GT最高IoU query排名P90',
+            'one_to_one_query_rank_median': (
+                '全局一对一IoU分配query排名中位数'),
+            'one_to_one_query_rank_p90': (
+                '全局一对一IoU分配query排名P90'),
+            'top1_identity_fraction': 'Top1与最优query一致率',
+            'top1_iou_regret': 'Top1三维IoU遗憾',
+            'high_quality_count': '存在IoU至少0.7好query的GT数',
+            'high_quality_best_top1_recall': (
+                'IoU至少0.7最优query进入Top1比例'),
+            'high_quality_best_top3_recall': (
+                'IoU至少0.7最优query进入Top3比例'),
+            'high_quality_best_top5_recall': (
+                'IoU至少0.7最优query进入Top5比例'),
+        }
+        for key, label in labels.items():
+            payload[f'{prefix}/{label}'] = values[key]
+    return payload
+
+
+def _write_json_atomically(path, payload):
+    temporary_path = path + '.tmp'
+    with open(temporary_path, 'w', encoding='utf-8') as handle:
+        json.dump(payload, handle, indent=2, ensure_ascii=False)
+    os.replace(temporary_path, path)
+
+
 def _tensor_leaves(value):
     if torch.is_tensor(value):
         yield value
@@ -290,6 +353,7 @@ class Trainer(object):
         best_result = self.best_result
         best_epoch = self.best_epoch
         best_ap_snapshots = {}
+        quality_score_best = {}
         self.logger.info(
             "Training started: epochs=%d, start_epoch=%d",
             self.cfg['max_epoch'], start_epoch)
@@ -348,6 +412,48 @@ class Trainer(object):
                     results = self.tester.inference()
                     evaluation = self.tester.evaluate(
                         results, return_metrics=True)
+                    quality_score_report = (
+                        self.tester.evaluate_quality_score_variants(
+                            primary_evaluation=evaluation))
+                    for name, score_evaluation in (
+                            quality_score_report.items()):
+                        score_best = quality_score_best.setdefault(name, {})
+                        for difficulty, _ in _AP_DIFFICULTIES:
+                            metric = f'Car_3d_{difficulty}_R40'
+                            current_value = score_evaluation['metrics'].get(
+                                metric)
+                            previous = score_best.get(difficulty)
+                            if (current_value is not None
+                                    and (previous is None
+                                         or current_value
+                                         > previous['selected_value'])):
+                                score_best[difficulty] = {
+                                    'epoch': int(self.epoch),
+                                    'selected_value': float(current_value),
+                                    'metrics': score_evaluation['metrics'],
+                                }
+                    if quality_score_report:
+                        diagnostics_dir = os.path.join(
+                            self.output_dir, 'diagnostics')
+                        os.makedirs(diagnostics_dir, exist_ok=True)
+                        _write_json_atomically(os.path.join(
+                            diagnostics_dir, 'quality_score_grid.json'), {
+                                'epoch': int(self.epoch),
+                                'primary_score': (
+                                    self.tester.primary_quality_score),
+                                'current': quality_score_report,
+                                'best': quality_score_best,
+                            })
+                    if self.tester.last_quality_ranking_summary:
+                        diagnostics_dir = os.path.join(
+                            self.output_dir, 'diagnostics')
+                        os.makedirs(diagnostics_dir, exist_ok=True)
+                        _write_json_atomically(os.path.join(
+                            diagnostics_dir,
+                            'quality_ranking_monitor.json'), {
+                                'epoch': int(self.epoch),
+                                'summary': self.tester.last_quality_ranking_summary,
+                            })
                     update_best_ap_snapshots(
                         best_ap_snapshots, evaluation['metrics'], self.epoch)
                     cur_result = evaluation['selection_score']
@@ -391,6 +497,10 @@ class Trainer(object):
                         payload.update(historical_best_ap_payload(
                             best_ap_snapshots))
                         payload.update(best_refresh_nms_payload(nms_report))
+                        payload.update(quality_score_payload(
+                            quality_score_report, quality_score_best))
+                        payload.update(quality_ranking_payload(
+                            self.tester.last_quality_ranking_summary))
                         payload.update(chinese_grouped_monitoring(
                                 validation_loss_summary,
                                 self.detr_loss.weight_dict,

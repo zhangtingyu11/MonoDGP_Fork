@@ -54,14 +54,37 @@ def decode_detections(dets, info, calibs, cls_mean_size, threshold):
     return results
 
 
-def extract_dets_from_outputs(outputs, K=50, topk=50):
+def quality_score_components(outputs):
+    """Return class, decoded-IoU-quality and depth-precision scores."""
+    classification = outputs['pred_logits'].sigmoid()
+    depth_precision = torch.exp(
+        -outputs['pred_depth'][:, :, 1:2]).clamp_min(0)
+    if 'pred_quality' not in outputs:
+        raise KeyError('quality-aware scoring requires pred_quality')
+    quality = ((outputs['pred_quality'] + 1.0) * 0.5).clamp(0, 1)
+    return classification, quality, depth_precision
+
+
+def fused_quality_score(outputs, alpha=1.0, beta=1.0, gamma=1.0):
+    classification, quality, depth_precision = quality_score_components(
+        outputs)
+    return (classification.clamp_min(1e-12).pow(float(alpha))
+            * quality.clamp_min(1e-12).pow(float(beta))
+            * depth_precision.clamp_min(1e-12).pow(float(gamma)))
+
+
+def extract_dets_from_outputs(outputs, K=50, topk=50,
+                              ranking_scores=None):
     # get src outputs
 
     # b, q, c
     out_logits = outputs['pred_logits']
     out_bbox = outputs['pred_boxes']
 
-    prob = out_logits.sigmoid()
+    prob = (out_logits.sigmoid()
+            if ranking_scores is None else ranking_scores)
+    if prob.shape != out_logits.shape:
+        raise ValueError('ranking_scores must match pred_logits shape')
     topk_values, topk_indexes = torch.topk(prob.view(out_logits.shape[0], -1), topk, dim=1)
 
     # final scores
@@ -76,6 +99,10 @@ def extract_dets_from_outputs(outputs, K=50, topk=50):
     depth = outputs['pred_depth'][:, :, 0: 1]
     sigma = outputs['pred_depth'][:, :, 1: 2]
     sigma = torch.exp(-sigma)
+    if ranking_scores is not None:
+        # The selected score already contains the requested depth precision;
+        # keep the historical decoder's final multiplication neutral.
+        sigma = torch.ones_like(sigma)
 
 
     # decode

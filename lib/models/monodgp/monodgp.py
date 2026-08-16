@@ -182,7 +182,8 @@ class MonoDGP(nn.Module):
     def __init__(self, backbone, depth_predictor, det2d_transformer, det3d_transformer,
                   num_classes, num_queries, num_feature_levels, 
                   aux_loss=True, with_box_refine=False, init_box=False,
-                  group_num=11, depth_mean_gradient_clipping=None):
+                  group_num=11, depth_mean_gradient_clipping=None,
+                  iou_quality_head=None):
         """ Initializes the model.
         Parameters:
             backbone: torch module of the backbone to be used. See backbone.py
@@ -217,6 +218,20 @@ class MonoDGP(nn.Module):
         self.dim_embed_3d = MLP(hidden_dim, hidden_dim, 3, 2)
         self.angle_embed = MLP(hidden_dim, hidden_dim, 24, 2)
         self.depth_embed = MLP(hidden_dim, hidden_dim, 2, 2)  # depth and deviation
+        quality_cfg = iou_quality_head or {}
+        self.iou_quality_head_enabled = bool(
+            quality_cfg.get('enabled', False))
+        if self.iou_quality_head_enabled:
+            quality_init_seed = int(
+                quality_cfg.get('init_seed', 290029))
+            # Adding this head must not shift the RNG stream used by existing
+            # MonoDGP parameters.  This keeps every parameter shared with the
+            # Experiment-26 control bitwise identical at initialization.
+            with torch.random.fork_rng(devices=[]):
+                torch.random.default_generator.manual_seed(
+                    quality_init_seed)
+                self.iou_quality_embed = MLP(
+                    hidden_dim, hidden_dim, 1, 2)
 
         if init_box == True:
             nn.init.constant_(self.bbox_embed.layers[-1].weight.data, 0)
@@ -281,6 +296,9 @@ class MonoDGP(nn.Module):
             self.dim_embed_3d = _get_clones(self.dim_embed_3d, num_pred)
             self.angle_embed = _get_clones(self.angle_embed, num_pred)
             self.depth_embed = _get_clones(self.depth_embed, num_pred)
+            if self.iou_quality_head_enabled:
+                self.iou_quality_embed = _get_clones(
+                    self.iou_quality_embed, num_pred)
         else:
             nn.init.constant_(self.bbox_embed.layers[-1].bias.data[2:], -2.0)
             self.class_embed = nn.ModuleList([self.class_embed for _ in range(num_pred)])
@@ -288,6 +306,9 @@ class MonoDGP(nn.Module):
             self.dim_embed_3d = nn.ModuleList([self.dim_embed_3d for _ in range(num_pred)])
             self.angle_embed = nn.ModuleList([self.angle_embed for _ in range(num_pred)])
             self.depth_embed = nn.ModuleList([self.depth_embed for _ in range(num_pred)])
+            if self.iou_quality_head_enabled:
+                self.iou_quality_embed = nn.ModuleList([
+                    self.iou_quality_embed for _ in range(num_pred)])
             self.depthaware_transformer.decoder.bbox_embed = None
 
 
@@ -381,6 +402,7 @@ class MonoDGP(nn.Module):
         outputs_3d_dims = []       
         outputs_depths = []
         outputs_angles = []
+        outputs_qualities = []
 
         for lvl in range(hs.shape[0]):
             if lvl == 0:
@@ -435,6 +457,11 @@ class MonoDGP(nn.Module):
             # angles
             outputs_angle = self.angle_embed[lvl](hs[lvl])
             outputs_angles.append(outputs_angle)
+            if self.iou_quality_head_enabled:
+                # Deliberately do not detach ``hs``: the quality loss is
+                # allowed to improve the shared 3D decoder representation.
+                outputs_qualities.append(
+                    self.iou_quality_embed[lvl](hs[lvl]))
 
         outputs_coord = torch.stack(outputs_coords)
         outputs_class = torch.stack(outputs_classes)
@@ -454,6 +481,9 @@ class MonoDGP(nn.Module):
         out['pred_3d_dim'] = outputs_3d_dim[-1]
         out['pred_depth'] = outputs_depth[-1]
         out['pred_angle'] = outputs_angle[-1]
+        if self.iou_quality_head_enabled:
+            outputs_quality = torch.stack(outputs_qualities)
+            out['pred_quality'] = outputs_quality[-1]
         out['pred_depth_map_logits'] = pred_depth_map_logits
         out['pred_region_prob'] = region_probs
 
@@ -461,19 +491,28 @@ class MonoDGP(nn.Module):
         
         if self.aux_loss:
             out['aux_outputs'] = self._set_aux_loss(
-                outputs_class, outputs_coord, outputs_3d_dim, outputs_angle, outputs_depth) 
+                outputs_class, outputs_coord, outputs_3d_dim, outputs_angle,
+                outputs_depth,
+                outputs_quality if self.iou_quality_head_enabled else None)
         
         return out
 
     @torch.jit.unused
-    def _set_aux_loss(self, outputs_class, outputs_coord, outputs_3d_dim, outputs_angle, outputs_depth):
+    def _set_aux_loss(self, outputs_class, outputs_coord, outputs_3d_dim,
+                      outputs_angle, outputs_depth, outputs_quality=None):
         # this is a workaround to make torchscript happy, as torchscript
         # doesn't support dictionary with non-homogeneous values, such
         # as a dict having both a Tensor and a list.
-        return [{'pred_logits': a, 'pred_boxes': b, 
-                 'pred_3d_dim': c, 'pred_angle': d, 'pred_depth': e}
-                for a, b, c, d, e in zip(outputs_class[:-1], outputs_coord[:-1],
-                                         outputs_3d_dim[:-1], outputs_angle[:-1], outputs_depth[:-1])]
+        values = [{'pred_logits': a, 'pred_boxes': b,
+                   'pred_3d_dim': c, 'pred_angle': d, 'pred_depth': e}
+                  for a, b, c, d, e in zip(
+                      outputs_class[:-1], outputs_coord[:-1],
+                      outputs_3d_dim[:-1], outputs_angle[:-1],
+                      outputs_depth[:-1])]
+        if outputs_quality is not None:
+            for value, quality in zip(values, outputs_quality[:-1]):
+                value['pred_quality'] = quality
+        return values
     
     @torch.jit.unused
     def _set_inter_loss(self, outputs_class, outputs_coord):
@@ -529,6 +568,7 @@ class SetCriterion(nn.Module):
                  query_monitoring=None,
                  iou3d_matching_monitoring=None,
                  high_iou_unmatched_negative_weighting=None,
+                 iou_quality_head=None,
                  use_vectorized_ddn_rasterization=False,
                  use_aligned_giou_loss=False,
                  use_post_match_cache=False):
@@ -596,6 +636,20 @@ class SetCriterion(nn.Module):
                 and self.matcher.cost_iou3d == 0):
             raise ValueError(
                 'high-IoU negative weighting requires 3D-IoU matching cost')
+        quality_cfg = iou_quality_head or {}
+        self.iou_quality_head_enabled = bool(
+            quality_cfg.get('enabled', False))
+        self.iou_quality_target_encoding = quality_cfg.get(
+            'target_encoding', 'cia_ssd')
+        if (self.iou_quality_head_enabled
+                and self.iou_quality_target_encoding != 'cia_ssd'):
+            raise ValueError(
+                'only the cia_ssd IoU quality target is supported')
+        if (self.iou_quality_head_enabled
+                and self.matcher.cost_iou3d == 0):
+            raise ValueError(
+                'the IoU quality head requires exact 3D-IoU matching')
+        self.last_final_iou3d_matrix = None
 
     @torch.no_grad()
     def _classification_query_weights(self, src_logits, indices,
@@ -1009,6 +1063,55 @@ class SetCriterion(nn.Module):
                 reg_loss.sum() / float(num_boxes))
         return losses
 
+    def loss_quality(self, outputs, targets, indices, num_boxes):
+        """Regress exact 3D IoU for the current Hungarian-positive pairs.
+
+        The exact IoU values are numerical supervision supplied by the
+        matcher.  Predictions retain their complete gradient path through
+        the quality head and the shared 3D decoder features.
+        """
+        if 'pred_quality' not in outputs:
+            raise KeyError('quality loss requires pred_quality')
+        iou3d = getattr(self.matcher, 'last_iou3d_matrix', None)
+        if iou3d is None:
+            raise RuntimeError('matcher did not expose exact 3D-IoU targets')
+        if iou3d.shape[:2] != outputs['pred_quality'].shape[:2]:
+            raise ValueError('matcher 3D-IoU matrix does not match quality')
+
+        predictions = []
+        targets_iou = []
+        for batch_index, (source_index, target_index) in enumerate(indices):
+            if source_index.numel() == 0:
+                continue
+            source_index = source_index.to(iou3d.device)
+            target_index = target_index.to(iou3d.device)
+            predictions.append(outputs['pred_quality'][
+                batch_index, source_index, 0])
+            targets_iou.append(iou3d[
+                batch_index, source_index, target_index])
+        if predictions:
+            prediction = torch.cat(predictions)
+            target_iou = torch.cat(targets_iou).detach().clamp(0, 1)
+        else:
+            prediction = outputs['pred_quality'].reshape(-1)[:0]
+            target_iou = prediction.detach()
+
+        # CIA-SSD maps IoU=0.5 to 0 and IoU=1.0 to 1.  Values below
+        # 0.5 remain valid negative regression targets down to -1.
+        encoded_target = 2.0 * (target_iou - 0.5)
+        loss = F.smooth_l1_loss(
+            prediction, encoded_target, reduction='sum') / num_boxes
+        result = {'loss_quality': loss}
+        with torch.no_grad():
+            decoded_prediction = ((prediction + 1.0) * 0.5).clamp(0, 1)
+            result['monitor_quality_iou_mae'] = (
+                (decoded_prediction - target_iou).abs().sum() / num_boxes)
+            result['monitor_quality_target_iou_mean'] = (
+                target_iou.sum() / num_boxes)
+            result['monitor_quality_predicted_iou_mean'] = (
+                decoded_prediction.sum() / num_boxes)
+        return result
+
     def loss_depth_map(self, outputs, targets, indices, num_boxes):
         depth_map_logits = outputs['pred_depth_map_logits']
 
@@ -1065,6 +1168,7 @@ class SetCriterion(nn.Module):
             'depths': self.loss_depths,
             'dims': self.loss_dims,
             'angles': self.loss_angles,
+            'quality': self.loss_quality,
             'center': self.loss_3dcenter,
             'depth_map': self.loss_depth_map,
             'region': self.loss_region,
@@ -1170,6 +1274,11 @@ class SetCriterion(nn.Module):
         indices = self.matcher(
             outputs_without_aux, targets, group_num=group_num,
             prepared_targets=prepared_matcher_targets)
+        final_iou3d = getattr(self.matcher, 'last_iou3d_matrix', None)
+        self.last_final_iou3d_matrix = (
+            final_iou3d.detach()
+            if (self.iou_quality_head_enabled
+                and final_iou3d is not None) else None)
         if collect_iou3d_comparison:
             self._append_iou3d_matching_receipt(
                 self.matcher, iou3d_matching_receipts)
@@ -1271,7 +1380,8 @@ def build(cfg):
         init_box=cfg['init_box'],
         group_num=cfg['group_num'],
         depth_mean_gradient_clipping=cfg.get(
-            'depth_mean_gradient_clipping'))
+            'depth_mean_gradient_clipping'),
+        iou_quality_head=cfg.get('iou_quality_head'))
 
     # matcher
     matcher = build_matcher(cfg)
@@ -1285,6 +1395,11 @@ def build(cfg):
     weight_dict['loss_center'] = cfg['3dcenter_loss_coef']
     weight_dict['loss_depth_map'] = cfg['depth_map_loss_coef']
     weight_dict['loss_region'] = cfg['region_loss_coef']
+    quality_cfg = cfg.get('iou_quality_head') or {}
+    quality_enabled = bool(quality_cfg.get('enabled', False))
+    if quality_enabled:
+        weight_dict['loss_quality'] = float(
+            quality_cfg.get('loss_coef', 1.0))
 
     if cfg['aux_loss']:
         aux_weight_dict = {}
@@ -1302,6 +1417,8 @@ def build(cfg):
 
     inter_losses = ['labels', 'boxes', 'center']
     losses = ['labels', 'boxes', 'cardinality', 'depths', 'dims', 'angles', 'center', 'depth_map', 'region']
+    if quality_enabled:
+        losses.append('quality')
 
     criterion = SetCriterion(
         cfg['num_classes'],
@@ -1318,6 +1435,7 @@ def build(cfg):
             'iou3d_matching_monitoring'),
         high_iou_unmatched_negative_weighting=cfg.get(
             'high_iou_unmatched_negative_weighting'),
+        iou_quality_head=cfg.get('iou_quality_head'),
         use_vectorized_ddn_rasterization=cfg.get(
             'use_vectorized_ddn_rasterization', False),
         use_aligned_giou_loss=cfg.get('use_aligned_giou_loss', False),

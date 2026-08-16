@@ -48,6 +48,7 @@ LOSS_CHINESE_NAMES = {
     'loss_center': '投影三维中心损失',
     'loss_depth_map': '密集深度图损失',
     'loss_region': '物体区域损失',
+    'loss_quality': '三维IoU质量回归损失',
 }
 
 LOSS_DIAGNOSTIC_CHINESE_NAMES = {
@@ -99,6 +100,9 @@ LOSS_DIAGNOSTIC_CHINESE_NAMES = {
         '三维IoU大于等于0.5未匹配预测的GT类别平均分数'),
     'monitor_high_iou_negative_ignored_mean_gt_class_score': (
         '三维IoU大于等于0.7未匹配预测的GT类别平均分数'),
+    'monitor_quality_iou_mae': '质量头预测三维IoU绝对误差',
+    'monitor_quality_target_iou_mean': '质量头监督目标三维IoU均值',
+    'monitor_quality_predicted_iou_mean': '质量头预测三维IoU均值',
 }
 
 _IOU3D_MATCHING_DIAGNOSTICS = {
@@ -136,6 +140,9 @@ _ONLINE_FINAL_DIAGNOSTICS = {
     'monitor_high_iou_negative_mean_weight',
     'monitor_high_iou_negative_mean_gt_class_score',
     'monitor_high_iou_negative_ignored_mean_gt_class_score',
+    'monitor_quality_iou_mae',
+    'monitor_quality_target_iou_mean',
+    'monitor_quality_predicted_iou_mean',
 }
 
 _ONLINE_GROUP0_DIAGNOSTICS = {
@@ -198,7 +205,7 @@ def chinese_grouped_monitoring(raw_losses, weight_dict, scope,
     result = {}
     final_query_keys = {
         'loss_ce', 'loss_bbox', 'loss_giou', 'loss_dim', 'loss_angle',
-        'loss_depth', 'loss_center'}
+        'loss_depth', 'loss_center', 'loss_quality'}
     shared_keys = {'loss_depth_map', 'loss_region'}
     final_query_total = 0.0
     full_total = 0.0
@@ -256,6 +263,8 @@ def chinese_grouped_monitoring(raw_losses, weight_dict, scope,
                 diagnostic_group = '航向角诊断'
             elif base_key.startswith('monitor_depth_'):
                 diagnostic_group = '深度诊断'
+            elif base_key.startswith('monitor_quality_'):
+                diagnostic_group = '三维IoU质量头诊断'
             else:
                 diagnostic_group = '高IoU未匹配预测诊断'
             result[f'{scope}{diagnostic_group}/{layer_name}/'

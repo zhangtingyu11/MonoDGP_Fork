@@ -1,0 +1,43 @@
+base_config: monodgp_exp26.yaml
+
+model_name: 'V2-0029_三维IoU质量头排序'
+
+model:
+  # Parallel to the existing final 3D heads. Only current Hungarian-positive
+  # queries regress their exact 3D IoU; hs is intentionally not detached, so
+  # the loss also updates the shared 3D decoder representation.
+  iou_quality_head:
+    enabled: true
+    loss_coef: 1.0
+    target_encoding: cia_ssd
+    # Independent RNG scope prevents this new head from shifting the initial
+    # values of query embeddings and every other shared Experiment-26 weight.
+    init_seed: 290029
+
+trainer:
+  swanlab:
+    experiment_name: '实验29_三维IoU质量头排序'
+    description: '严格基于实验26从头训练，只增加三维IoU质量头；当前一对一匈牙利正匹配以2*(IoU-0.5)为目标做SmoothL1回归，质量头输入及共享3D decoder不截断梯度，不改变匹配、主分类、回归或0阈值设置；验证一次前向评估预注册排序分数组合，并监控各分数与精确三维IoU及一对一最优query的一致性'
+    tags: ['实验29', 'KITTI', '三维IoU质量头', '质量感知排序']
+
+tester:
+  threshold: 0.0
+  topk: 50
+  primary_quality_score: c_q_d
+  quality_ranking_monitoring: true
+  quality_ranking_car_class_id: 1
+  quality_score_fusions:
+    - {name: current_cxd, alpha: 1.0, beta: 0.0, gamma: 1.0, historical_topk: true}
+    - {name: c_q_d, alpha: 1.0, beta: 1.0, gamma: 1.0}
+    - {name: c_q2_d, alpha: 1.0, beta: 2.0, gamma: 1.0}
+    - {name: c_q4_d, alpha: 1.0, beta: 4.0, gamma: 1.0}
+    - {name: c025_q_d05, alpha: 0.25, beta: 1.0, gamma: 0.5}
+    - {name: c025_q_d075, alpha: 0.25, beta: 1.0, gamma: 0.75}
+    - {name: c025_q_d1, alpha: 0.25, beta: 1.0, gamma: 1.0}
+    - {name: c05_q_d05, alpha: 0.5, beta: 1.0, gamma: 0.5}
+    - {name: c05_q_d075, alpha: 0.5, beta: 1.0, gamma: 0.75}
+    - {name: c05_q_d1, alpha: 0.5, beta: 1.0, gamma: 1.0}
+    - {name: c075_q_d05, alpha: 0.75, beta: 1.0, gamma: 0.5}
+    - {name: c075_q_d075, alpha: 0.75, beta: 1.0, gamma: 0.75}
+    - {name: c075_q_d1, alpha: 0.75, beta: 1.0, gamma: 1.0}
+  best_refresh_bev_nms_thresholds: [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]

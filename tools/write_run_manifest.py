@@ -12,6 +12,7 @@ import sys
 import numba
 import torch
 import torchvision
+import yaml
 
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
@@ -76,6 +77,11 @@ def main():
     output_dir = ROOT_DIR / cfg['trainer']['save_path'] / cfg['model_name']
     output_dir.mkdir(parents=True, exist_ok=True)
     config_path = Path(args.config).resolve()
+    resolved_config_path = output_dir / 'resolved_config.yaml'
+    resolved_config_path.write_text(
+        yaml.safe_dump(
+            cfg, allow_unicode=True, sort_keys=False),
+        encoding='utf-8')
     tracked_diff = subprocess.check_output(
         ('git', 'diff', '--binary', 'HEAD'), cwd=ROOT_DIR)
     receipt = [
@@ -98,17 +104,30 @@ def main():
         f"随机种子：{cfg.get('random_seed', 444)}",
         f"批大小：{cfg['dataset']['batch_size']}",
         f"验证起始轮次：{cfg['trainer']['validation_start_epoch']}",
-        f"best选择：无NMS Car_3d_moderate_R40",
+        'best选择：无NMS Car_3d_moderate_R40；排序分数=' + str(
+            cfg['tester'].get('primary_quality_score', '历史默认')),
         f"验证置信度门槛：{cfg['tester']['threshold']}",
         'best刷新时BEV NMS阈值：' + ','.join(map(
             str, cfg['tester'].get('best_refresh_bev_nms_thresholds', ()))),
         f"命令：{args.command}",
         f"SHA256 {config_path.name}：{_sha256(config_path)}",
+        f"SHA256 resolved_config.yaml：{_sha256(resolved_config_path)}",
         f"SHA256 monodgp.py：{_sha256(ROOT_DIR / 'lib/models/monodgp/monodgp.py')}",
         f"SHA256 matcher.py：{_sha256(ROOT_DIR / 'lib/models/monodgp/matcher.py')}",
         f"SHA256 focal_loss.py：{_sha256(ROOT_DIR / 'lib/losses/focal_loss.py')}",
         f"SHA256 bev_nms_helper.py：{_sha256(ROOT_DIR / 'lib/helpers/bev_nms_helper.py')}",
     ]
+    quality_files = (
+        ROOT_DIR / 'lib/helpers/decode_helper.py',
+        ROOT_DIR / 'lib/helpers/tester_helper.py',
+        ROOT_DIR / 'lib/helpers/trainer_helper.py',
+        ROOT_DIR / 'lib/helpers/quality_ranking_monitor.py',
+        ROOT_DIR / 'lib/helpers/swanlab_helper.py',
+        ROOT_DIR / 'lib/helpers/gradient_monitor.py',
+    )
+    receipt.extend(
+        f"SHA256 {path.name}：{_sha256(path)}"
+        for path in quality_files if path.exists())
     high_iou_weighting = cfg['model'].get(
         'high_iou_unmatched_negative_weighting', {})
     receipt.extend([
@@ -118,6 +137,26 @@ def main():
             high_iou_weighting.get('full_weight_below_iou', '未配置')),
         '负分类零权重起始IoU：' + str(
             high_iou_weighting.get('zero_weight_at_iou', '未配置')),
+    ])
+    quality_cfg = cfg['model'].get('iou_quality_head', {})
+    score_fusions = cfg['tester'].get('quality_score_fusions', ())
+    receipt.extend([
+        '三维IoU质量头：' + str(bool(
+            quality_cfg.get('enabled', False))),
+        '质量Loss权重：' + str(
+            quality_cfg.get('loss_coef', '未配置')),
+        '质量目标编码：' + str(
+            quality_cfg.get('target_encoding', '未配置')),
+        '质量头独立初始化种子：' + str(
+            quality_cfg.get('init_seed', '未配置')),
+        '主排序分数：' + str(
+            cfg['tester'].get('primary_quality_score', '历史默认')),
+        '预注册排序组合：' + ';'.join(
+            f"{item['name']}(alpha={item.get('alpha', 1.0)},"
+            f"beta={item.get('beta', 1.0)},"
+            f"gamma={item.get('gamma', 1.0)},"
+            f"historical_topk={bool(item.get('historical_topk', False))})"
+            for item in score_fusions),
     ])
     (output_dir / 'run_manifest.txt').write_text(
         '\n'.join(receipt) + '\n', encoding='utf-8')
