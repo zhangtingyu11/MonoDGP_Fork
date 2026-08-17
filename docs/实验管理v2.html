@@ -729,6 +729,10 @@
           <span class="nav-index">28</span>
           <span class="nav-copy"><strong>软忽略 + 零分类门槛</strong><small>完整250轮·已回退</small></span>
         </button>
+        <button class="nav-button" data-target="exp29" type="button">
+          <span class="nav-index">29</span>
+          <span class="nav-copy"><strong>3D IoU质量头排序</strong><small>完整250轮·诊断保留</small></span>
+        </button>
       </nav>
 
       <div>
@@ -854,6 +858,7 @@
               <div class="truth"><span class="number">26</span><h3>取消0.2分类门槛并重训</h3><p>保持实验24训练目标，验证时不设分类分数门槛，并以无NMS中等AP选择best。</p></div>
               <div class="truth"><span class="number">27</span><h3>组内高IoU一对多辅助监督</h3><p>首次运行因漏掉辅助负样本而作废；修正后完成至第134轮并由用户提前停止，不作为完整实验结果。</p></div>
               <div class="truth"><span class="number">28</span><h3>高IoU负分类软忽略加零门槛</h3><p>组合实验25训练方法与实验26验证口径，完整训练250轮；结果低于实验26，实验专用代码已回退。</p></div>
+              <div class="truth"><span class="number">29</span><h3>3D IoU质量头与query排序</h3><p>只给一对一正匹配query增加质量回归；质量相关性提高，但没有稳定选中最优query，也未超过实验26。</p></div>
             </div>
           </article>
 
@@ -3023,10 +3028,106 @@
             <div class="callout" style="margin-top:14px"><h4>回退范围</h4><p>只删除实验28专用配置和启动脚本，不删除训练结果。最新checkpoint、best checkpoint、完整日志、SwanLab记录、运行清单、退出状态和NMS诊断继续保留在<code>outputs/V2-0028_实验25取消0.2分类门槛重训/</code>，也不影响正在实现的实验29。</p></div>
           </article>
         </section>
+
+        <section id="exp29" class="content-panel" aria-labelledby="exp29-title">
+          <article class="section-card">
+            <div class="section-head"><div><span class="section-kicker">实验 29 · 08-16—08-17</span><h2 id="exp29-title">3D IoU质量头与query排序</h2><p class="section-subtitle">一句话：质量头确实学到了框质量，但“绝对IoU更相关”没有转化成“更容易选中同一目标的最优query”，主指标也没有超过实验26。</p></div><span class="done-badge" style="background:var(--amber-soft);color:#9a5b00">已完成 · 诊断保留</span></div>
+
+            <div class="condition-grid">
+              <article class="condition-card"><header><strong>只增加质量头</strong><span>实验26为基线</span></header><dl><div><dt>输入</dt><dd>最终3D decoder的每个query特征</dd></div><div><dt>监督对象</dt><dd>仅当前一对一Hungarian正匹配query</dd></div><div><dt>目标</dt><dd>精确3D IoU，经2×(IoU−0.5)编码</dd></div><div><dt>Loss</dt><dd>SmoothL1，权重1</dd></div></dl></article>
+              <article class="condition-card new"><header><strong>排序与选best</strong><span>零门槛、top-50</span></header><dl><div><dt>主排序</dt><dd>分类 × 质量 × 深度精度</dd></div><div><dt>历史排序</dt><dd>分类 × 深度精度</dd></div><div><dt>best指标</dt><dd>主排序无NMS Moderate 3D AP_R40</dd></div><div><dt>NMS</dt><dd>best刷新时诊断BEV NMS 0.1—0.9</dd></div></dl></article>
+            </div>
+
+            <div class="section-head" style="margin-top:24px"><div><span class="section-kicker">Implementation</span><h2>实验29到底改了什么</h2><p class="section-subtitle">它不是重新设计检测器，也没有做一对多。核心改动是在实验26的3D decoder后面并联一个质量头，用预测框与真值框的精确3D IoU监督它，再把质量分数用于推理排序。</p></div></div>
+
+            <div class="stage-grid">
+              <article class="stage"><span>01</span><h3>query特征</h3><p>3D decoder输出每个query的共享特征 <code>hᵢ</code>。原分类、框、深度、尺寸和角度头保持不变。</p></article>
+              <article class="stage"><span>02</span><h3>新增质量头</h3><p>并联两层MLP：<code>hidden → hidden → 1</code>，为每个query输出一个原始质量值 <code>rᵢ</code>。</p></article>
+              <article class="stage"><span>03</span><h3>IoU监督</h3><p>只取Hungarian已经匹配成功的query，读取该预测框和对应GT之间的精确3D IoU，计算SmoothL1。</p></article>
+              <article class="stage"><span>04</span><h3>推理排序</h3><p>解码 <code>qᵢ=clip((rᵢ+1)/2,0,1)</code>，主分数为 <code>sᵢ=cᵢ×qᵢ×dᵢ</code>，按它选top-50框。</p></article>
+            </div>
+
+            <div class="condition-grid" style="margin-top:14px">
+              <article class="condition-card new"><header><strong>质量头结构与接入位置</strong><span>不是额外query</span></header><dl><div><dt>结构</dt><dd>2层MLP，每个query输出1个标量</dd></div><div><dt>位置</dt><dd>与原分类、框、深度等预测头并联</dd></div><div><dt>层级</dt><dd>3层3D decoder输出都计算质量loss，推理使用最后一层</dd></div><div><dt>初始化</dt><dd>质量头固定独立随机种子290029，不扰动实验26原参数的初始化序列</dd></div></dl></article>
+              <article class="condition-card"><header><strong>一个训练样本怎么产生质量loss</strong><span>先匹配，再回归</span></header><dl><div><dt>第1步</dt><dd>沿用实验26的Hungarian一对一匹配</dd></div><div><dt>第2步</dt><dd>从matcher的精确3D IoU矩阵读取匹配pair的IoU</dd></div><div><dt>第3步</dt><dd>IoU目标detach后编码为2×(IoU−0.5)</dd></div><div><dt>第4步</dt><dd>SmoothL1求和后除以GT数，loss权重为1.0</dd></div></dl></article>
+            </div>
+
+            <div class="table-wrap" style="margin-top:14px">
+              <table>
+                <thead><tr><th>真实3D IoU</th><th>质量头训练目标</th><th>含义</th></tr></thead>
+                <tbody>
+                  <tr><td>0.3</td><td>−0.4</td><td>低质量框</td></tr>
+                  <tr><td>0.5</td><td>0</td><td>编码中心</td></tr>
+                  <tr><td>0.7</td><td>0.4</td><td>较高质量框</td></tr>
+                  <tr><td>0.9</td><td>0.8</td><td>高质量框</td></tr>
+                  <tr><td>1.0</td><td>1.0</td><td>完全重合</td></tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div class="callout" style="margin-top:14px"><h4>这里的detach究竟断了什么</h4><p>只对作为标签的3D IoU数值断梯度，避免网络通过操纵用于生成标签的预测框来“改答案”。质量头的预测路径没有断：质量loss会更新新增MLP，也会反向更新共享的3D decoder特征。因此它不只是拟合一个冻结特征上的小网络；但质量loss不会沿“IoU标签计算”直接反传进预测框。</p></div>
+
+            <div class="table-wrap" style="margin-top:14px">
+              <table>
+                <thead><tr><th>query类型</th><th>实验29怎么训练</th><th>相对实验26是否改变</th></tr></thead>
+                <tbody>
+                  <tr><td>Hungarian匹配query</td><td>原分类、框、深度、尺寸、角度等loss，再增加质量loss</td><td><strong>改变</strong></td></tr>
+                  <tr><td>未匹配但3D IoU较高的query</td><td>仍按背景/分类负样本处理，不计算质量loss</td><td>不变</td></tr>
+                  <tr><td>普通未匹配query</td><td>仍按原分类负样本处理，不计算质量loss</td><td>不变</td></tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div class="callout warning" style="margin-top:14px"><h4>明确没有改的部分</h4><p>query数量、Hungarian一对一分配、精确3D IoU匹配成本、原分类与各回归loss、数据和增强、训练轮数与batch size都沿用实验26；推理仍是零分类门槛、每图top-50。best仍按<strong>无NMS Moderate AP</strong>选，NMS只在best刷新时做诊断。因此实验29主要回答的是：“在其他条件不变时，额外学习并使用3D IoU质量分数，能否修正query排序？”</p></div>
+
+            <div class="section-head" style="margin-top:24px"><div><span class="section-kicker">Score Ablation</span><h2>13种分数组合怎么计算</h2><p class="section-subtitle">验证集每个batch只做一次模型前向；拿到同一批分类分数 <code>c</code>、质量分数 <code>q</code> 和深度精度 <code>d=exp(−σ)</code> 后，在内存中分别排序和评测，不会为13种组合重复跑网络。</p></div></div>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>组合组别</th><th>公式</th><th>数量</th><th>目的</th></tr></thead>
+                <tbody>
+                  <tr><td>历史基线</td><td><code>c × d</code></td><td>1</td><td>严格复现实验26的原始top-k路径</td></tr>
+                  <tr><td>质量强度</td><td><code>c × qᵝ × d</code>，β=1、2、4</td><td>3</td><td>观察加强质量分数是否更好</td></tr>
+                  <tr><td>分类/深度降权</td><td><code>cᵅ × q × dᵞ</code>，α=0.25、0.5、0.75；γ=0.5、0.75、1</td><td>9</td><td>检查分类或深度是否压制质量排序</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="callout" style="margin-top:14px"><h4>训练与验证中的主方案</h4><p>13种组合都会记录AP和排序诊断，但只有预先确定的 <code>c×q×d</code> 作为实验29主排序，并用它的无NMS Moderate AP决定是否刷新best。这样不会在验证集上事后挑13种组合中最高的一个来冒充正式结果。</p></div>
+
+            <div class="metric-grid">
+              <div class="metric"><span>无NMS中等best</span><strong>23.5451</strong><em>第175轮</em></div>
+              <div class="metric"><span>best三档</span><strong>31.7044 / 23.5451 / 20.6844</strong><em>简单 / 中等 / 困难</em></div>
+              <div class="metric"><span>同轮历史排序</span><strong>31.5413 / 23.5280 / 20.7363</strong><em>中等只提高0.0171</em></div>
+              <div class="metric"><span>最终第250轮</span><strong>29.7748 / 22.5580 / 20.1085</strong><em>主排序三档</em></div>
+              <div class="metric"><span>对实验26中等best</span><strong>−0.2880</strong><em>23.5451 对 23.8331</em></div>
+              <div class="metric"><span>BEV NMS 0.8</span><strong>31.8407 / 24.0548 / 21.2980</strong><em>阈值组中等最优</em></div>
+              <div class="metric"><span>NMS 0.8保留 / 删除</span><strong>158,515 / 29,935</strong><em>原始预测188,450个</em></div>
+              <div class="metric"><span>对实验26 NMS 0.8</span><strong>−0.0424</strong><em>24.0548 对 24.0972</em></div>
+              <div class="metric"><span>SwanLab</span><strong>hnegzd78</strong><em>退出码0，正常收尾</em></div>
+            </div>
+
+            <div class="section-head" style="margin-top:24px"><div><span class="section-kicker">What It Learned</span><h2>相关性提高了，最优query却没有更容易被选中</h2><p class="section-subtitle">以下为第250轮完整验证集监控；相关系数衡量全体query的整体趋势，Top-1衡量每个GT内部能否真正挑中IoU最高的query，两者不是一回事。</p></div></div>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>排序分数</th><th>与3D IoU的Spearman相关</th><th>最优query Top-1比例</th><th>判断</th></tr></thead>
+                <tbody>
+                  <tr><td>分类分数</td><td>0.5347</td><td>15.97%</td><td>整体相关性最低，但组内Top-1反而最高</td></tr>
+                  <tr><td>质量分数</td><td><strong>0.6712</strong></td><td>11.14%</td><td>能拟合绝对IoU，却不擅长目标内部排序</td></tr>
+                  <tr><td>深度精度</td><td>0.6585</td><td>13.36%</td><td>与质量接近，但只描述深度部分</td></tr>
+                  <tr><td>历史：分类×深度</td><td>0.6260</td><td>15.70%</td><td>仍略高于加入质量后的Top-1</td></tr>
+                  <tr><td>主排序：分类×质量×深度</td><td>0.6407</td><td>15.51%</td><td>没有超过历史排序的最优query选择率</td></tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div class="callout warning" style="margin-top:14px"><h4>最终结论：质量头不是没学会，而是训练目标没有直接对齐最终决策</h4><p>实验29证明当前query特征可以学习绝对3D IoU；但它只监督Hungarian正样本、使用逐query的点式回归，没有直接优化“同一个GT的候选谁应排第一”，因此质量相关性上升并没有带来明显AP。第175轮中等AP相对历史排序只增加0.0171，且整体best仍比实验26低0.2880。实验29保留为诊断和后续消融，不把普通IoU质量头单独作为论文核心方法。</p></div>
+            <div class="callout" style="margin-top:14px"><h4>NMS结论</h4><p>best checkpoint加BEV NMS 0.8后，中等AP由23.5451升到24.0548，增加0.5097；说明重复预测仍然存在。不过它与实验26同阈值24.0972基本持平，不能据此认定质量头优于实验26。</p></div>
+            <div class="callout" style="margin-top:14px"><h4>产物完整保留</h4><p>训练日志、最新与best checkpoint、SwanLab记录、运行清单、退出状态、13种排序组合、质量排序监控、BS1诊断和NMS诊断均保存在<code>outputs/V2-0029_三维IoU质量头排序/</code>。后续方向转为实验30的完整P2验证，以及已讨论的相机归一化跨焦距MixUp。</p></div>
+          </article>
+        </section>
       </div>
     </div>
 
-    <footer class="footer">MonoDGP 实验总览 v2 · 序号01—28</footer>
+    <footer class="footer">MonoDGP 实验总览 v2 · 序号01—29</footer>
   </main>
 
   <script>
