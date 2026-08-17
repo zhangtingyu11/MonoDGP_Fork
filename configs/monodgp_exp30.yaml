@@ -1,0 +1,15 @@
+base_config: monodgp_exp29.yaml
+
+model_name: 'V2-0030_实验29完整P2几何修正'
+
+dataset:
+  # Use the exact homogeneous P2 projection/inversion throughout the data,
+  # loss and decode paths. Horizontal flips physically reflect camera X, and
+  # heading labels use the ray through the physical 3D center.
+  full_p2_projection: true
+
+trainer:
+  swanlab:
+    experiment_name: '实验30_实验29完整P2几何修正'
+    description: '严格基于实验29从头训练，只修正完整P2几何一致性：图像仿射后用P_aug=A·P2进入模型，深度目标及匹配统一为物理Z，几何深度按1280×384输入像素与增强后焦距计算，验证解码用A的逆变换还原2D框和3D投影中心，水平翻转同步反射相机X、P2和航向；不改质量头、损失权重、匹配策略、排序组合、NMS、MixUp、增强概率或训练日程'
+    tags: ['实验30', 'KITTI', '三维IoU质量头', '完整P2', '几何一致性']

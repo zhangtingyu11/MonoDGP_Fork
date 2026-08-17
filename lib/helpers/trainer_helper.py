@@ -560,7 +560,8 @@ class Trainer(object):
                     calibs = calibs.to(self.device)
                     for key in targets.keys():
                         targets[key] = targets[key].to(self.device)
-                img_sizes = targets['img_size']
+                img_sizes = targets.get(
+                    'model_image_size', targets['img_size'])
                 targets = self.prepare_targets(targets, inputs.shape[0])
                 ##dn
                 dn_args = None
@@ -782,7 +783,8 @@ class Trainer(object):
                 if key in (
                         'img_size',
                         'projective_input_size',
-                        'projective_image_effective_calib'):
+                        'projective_image_effective_calib',
+                        'physical_ray_heading'):
                     target_dict[key] = val[bz]
             targets_list.append(target_dict)
         return targets_list

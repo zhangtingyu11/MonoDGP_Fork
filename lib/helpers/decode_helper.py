@@ -16,6 +16,13 @@ def decode_detections(dets, info, calibs, cls_mean_size, threshold):
     results = {}
     for i in range(dets.shape[0]):  # batch
         preds = []
+        full_p2 = getattr(calibs[i], 'use_full_p2', False)
+        affine_inverse = (
+            info.get('image_affine_inverse', None)
+            if full_p2 else None)
+        if affine_inverse is not None:
+            affine_inverse = np.asarray(affine_inverse[i])
+            input_size = np.asarray(info['projective_input_size'][i])
         for j in range(dets.shape[1]):  # max_dets
             cls_id = int(dets[i, j, 0])
             score = dets[i, j, 1]
@@ -23,11 +30,33 @@ def decode_detections(dets, info, calibs, cls_mean_size, threshold):
                 continue
 
             # 2d bboxs decoding
-            x = dets[i, j, 2] * info['img_size'][i][0]
-            y = dets[i, j, 3] * info['img_size'][i][1]
-            w = dets[i, j, 4] * info['img_size'][i][0]
-            h = dets[i, j, 5] * info['img_size'][i][1]
-            bbox = [x-w/2, y-h/2, x+w/2, y+h/2]
+            if affine_inverse is not None:
+                x = dets[i, j, 2] * input_size[0]
+                y = dets[i, j, 3] * input_size[1]
+                w = dets[i, j, 4] * input_size[0]
+                h = dets[i, j, 5] * input_size[1]
+                corners = np.array([
+                    [x - w / 2, y - h / 2, 1.0],
+                    [x + w / 2, y - h / 2, 1.0],
+                    [x - w / 2, y + h / 2, 1.0],
+                    [x + w / 2, y + h / 2, 1.0],
+                ], dtype=np.float64)
+                original_corners = corners @ affine_inverse.T
+                original_corners = (
+                    original_corners[:, :2]
+                    / original_corners[:, 2:3])
+                bbox = [
+                    original_corners[:, 0].min(),
+                    original_corners[:, 1].min(),
+                    original_corners[:, 0].max(),
+                    original_corners[:, 1].max(),
+                ]
+            else:
+                x = dets[i, j, 2] * info['img_size'][i][0]
+                y = dets[i, j, 3] * info['img_size'][i][1]
+                w = dets[i, j, 4] * info['img_size'][i][0]
+                h = dets[i, j, 5] * info['img_size'][i][1]
+                bbox = [x-w/2, y-h/2, x+w/2, y+h/2]
 
             # 3d bboxs decoding
             # depth decoding
@@ -38,14 +67,30 @@ def decode_detections(dets, info, calibs, cls_mean_size, threshold):
             dimensions += cls_mean_size[int(cls_id)]
 
             # positions decoding
-            x3d = dets[i, j, 34] * info['img_size'][i][0]
-            y3d = dets[i, j, 35] * info['img_size'][i][1]
+            if affine_inverse is not None:
+                center_input = np.array([
+                    dets[i, j, 34] * input_size[0],
+                    dets[i, j, 35] * input_size[1],
+                    1.0,
+                ], dtype=np.float64)
+                center_original = affine_inverse @ center_input
+                center_original = (
+                    center_original[:2] / center_original[2])
+                x3d, y3d = center_original
+            else:
+                x3d = dets[i, j, 34] * info['img_size'][i][0]
+                y3d = dets[i, j, 35] * info['img_size'][i][1]
             locations = calibs[i].img_to_rect(x3d, y3d, depth).reshape(-1)
             locations[1] += dimensions[0] / 2
 
             # heading angle decoding
             alpha = get_heading_angle(dets[i, j, 7:31])
-            ry = calibs[i].alpha2ry(alpha, x)
+            if full_p2:
+                ry = alpha + np.arctan2(locations[0], locations[2])
+                ry = float(np.remainder(
+                    ry + np.pi, 2.0 * np.pi) - np.pi)
+            else:
+                ry = calibs[i].alpha2ry(alpha, x)
 
 
             score = score * dets[i, j, -1]

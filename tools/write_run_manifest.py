@@ -118,12 +118,16 @@ def main():
         f"SHA256 bev_nms_helper.py：{_sha256(ROOT_DIR / 'lib/helpers/bev_nms_helper.py')}",
     ]
     quality_files = (
+        ROOT_DIR / 'lib/datasets/kitti/kitti_dataset.py',
+        ROOT_DIR / 'lib/datasets/kitti/kitti_utils.py',
         ROOT_DIR / 'lib/helpers/decode_helper.py',
         ROOT_DIR / 'lib/helpers/tester_helper.py',
         ROOT_DIR / 'lib/helpers/trainer_helper.py',
         ROOT_DIR / 'lib/helpers/quality_ranking_monitor.py',
         ROOT_DIR / 'lib/helpers/swanlab_helper.py',
         ROOT_DIR / 'lib/helpers/gradient_monitor.py',
+        ROOT_DIR / 'lib/losses/asymmetric_interval_depth_loss.py',
+        ROOT_DIR / 'lib/models/monodgp/iou3d_match_cost.py',
     )
     receipt.extend(
         f"SHA256 {path.name}：{_sha256(path)}"

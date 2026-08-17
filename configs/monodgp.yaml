@@ -20,6 +20,9 @@ dataset:
 
   aug_pd: True
   aug_crop: True
+  # Opt-in corrected homogeneous P2 projection/inversion plus physical
+  # camera-coordinate horizontal reflection. Historical experiments stay off.
+  full_p2_projection: False
 
   random_flip: 0.5
   random_crop: 0.5

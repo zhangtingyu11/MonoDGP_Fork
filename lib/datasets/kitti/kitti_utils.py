@@ -135,18 +135,22 @@ def get_calib_from_file(calib_file):
 
 
 class Calibration(object):
-    def __init__(self, calib_file):
+    def __init__(self, calib_file, use_full_p2=False):
         if isinstance(calib_file, str):
             calib = get_calib_from_file(calib_file)
         else:
             calib = calib_file
 
-        self.P2 = calib['P2']  # 3 x 4
+        self.P2 = calib['P2'].copy()  # 3 x 4
         self.R0 = calib['R0']  # 3 x 3
         self.V2C = calib['Tr_velo2cam']  # 3 x 4
         self.C2V = self.inverse_rigid_trans(self.V2C)
+        self.use_full_p2 = bool(use_full_p2)
 
         # Camera intrinsics and extrinsics
+        self._refresh_projection_parameters()
+
+    def _refresh_projection_parameters(self):
         self.cu = self.P2[0, 2]
         self.cv = self.P2[1, 2]
         self.fu = self.P2[0, 0]
@@ -184,6 +188,12 @@ class Calibration(object):
         """
         pts_rect_hom = self.cart_to_hom(pts_rect)
         pts_2d_hom = np.dot(pts_rect_hom, self.P2.T)
+        if self.use_full_p2:
+            pts_img = pts_2d_hom[:, 0:2] / pts_2d_hom[:, 2:3]
+            # The public depth convention is physical rect-camera Z.  It must
+            # not change when P2 has a non-zero third-row translation.
+            pts_rect_depth = pts_rect[:, 2].copy()
+            return pts_img, pts_rect_depth
         pts_img = (pts_2d_hom[:, 0:2].T / pts_rect_hom[:, 2]).T  # (N, 2)
         pts_rect_depth = pts_2d_hom[:, 2] - self.P2.T[3, 2]  # depth in rect camera coord
         return pts_img, pts_rect_depth
@@ -204,6 +214,29 @@ class Calibration(object):
         :param depth_rect: (N)
         :return:
         """
+        if self.use_full_p2:
+            u, v, depth_rect = np.broadcast_arrays(
+                np.asarray(u), np.asarray(v), np.asarray(depth_rect))
+            u = u.reshape(-1)
+            v = v.reshape(-1)
+            depth_rect = depth_rect.reshape(-1)
+            p = self.P2
+            denominator_z = p[2, 2] * depth_rect + p[2, 3]
+            a00 = p[0, 0] - u * p[2, 0]
+            a01 = p[0, 1] - u * p[2, 1]
+            a10 = p[1, 0] - v * p[2, 0]
+            a11 = p[1, 1] - v * p[2, 1]
+            b0 = u * denominator_z - p[0, 2] * depth_rect - p[0, 3]
+            b1 = v * denominator_z - p[1, 2] * depth_rect - p[1, 3]
+            determinant = a00 * a11 - a01 * a10
+            epsilon = np.finfo(np.result_type(
+                determinant.dtype, np.float32)).eps
+            if np.any(np.abs(determinant) <= epsilon):
+                raise ValueError('P2 is singular for the requested image ray')
+            x = (b0 * a11 - a01 * b1) / determinant
+            y = (a00 * b1 - b0 * a10) / determinant
+            return np.stack((x, y, depth_rect), axis=1)
+
         x = ((u - self.cu) * depth_rect) / self.fu + self.tx
         y = ((v - self.cv) * depth_rect) / self.fv + self.ty
         pts_rect = np.concatenate((x.reshape(-1, 1), y.reshape(-1, 1), depth_rect.reshape(-1, 1)), axis=1)
@@ -293,39 +326,22 @@ class Calibration(object):
 
         return alpha
 
-    def flip(self,img_size):
-        wsize = 4
-        hsize = 2
-        p2ds = (np.concatenate([np.expand_dims(np.tile(np.expand_dims(np.linspace(0,img_size[0],wsize),0),[hsize,1]),-1),\
-                                np.expand_dims(np.tile(np.expand_dims(np.linspace(0,img_size[1],hsize),1),[1,wsize]),-1),
-                                np.linspace(2,78,wsize*hsize).reshape(hsize,wsize,1)],-1)).reshape(-1,3)
-        p3ds = self.img_to_rect(p2ds[:,0:1],p2ds[:,1:2],p2ds[:,2:3])
-        p3ds[:,0]*=-1
-        p2ds[:,0] = img_size[0] - p2ds[:,0]
+    def flip(self, img_size):
+        """Apply a physical camera-coordinate horizontal reflection.
 
-        #self.P2[0,3] *= -1
-        cos_matrix = np.zeros([wsize*hsize,2,7])
-        cos_matrix[:,0,0] = p3ds[:,0]
-        cos_matrix[:,0,1] = cos_matrix[:,1,2] = p3ds[:,2]
-        cos_matrix[:,1,0] = p3ds[:,1]
-        cos_matrix[:,0,3] = cos_matrix[:,1,4] = 1
-        cos_matrix[:,:,-2] = -p2ds[:,:2]
-        cos_matrix[:,:,-1] = (-p2ds[:,:2]*p3ds[:,2:3])
-        new_calib = np.linalg.svd(cos_matrix.reshape(-1,7))[-1][-1]
-        new_calib /= new_calib[-1]
-
-        new_calib_matrix = np.zeros([4,3]).astype(np.float32)
-        new_calib_matrix[0,0] = new_calib_matrix[1,1] = new_calib[0]
-        new_calib_matrix[2,0:2] = new_calib[1:3]
-        new_calib_matrix[3,:] = new_calib[3:6]
-        new_calib_matrix[-1,-1] = self.P2[-1,-1]
-        self.P2 = new_calib_matrix.T
-        self.cu = self.P2[0, 2]
-        self.cv = self.P2[1, 2]
-        self.fu = self.P2[0, 0]
-        self.fv = self.P2[1, 1]
-        self.tx = self.P2[0, 3] / (-self.fu)
-        self.ty = self.P2[1, 3] / (-self.fv)
+        Image coordinates use the repository's continuous ``u' = W - u``
+        convention.  Rect-camera points are reflected with ``X' = -X``;
+        therefore the matching projection is exactly ``P' = F P S``.
+        """
+        width = float(img_size[0])
+        image_flip = np.array(
+            [[-1.0, 0.0, width],
+             [0.0, 1.0, 0.0],
+             [0.0, 0.0, 1.0]], dtype=self.P2.dtype)
+        camera_flip = np.diag(
+            np.array([-1.0, 1.0, 1.0, 1.0], dtype=self.P2.dtype))
+        self.P2 = image_flip @ self.P2 @ camera_flip
+        self._refresh_projection_parameters()
 
 ###################  affine trainsform  ###################
 

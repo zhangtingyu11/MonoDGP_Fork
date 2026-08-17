@@ -228,6 +228,7 @@ def matched_iou_depth_intervals(
     logits = outputs['pred_logits'][pair].detach()
     dim_residual = outputs['pred_3d_dim'][pair].detach()
     angles = outputs['pred_angle'][pair].detach()
+    pred_depth_m = outputs['pred_depth'][pair][..., 0].detach()
 
     decode_means = torch.as_tensor(
         decode_mean_sizes, device=device, dtype=dtype)
@@ -263,18 +264,24 @@ def matched_iou_depth_intervals(
             uv, depth_m.unsqueeze(-1), calibs)
 
     gt_center, gt_ray_valid = centers_at(gt_uv, gt_depth_m)
-    _, pred_ray_valid = centers_at(centers_uv, gt_depth_m)
+    pred_center_at_current_depth, pred_ray_valid = centers_at(
+        centers_uv, pred_depth_m)
     pred_alpha = _decode_alpha(angles)
-    # Match the detector's public decoder exactly: its supervised alpha is
-    # defined against the predicted 2-D box midpoint, not the separately
-    # predicted projected 3-D centre.  Decode yaw once and keep it fixed while
-    # depth alone moves along the projected 3-D-centre ray.
-    decoder_image_widths = torch.stack(tuple(
-        target['img_size'].to(device=device, dtype=dtype)
-        for target in targets), dim=0)[source_batch, 0]
-    heading_calibs = _matched(targets, indices, 'calibs', device, dtype)
-    pred_yaw = _decode_yaw_like_public_decoder(
-        pred_alpha, boxes, decoder_image_widths, heading_calibs)
+    if all('physical_ray_heading' in target for target in targets):
+        pred_yaw = torch.remainder(
+            pred_alpha + torch.atan2(
+                pred_center_at_current_depth[:, 0],
+                pred_center_at_current_depth[:, 2])
+            + math.pi, 2.0 * math.pi) - math.pi
+    else:
+        # Historical MonoDGP parameterization against the predicted 2-D box
+        # midpoint.  Retained exactly for archived experiment configurations.
+        decoder_image_widths = torch.stack(tuple(
+            target['img_size'].to(device=device, dtype=dtype)
+            for target in targets), dim=0)[source_batch, 0]
+        heading_calibs = _matched(targets, indices, 'calibs', device, dtype)
+        pred_yaw = _decode_yaw_like_public_decoder(
+            pred_alpha, boxes, decoder_image_widths, heading_calibs)
 
     pred_h, pred_w, pred_l = pred_dimensions.unbind(-1)
     gt_h, gt_w, gt_l = gt_dimensions.unbind(-1)

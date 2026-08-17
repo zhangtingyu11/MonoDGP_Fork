@@ -51,11 +51,16 @@ def pairwise_iou3d_match_cost(
         + means[target['labels'].long()][None, :, :]).clamp_min(0.05)
 
     pred_alpha = _decode_alpha(outputs['pred_angle'])
-    image_width = target['img_size'].to(device=device, dtype=dtype)[0]
-    heading_calib = target['calibs'][0].to(device=device, dtype=dtype)
-    pred_yaw = _decode_yaw_like_public_decoder(
-        pred_alpha, boxes, image_width.expand(query_count),
-        heading_calib.expand(query_count, -1, -1))
+    if 'physical_ray_heading' in target:
+        pred_yaw = torch.remainder(
+            pred_alpha + torch.atan2(pred_center[:, 0], pred_center[:, 2])
+            + torch.pi, 2.0 * torch.pi) - torch.pi
+    else:
+        image_width = target['img_size'].to(device=device, dtype=dtype)[0]
+        heading_calib = target['calibs'][0].to(device=device, dtype=dtype)
+        pred_yaw = _decode_yaw_like_public_decoder(
+            pred_alpha, boxes, image_width.expand(query_count),
+            heading_calib.expand(query_count, -1, -1))
 
     target_uv = target['boxes_3d'][:, :2].to(dtype=dtype) * input_size
     target_depth = (

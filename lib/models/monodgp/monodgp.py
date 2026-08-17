@@ -436,7 +436,11 @@ class MonoDGP(nn.Module):
             # depth_geo
             box2d_height_norm = outputs_coord[:, :, 4] + outputs_coord[:, :, 5]
             box2d_height = torch.clamp(box2d_height_norm * img_sizes[:, 1: 2], min=1.0)
-            depth_geo = size3d[:, :, 0]/ box2d_height * calibs[:, 0, 0].unsqueeze(1)
+            # Object height is measured vertically, so the corresponding
+            # focal term is fy.  In KITTI raw P2 has fx == fy; this also stays
+            # correct after the same image affine is folded into P2.
+            depth_geo = (size3d[:, :, 0] / box2d_height
+                         * calibs[:, 1, 1].unsqueeze(1))
             
             # depth_map
             # outputs_center3d = ((outputs_coord[..., :2] - 0.5) * 2).unsqueeze(2)   #.detach()

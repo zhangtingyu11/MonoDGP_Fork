@@ -81,6 +81,11 @@ class KITTI_Dataset(data.Dataset):
         self.aug_pd = cfg.get('aug_pd', False)
         self.aug_crop = cfg.get('aug_crop', False)
         self.aug_calib = cfg.get('aug_calib', False)
+        # Opt-in so all historical experiments retain their exact projection
+        # and virtual-flip behavior.  The corrected path couples full-P2
+        # projection with a physical camera-coordinate horizontal reflection.
+        self.full_p2_projection = bool(
+            cfg.get('full_p2_projection', False))
         
         self.random_mixup3d = cfg.get('random_mixup3d', 0.5)
         self.random_flip = cfg.get('random_flip', 0.5)
@@ -134,7 +139,14 @@ class KITTI_Dataset(data.Dataset):
     def get_calib(self, idx):
         calib_file = os.path.join(self.calib_dir, '%06d.txt' % idx)
         assert os.path.exists(calib_file)
-        return Calibration(calib_file)
+        return Calibration(
+            calib_file, use_full_p2=self.full_p2_projection)
+
+    def _mixup_calibrations_match(self, first, second):
+        if self.full_p2_projection:
+            return np.array_equal(first.P2, second.P2)
+        return (second.cu == first.cu and second.cv == first.cv
+                and second.fu == first.fu and second.fv == first.fv)
 
     
 
@@ -264,7 +276,7 @@ class KITTI_Dataset(data.Dataset):
                 random_index = int(np.random.choice(self.idx_list))
                 calib_temp = self.get_calib(random_index)
                 
-                if calib_temp.cu == calib.cu and calib_temp.cv == calib.cv and calib_temp.fu == calib.fu and calib_temp.fv == calib.fv:
+                if self._mixup_calibrations_match(calib, calib_temp):
                     img_temp = self.get_image(random_index)
                     img_size_temp = np.array(img_temp.size)
                     dst_W_temp, dst_H_temp = img_size_temp
@@ -291,13 +303,29 @@ class KITTI_Dataset(data.Dataset):
         img = (img - self.mean) / self.std
         img = img.transpose(2, 0, 1)  # C * H * W
 
+        affine_h = np.eye(3, dtype=np.float32)
+        affine_h[:2] = trans.astype(np.float32, copy=False)
+        affine_inv_h = np.eye(3, dtype=np.float32)
+        affine_inv_h[:2] = trans_inv.astype(np.float32, copy=False)
+
         info = {'img_id': index,
                 'img_size': img_size,
                 'bbox_downsample_ratio': img_size / features_size}
+        if self.full_p2_projection:
+            info.update({
+                'model_image_size': self.resolution.astype(
+                    np.float32, copy=True),
+                'projective_input_size': self.resolution.astype(
+                    np.float32, copy=True),
+                'image_affine_inverse': affine_inv_h,
+            })
 
         if self.split == 'test':
             calib = self.get_calib(index)
-            return img, calib.P2, img, info
+            model_calib = (
+                affine_h @ calib.P2
+                if self.full_p2_projection else calib.P2)
+            return img, model_calib.astype(np.float32), img, info
 
         #  ============================   get labels   ==============================
         objects = self.get_label(index)
@@ -305,19 +333,28 @@ class KITTI_Dataset(data.Dataset):
 
         # data augmentation for labels
         if random_flip_flag:
-            if self.aug_calib:
+            physical_flip = self.aug_calib or self.full_p2_projection
+            if physical_flip:
                 calib.flip(img_size)
             for object in objects:
                 [x1, _, x2, _] = object.box2d
                 object.box2d[0],  object.box2d[2] = img_size[0] - x2, img_size[0] - x1
                 object.alpha = np.pi - object.alpha
                 object.ry = np.pi - object.ry
-                if self.aug_calib:
+                if physical_flip:
                     object.pos[0] *= -1
                 if object.alpha > np.pi:  object.alpha -= 2 * np.pi  # check range
                 if object.alpha < -np.pi: object.alpha += 2 * np.pi
                 if object.ry > np.pi:  object.ry -= 2 * np.pi
                 if object.ry < -np.pi: object.ry += 2 * np.pi
+
+        # In the corrected path the model sees pixels after the image affine,
+        # so its camera matrix must describe that same coordinate system.
+        # Horizontal reflection is already baked into calib.P2 above.
+        model_calib = (
+            affine_h @ calib.P2
+            if self.full_p2_projection else calib.P2)
+        model_calib = model_calib.astype(np.float32)
 
         # labels encoding
         calibs = np.zeros((self.max_objs, 3, 4), dtype=np.float32)
@@ -375,7 +412,8 @@ class KITTI_Dataset(data.Dataset):
             center_3d, rect_depth = calib.rect_to_img(center_3d)  # project 3D center to image plane
             center_3d = center_3d[0]  # shape adjustment
 
-            if random_flip_flag and not self.aug_calib:  # random flip for center3d
+            if (random_flip_flag
+                    and not (self.aug_calib or self.full_p2_projection)):
                 center_3d[0] = img_size[0] - center_3d[0]
             center_3d = affine_transform(center_3d.reshape(-1), trans)
 
@@ -422,7 +460,12 @@ class KITTI_Dataset(data.Dataset):
             boxes_3d[i] = center_3d_norm[0], center_3d_norm[1], l, r, t, b
 
             # encoding depth
-            if self.depth_scale == 'normal':
+            if self.full_p2_projection:
+                # Augmented P2 and input-pixel box height already account for
+                # crop/resize.  Keep every downstream depth in physical Z.
+                depth[i] = objects[i].pos[-1]
+                depth_unit_scale[i] = 1.0
+            elif self.depth_scale == 'normal':
                 depth[i] = objects[i].pos[-1] * crop_scale
                 depth_unit_scale[i] = crop_scale
             
@@ -435,7 +478,14 @@ class KITTI_Dataset(data.Dataset):
                 depth_unit_scale[i] = 1.0
 
             # encoding heading angle
-            heading_angle = calib.ry2alpha(objects[i].ry, (objects[i].box2d[0] + objects[i].box2d[2]) / 2)
+            if self.full_p2_projection:
+                heading_angle = (
+                    objects[i].ry
+                    - np.arctan2(objects[i].pos[0], objects[i].pos[2]))
+            else:
+                heading_angle = calib.ry2alpha(
+                    objects[i].ry,
+                    (objects[i].box2d[0] + objects[i].box2d[2]) / 2)
             if heading_angle > np.pi:  heading_angle -= 2 * np.pi  # check range
             if heading_angle < -np.pi: heading_angle += 2 * np.pi
             heading_bin[i], heading_res[i] = angle2class(heading_angle)
@@ -449,18 +499,20 @@ class KITTI_Dataset(data.Dataset):
             if objects[i].trucation <= 0.5 and objects[i].occlusion <= 2:
                 mask_2d[i] = 1
 
-            calibs[i] = calib.P2
+            calibs[i] = model_calib
             
         if random_mix_flag == True:
             # if False:
                 objects = self.get_label(random_index)
                 # data augmentation for labels
                 if random_flip_flag:
+                    physical_flip = (
+                        self.aug_calib or self.full_p2_projection)
                     for object in objects:
                         [x1, _, x2, _] = object.box2d
                         object.box2d[0],  object.box2d[2] = img_size[0] - x2, img_size[0] - x1
                         object.ry = np.pi - object.ry
-                        if self.aug_calib:
+                        if physical_flip:
                             object.pos[0] *= -1
                         if object.ry > np.pi:  object.ry -= 2 * np.pi
                         if object.ry < -np.pi: object.ry += 2 * np.pi
@@ -489,7 +541,9 @@ class KITTI_Dataset(data.Dataset):
                     center_3d = center_3d.reshape(-1, 3)  # shape adjustment (N, 3)
                     center_3d, _ = calib.rect_to_img(center_3d)  # project 3D center to image plane
                     center_3d = center_3d[0]  # shape adjustment
-                    if random_flip_flag and not self.aug_calib:  # random flip for center3d
+                    if (random_flip_flag
+                            and not (self.aug_calib
+                                     or self.full_p2_projection)):
                         center_3d[0] = img_size[0] - center_3d[0]
                     center_3d = affine_transform(center_3d.reshape(-1), trans)
 
@@ -537,7 +591,10 @@ class KITTI_Dataset(data.Dataset):
                     boxes_3d[i + object_num] = center_3d_norm[0], center_3d_norm[1], l, r, t, b
         
                     # encoding depth
-                    if self.depth_scale == 'normal':
+                    if self.full_p2_projection:
+                        depth[i + object_num] = objects[i].pos[-1]
+                        depth_unit_scale[i + object_num] = 1.0
+                    elif self.depth_scale == 'normal':
                         depth[i + object_num] = objects[i].pos[-1] * crop_scale
                         depth_unit_scale[i + object_num] = crop_scale
                     
@@ -551,7 +608,15 @@ class KITTI_Dataset(data.Dataset):
         
                     # encoding heading angle
                     #heading_angle = objects[i].alpha
-                    heading_angle = calib.ry2alpha(objects[i].ry, (objects[i].box2d[0]+objects[i].box2d[2])/2)
+                    if self.full_p2_projection:
+                        heading_angle = (
+                            objects[i].ry
+                            - np.arctan2(
+                                objects[i].pos[0], objects[i].pos[2]))
+                    else:
+                        heading_angle = calib.ry2alpha(
+                            objects[i].ry,
+                            (objects[i].box2d[0] + objects[i].box2d[2]) / 2)
                     if heading_angle > np.pi:  heading_angle -= 2 * np.pi  # check range
                     if heading_angle < -np.pi: heading_angle += 2 * np.pi
                     heading_bin[i + object_num], heading_res[i + object_num] = angle2class(heading_angle)
@@ -565,15 +630,14 @@ class KITTI_Dataset(data.Dataset):
                     if objects[i].trucation <=0.5 and objects[i].occlusion<=2:
                         mask_2d[i + object_num] = 1
                     
-                    calibs[i + object_num] = calib.P2
+                    calibs[i + object_num] = model_calib
 
         # collect return data
         inputs = img
         
-        affine_h = np.eye(3, dtype=np.float32)
-        affine_h[:2] = trans.astype(np.float32, copy=False)
         projection_h = np.eye(3, dtype=np.float32)
-        if random_flip_flag and not self.aug_calib:
+        if (random_flip_flag
+                and not (self.aug_calib or self.full_p2_projection)):
             projection_h[0, 0] = -1.0
             projection_h[0, 2] = float(img_size[0])
         projective_image_effective_calib = (
@@ -600,11 +664,12 @@ class KITTI_Dataset(data.Dataset):
                    'heading_res': heading_res,
                    'mask_2d': mask_2d,
                    'obj_region': obj_region}
+        if self.full_p2_projection:
+            targets['physical_ray_heading'] = np.bool_(True)
+            targets['model_image_size'] = self.resolution.astype(
+                np.float32, copy=True)
 
-        info = {'img_id': index,
-                'img_size': img_size,
-                'bbox_downsample_ratio': img_size / features_size}
-        return inputs, calib.P2, targets, info
+        return inputs, model_calib, targets, info
 
 
 if __name__ == '__main__':

@@ -42,7 +42,7 @@ class CudaEvalBatchPrefetcher:
             self._next_ready = None
             return
 
-        img_sizes = info['img_size']
+        img_sizes = info.get('model_image_size', info['img_size'])
         host_sources = (inputs, calibs, img_sizes)
         if not all(tensor.is_pinned() for tensor in host_sources):
             raise RuntimeError(
@@ -220,7 +220,8 @@ class Tester(object):
                     # load evaluation data and move data to GPU.
                     inputs = inputs.to(self.device)
                     calibs = calibs.to(self.device)
-                    img_sizes = info['img_size'].to(self.device)
+                    img_sizes = info.get(
+                        'model_image_size', info['img_size']).to(self.device)
 
                 ###dn
                 outputs = self.model(inputs, calibs, targets, img_sizes, dn_args = 0)
@@ -249,7 +250,8 @@ class Tester(object):
                             elif key in (
                                     'img_size',
                                     'projective_input_size',
-                                    'projective_image_effective_calib'):
+                                    'projective_image_effective_calib',
+                                    'physical_ray_heading'):
                                 item[key] = value[batch_index]
                         prepared_targets.append(item)
                     loss_dict = self.criterion(
