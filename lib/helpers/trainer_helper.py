@@ -45,6 +45,100 @@ _DEPTH_MEAN_CLIP_LABELS = {
         '整体深度均值梯度能量保留比例'),
 }
 
+_MIXUP_TARGET_KEYS = (
+    'mixup_requested', 'mixup_applied', 'mixup_cross_focal',
+    'mixup_valid_ratio', 'mixup_attempts', 'mixup_reject_capacity',
+    'mixup_reject_geometry', 'mixup_reject_no_overlap',
+    'mixup_reject_partial_object',
+    'mixup_focal_scale_x', 'mixup_focal_scale_y',
+)
+
+
+def collect_mixup_counts(targets):
+    if not all(key in targets for key in _MIXUP_TARGET_KEYS):
+        return {}
+    requested = targets['mixup_requested'].detach().float().reshape(-1)
+    applied = targets['mixup_applied'].detach().float().reshape(-1)
+    cross_focal = targets['mixup_cross_focal'].detach().float().reshape(-1)
+    valid_ratio = targets['mixup_valid_ratio'].detach().float().reshape(-1)
+    focal_scale_x = targets['mixup_focal_scale_x'].detach().float().reshape(-1)
+    focal_scale_y = targets['mixup_focal_scale_y'].detach().float().reshape(-1)
+    return {
+        'sample_count': requested.new_tensor(float(requested.numel())),
+        'requested_count': requested.sum(),
+        'applied_count': applied.sum(),
+        'cross_focal_count': cross_focal.sum(),
+        'valid_ratio_sum': valid_ratio.sum(),
+        'cross_valid_ratio_sum': (valid_ratio * cross_focal).sum(),
+        'attempt_sum': targets['mixup_attempts'].detach().float().sum(),
+        'reject_capacity_count': (
+            targets['mixup_reject_capacity'].detach().float().sum()),
+        'reject_geometry_count': (
+            targets['mixup_reject_geometry'].detach().float().sum()),
+        'reject_no_overlap_count': (
+            targets['mixup_reject_no_overlap'].detach().float().sum()),
+        'reject_partial_object_count': (
+            targets['mixup_reject_partial_object'].detach().float().sum()),
+        'focal_scale_x_sum': focal_scale_x.sum(),
+        'focal_scale_y_sum': focal_scale_y.sum(),
+        'cross_focal_scale_x_sum': (focal_scale_x * cross_focal).sum(),
+        'cross_focal_scale_y_sum': (focal_scale_y * cross_focal).sum(),
+    }
+
+
+def add_mixup_counts(total, current):
+    if not current:
+        return total
+    if not total:
+        return {key: value.clone() for key, value in current.items()}
+    for key, value in current.items():
+        total[key] = total[key] + value
+    return total
+
+
+def mixup_monitor_payload(counts, scope):
+    if not counts:
+        return {}
+    values = scalar_values_to_floats(counts)
+    sample_count = values['sample_count']
+    requested = values['requested_count']
+    applied = values['applied_count']
+    cross_focal = values['cross_focal_count']
+    safe_sample = sample_count if sample_count else 1.0
+    safe_requested = requested if requested else 1.0
+    safe_applied = applied if applied else 1.0
+    safe_cross_focal = cross_focal if cross_focal else 1.0
+    prefix = f'{scope}跨焦距MixUp'
+    return {
+        f'{prefix}/请求样本比例': requested / safe_sample,
+        f'{prefix}/实际启用样本比例': applied / safe_sample,
+        f'{prefix}/请求后成功率': applied / safe_requested,
+        f'{prefix}/成功样本中跨P2比例': (
+            values['cross_focal_count'] / safe_applied),
+        f'{prefix}/成功样本平均有效像素覆盖率': (
+            values['valid_ratio_sum'] / safe_applied),
+        f'{prefix}/跨P2样本平均有效像素覆盖率': (
+            values['cross_valid_ratio_sum'] / safe_cross_focal),
+        f'{prefix}/请求样本平均候选尝试次数': (
+            values['attempt_sum'] / safe_requested),
+        f'{prefix}/成功样本平均水平焦距倍率': (
+            values['focal_scale_x_sum'] / safe_applied),
+        f'{prefix}/成功样本平均垂直焦距倍率': (
+            values['focal_scale_y_sum'] / safe_applied),
+        f'{prefix}/跨P2样本平均水平焦距倍率': (
+            values['cross_focal_scale_x_sum'] / safe_cross_focal),
+        f'{prefix}/跨P2样本平均垂直焦距倍率': (
+            values['cross_focal_scale_y_sum'] / safe_cross_focal),
+        f'{prefix}/每个请求因目标数上限拒绝次数': (
+            values['reject_capacity_count'] / safe_requested),
+        f'{prefix}/每个请求因投影几何拒绝次数': (
+            values['reject_geometry_count'] / safe_requested),
+        f'{prefix}/每个请求因无有效覆盖拒绝次数': (
+            values['reject_no_overlap_count'] / safe_requested),
+        f'{prefix}/请求样本因供体目标部分可见取消比例': (
+            values['reject_partial_object_count'] / safe_requested),
+    }
+
 def grouped_gradient_payload(metrics, scope, epoch_summary=False):
     payload = {}
     metrics = {
@@ -383,6 +477,8 @@ class Trainer(object):
                     scope='每轮训练', epoch_summary=True))
                 payload.update(depth_mean_clipping_payload(
                     train_summary['gradient_monitoring'], scope='每轮训练'))
+                payload.update(mixup_monitor_payload(
+                    train_summary['mixup_counts'], scope='每轮训练'))
                 self.tracker.log(
                     payload, step=self.epoch * len(self.train_loader))
 
@@ -542,6 +638,7 @@ class Trainer(object):
         epoch_batch_count = 0
         raw_loss_accumulator = ScalarMeanAccumulator()
         geometry_interval_accumulator = GeometryIntervalAccumulator()
+        mixup_epoch_counts = {}
         gradient_cfg = self.cfg.get('gradient_monitoring', {})
         gradient_monitor = (
             GradientMonitor(
@@ -560,6 +657,9 @@ class Trainer(object):
                     calibs = calibs.to(self.device)
                     for key in targets.keys():
                         targets[key] = targets[key].to(self.device)
+                mixup_batch_counts = collect_mixup_counts(targets)
+                mixup_epoch_counts = add_mixup_counts(
+                    mixup_epoch_counts, mixup_batch_counts)
                 img_sizes = targets.get(
                     'model_image_size', targets['img_size'])
                 targets = self.prepare_targets(targets, inputs.shape[0])
@@ -633,6 +733,8 @@ class Trainer(object):
                         raw_values, weight_dict,
                         scope='训练中每5批',
                         final_query_label='全部11组'))
+                    swanlab_payload.update(mixup_monitor_payload(
+                        mixup_batch_counts, scope='训练中每5批'))
                     if geometry_receipt is not None:
                         count_keys = (
                             'matched_count', 'unique_matched_car_count',
@@ -755,6 +857,7 @@ class Trainer(object):
             'mean_raw_losses': raw_loss_accumulator.finalize(),
             'geometry_interval': geometry_interval_accumulator.finalize(),
             'gradient_monitoring': gradient_summary,
+            'mixup_counts': mixup_epoch_counts,
         }
         self.logger.info(
             "Train epoch completed: epoch=%d/%d, batches=%d, "

@@ -27,6 +27,12 @@ dataset:
   random_flip: 0.5
   random_crop: 0.5
   random_mixup3d: 0.5
+  # Opt-in camera-normalized MixUp. Historical experiments keep exact-P2
+  # donor matching; the cross-focal path requires full_p2_projection.
+  cross_focal_mixup: False
+  mixup_valid_mask_threshold: 0.999
+  mixup_min_object_valid_ratio: 0.999
+  mixup_max_attempts: 50
   scale: 0.05
   shift: 0.05
   depth_scale: 'normal'

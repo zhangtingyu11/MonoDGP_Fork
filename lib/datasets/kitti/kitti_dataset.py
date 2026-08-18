@@ -5,7 +5,6 @@ from PIL import Image, ImageFile, ImageEnhance
 import random
 from skimage import io
 import skimage.transform
-import cv2
 import torch.nn.functional as F
 import torch
 
@@ -30,6 +29,13 @@ from lib.datasets.kitti.kitti_utils import get_objects_from_label
 from lib.datasets.kitti.kitti_utils import Calibration
 from lib.datasets.kitti.kitti_utils import get_affine_transform
 from lib.datasets.kitti.kitti_utils import affine_transform
+from lib.datasets.kitti.mixup_geometry import (
+    camera_normalized_mixup_geometry,
+    merge_mixup_object_regions,
+    mixup_box_valid_ratio,
+    transform_projective_box,
+    warp_and_blend_mixup,
+)
 from lib.datasets.kitti.kitti_eval_python.eval import get_official_eval_result
 from lib.datasets.kitti.kitti_eval_python.eval import get_distance_eval_result
 import lib.datasets.kitti.kitti_eval_python.kitti_common as kitti
@@ -88,6 +94,22 @@ class KITTI_Dataset(data.Dataset):
             cfg.get('full_p2_projection', False))
         
         self.random_mixup3d = cfg.get('random_mixup3d', 0.5)
+        self.cross_focal_mixup = bool(cfg.get('cross_focal_mixup', False))
+        self.mixup_valid_mask_threshold = float(
+            cfg.get('mixup_valid_mask_threshold', 0.999))
+        self.mixup_min_object_valid_ratio = float(
+            cfg.get('mixup_min_object_valid_ratio', 0.999))
+        self.mixup_max_attempts = int(cfg.get('mixup_max_attempts', 50))
+        if self.cross_focal_mixup and not self.full_p2_projection:
+            raise ValueError(
+                'cross_focal_mixup requires full_p2_projection=true')
+        if not 0.0 <= self.mixup_valid_mask_threshold <= 1.0:
+            raise ValueError('mixup_valid_mask_threshold must be in [0, 1]')
+        if not 0.0 <= self.mixup_min_object_valid_ratio <= 1.0:
+            raise ValueError(
+                'mixup_min_object_valid_ratio must be in [0, 1]')
+        if self.mixup_max_attempts <= 0:
+            raise ValueError('mixup_max_attempts must be positive')
         self.random_flip = cfg.get('random_flip', 0.5)
         self.random_crop = cfg.get('random_crop', 0.5)
         self.scale = cfg.get('scale', 0.4)
@@ -244,12 +266,28 @@ class KITTI_Dataset(data.Dataset):
         crop_size, crop_scale = img_size, 1
         random_flip_flag, random_crop_flag = False, False
         random_mix_flag = False
+        mixup_requested = 0.0
+        mixup_applied = 0.0
+        mixup_cross_focal = 0.0
+        mixup_valid_ratio = 0.0
+        mixup_attempts = 0.0
+        mixup_reject_capacity = 0.0
+        mixup_reject_geometry = 0.0
+        mixup_reject_no_overlap = 0.0
+        mixup_reject_partial_object = 0.0
+        mixup_focal_scale_x = 0.0
+        mixup_focal_scale_y = 0.0
+        mixup_donor_image = None
+        mixup_homography = None
+        mixup_objects = None
+        mixup_valid_mask = None
         calib = self.get_calib(index)
 
         if self.data_augmentation:
 
             if np.random.random() < self.random_mixup3d:
                 random_mix_flag = True
+                mixup_requested = 1.0
                       
             if self.aug_pd:
                 img = np.array(img).astype(np.float32)
@@ -271,42 +309,128 @@ class KITTI_Dataset(data.Dataset):
         if random_mix_flag == True:
             count_num = 0
             random_mix_flag = False
-            while count_num < 50:
+            primary_objects = self.get_label(index)
+            while count_num < self.mixup_max_attempts:
                 count_num += 1
                 random_index = int(np.random.choice(self.idx_list))
                 calib_temp = self.get_calib(random_index)
-                
-                if self._mixup_calibrations_match(calib, calib_temp):
-                    img_temp = self.get_image(random_index)
-                    img_size_temp = np.array(img_temp.size)
-                    dst_W_temp, dst_H_temp = img_size_temp
-                    if dst_W_temp == dst_W and dst_H_temp == dst_H:
-                        objects_1 = self.get_label(index)
-                        objects_2 = self.get_label(random_index)
-                        if len(objects_1) + len(objects_2) < self.max_objs: 
-                            random_mix_flag = True
-                            if random_flip_flag == True:
-                                img_temp = img_temp.transpose(Image.FLIP_LEFT_RIGHT)
-                            img_blend = Image.blend(img, img_temp, alpha=0.5)
-                            img = img_blend
-                            break
+                if (not self.cross_focal_mixup
+                        and not self._mixup_calibrations_match(
+                            calib, calib_temp)):
+                    continue
+                img_temp = self.get_image(random_index)
+                img_size_temp = np.array(img_temp.size)
+                if (not self.cross_focal_mixup
+                        and not np.array_equal(img_size_temp, img_size)):
+                    continue
+                objects_2 = self.get_label(random_index)
+                if len(primary_objects) + len(objects_2) >= self.max_objs:
+                    mixup_reject_capacity += 1.0
+                    continue
+
+                is_cross_focal = (
+                    self.cross_focal_mixup
+                    and not np.array_equal(calib.P2, calib_temp.P2))
+                if is_cross_focal:
+                    try:
+                        homography, translation = (
+                            camera_normalized_mixup_geometry(
+                                calib.P2, calib_temp.P2))
+                        transformed_objects = copy.deepcopy(objects_2)
+                        for object_2 in transformed_objects:
+                            object_2.box2d = transform_projective_box(
+                                object_2.box2d, homography)
+                            object_2.pos = (
+                                object_2.pos.astype(np.float64)
+                                + translation).astype(np.float32)
+                            object_2.dis_to_cam = np.linalg.norm(object_2.pos)
+                    except ValueError:
+                        mixup_reject_geometry += 1.0
+                        continue
+                    mixup_donor_image = img_temp
+                    mixup_homography = homography
+                    mixup_objects = transformed_objects
+                    mixup_cross_focal = 1.0
+                    mixup_focal_scale_x = float(
+                        abs(calib.fu / calib_temp.fu))
+                    mixup_focal_scale_y = float(
+                        abs(calib.fv / calib_temp.fv))
+                else:
+                    mixup_objects = objects_2
+                    if random_flip_flag == True:
+                        img_temp = img_temp.transpose(Image.FLIP_LEFT_RIGHT)
+                    img = Image.blend(img, img_temp, alpha=0.5)
+                    mixup_applied = 1.0
+                    mixup_valid_ratio = 1.0
+                    mixup_focal_scale_x = 1.0
+                    mixup_focal_scale_y = 1.0
+                random_mix_flag = True
+                break
+            mixup_attempts = float(count_num)
                             
         # add affine transformation for 2d images.
         trans, trans_inv = get_affine_transform(center, crop_size, 0, self.resolution, inv=1)
+        affine_h = np.eye(3, dtype=np.float32)
+        affine_h[:2] = trans.astype(np.float32, copy=False)
+        affine_inv_h = np.eye(3, dtype=np.float32)
+        affine_inv_h[:2] = trans_inv.astype(np.float32, copy=False)
         img = img.transform(tuple(self.resolution.tolist()),
                             method=Image.AFFINE,
                             data=tuple(trans_inv.reshape(-1).tolist()),
                             resample=Image.BILINEAR)
 
+        if random_mix_flag and mixup_homography is not None:
+            image_flip_h = np.eye(3, dtype=np.float64)
+            if random_flip_flag:
+                image_flip_h[0, 0] = -1.0
+                image_flip_h[0, 2] = float(img_size[0])
+            donor_to_input = (
+                affine_h.astype(np.float64)
+                @ image_flip_h @ mixup_homography)
+            blended, mixup_valid_mask, _ = warp_and_blend_mixup(
+                np.asarray(img), np.asarray(mixup_donor_image),
+                donor_to_input, self.resolution,
+                valid_threshold=self.mixup_valid_mask_threshold)
+            if np.any(mixup_valid_mask):
+                has_partial_object = False
+                for original_object, transformed_object in zip(
+                        objects_2, mixup_objects):
+                    if transformed_object.cls_type not in self.writelist:
+                        continue
+                    if (transformed_object.level_str == 'UnKnown'
+                            or transformed_object.pos[-1] < 2):
+                        continue
+                    final_box = transform_projective_box(
+                        original_object.box2d, donor_to_input)
+                    valid_ratio = mixup_box_valid_ratio(
+                        final_box, mixup_valid_mask)
+                    if (0.0 < valid_ratio
+                            < self.mixup_min_object_valid_ratio):
+                        has_partial_object = True
+                        break
+                if has_partial_object:
+                    random_mix_flag = False
+                    mixup_objects = None
+                    mixup_reject_partial_object += 1.0
+                    mixup_cross_focal = 0.0
+                    mixup_focal_scale_x = 0.0
+                    mixup_focal_scale_y = 0.0
+                else:
+                    img = Image.fromarray(blended)
+                    mixup_applied = 1.0
+                    mixup_valid_ratio = float(mixup_valid_mask.mean())
+            else:
+                random_mix_flag = False
+                mixup_objects = None
+                mixup_reject_no_overlap += 1.0
+                mixup_cross_focal = 0.0
+                mixup_focal_scale_x = 0.0
+                mixup_focal_scale_y = 0.0
+
         # image encoding
         img = np.array(img).astype(np.float32) / 255.0
         img = (img - self.mean) / self.std
         img = img.transpose(2, 0, 1)  # C * H * W
-
-        affine_h = np.eye(3, dtype=np.float32)
-        affine_h[:2] = trans.astype(np.float32, copy=False)
-        affine_inv_h = np.eye(3, dtype=np.float32)
-        affine_inv_h[:2] = trans_inv.astype(np.float32, copy=False)
 
         info = {'img_id': index,
                 'img_size': img_size,
@@ -374,6 +498,9 @@ class KITTI_Dataset(data.Dataset):
         boxes_3d = np.zeros((self.max_objs, 6), dtype=np.float32)
 
         obj_region = np.zeros((img.shape[1], img.shape[2]), dtype=bool) # (H, W)
+        mixup_obj_region = (
+            np.zeros_like(obj_region)
+            if random_mix_flag and mixup_cross_focal else None)
 
         object_num = len(objects) if len(objects) < self.max_objs else self.max_objs
 
@@ -503,7 +630,7 @@ class KITTI_Dataset(data.Dataset):
             
         if random_mix_flag == True:
             # if False:
-                objects = self.get_label(random_index)
+                objects = mixup_objects
                 # data augmentation for labels
                 if random_flip_flag:
                     physical_flip = (
@@ -532,8 +659,14 @@ class KITTI_Dataset(data.Dataset):
                     # process 3d center
                     center_2d = np.array([(bbox_2d[0] + bbox_2d[2]) / 2, (bbox_2d[1] + bbox_2d[3]) / 2], dtype=np.float32)  # W * H
                     
-                    # create object region
-                    paint_clipped_box(obj_region, bbox_2d)
+                    # Keep cross-focal donor regions separate until they can
+                    # be intersected with the exact RGB warp support.  The
+                    # same-camera path retains the historical full-frame
+                    # binary-union target.
+                    paint_clipped_box(
+                        mixup_obj_region
+                        if mixup_obj_region is not None else obj_region,
+                        bbox_2d)
 
                     corner_2d = bbox_2d.copy()
 
@@ -556,6 +689,12 @@ class KITTI_Dataset(data.Dataset):
                         proj_inside_img = False
 
                     if proj_inside_img == False:
+                            continue
+                    if (self.cross_focal_mixup
+                            and mixup_valid_mask is not None):
+                        center_x = int(np.floor(center_3d[0]))
+                        center_y = int(np.floor(center_3d[1]))
+                        if not mixup_valid_mask[center_y, center_x]:
                             continue
 
                     # class
@@ -632,6 +771,10 @@ class KITTI_Dataset(data.Dataset):
                     
                     calibs[i + object_num] = model_calib
 
+        if mixup_obj_region is not None:
+            obj_region = merge_mixup_object_regions(
+                obj_region, mixup_obj_region, mixup_valid_mask)
+
         # collect return data
         inputs = img
         
@@ -668,6 +811,24 @@ class KITTI_Dataset(data.Dataset):
             targets['physical_ray_heading'] = np.bool_(True)
             targets['model_image_size'] = self.resolution.astype(
                 np.float32, copy=True)
+        if self.cross_focal_mixup:
+            targets.update({
+                'mixup_requested': np.float32(mixup_requested),
+                'mixup_applied': np.float32(mixup_applied),
+                'mixup_cross_focal': np.float32(mixup_cross_focal),
+                'mixup_valid_ratio': np.float32(mixup_valid_ratio),
+                'mixup_attempts': np.float32(mixup_attempts),
+                'mixup_reject_capacity': np.float32(
+                    mixup_reject_capacity),
+                'mixup_reject_geometry': np.float32(
+                    mixup_reject_geometry),
+                'mixup_reject_no_overlap': np.float32(
+                    mixup_reject_no_overlap),
+                'mixup_reject_partial_object': np.float32(
+                    mixup_reject_partial_object),
+                'mixup_focal_scale_x': np.float32(mixup_focal_scale_x),
+                'mixup_focal_scale_y': np.float32(mixup_focal_scale_y),
+            })
 
         return inputs, model_calib, targets, info
 

@@ -1,0 +1,18 @@
+base_config: monodgp_exp30.yaml
+
+model_name: 'V2-0031_相机归一化跨焦距MixUp'
+
+dataset:
+  # Keep Experiment 30 geometry and the historical 0.5 MixUp probability,
+  # but remove exact-P2 donor restriction. Donor pixels and labels are mapped
+  # into the recipient camera; only fully supported warped pixels are blended.
+  cross_focal_mixup: true
+  mixup_valid_mask_threshold: 0.999
+  mixup_min_object_valid_ratio: 0.999
+  mixup_max_attempts: 50
+
+trainer:
+  swanlab:
+    experiment_name: '实验31_相机归一化跨焦距MixUp'
+    description: '严格基于实验30从头训练，只将同P2 MixUp扩展为相机归一化跨焦距MixUp：用完整P2解析供体到当前相机的像素单应和三维平移，统一变换供体图像、二维框与三维位置；最终输入中仅warp支持掩码大于0.999的像素按0.5混合，其他像素保持主图；供体Car只要部分落入有效区便取消该样本MixUp且不重选供体，完整位于区外则忽略、完整位于区内才保留；MixUp概率、其他增强、质量头、损失、匹配、排序、NMS和训练日程不变，并记录请求率、成功率、有效覆盖率、焦距倍率、重试和失败原因'
+    tags: ['实验31', 'KITTI', '跨焦距MixUp', '相机归一化', '完整P2']

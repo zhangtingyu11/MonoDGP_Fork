@@ -107,6 +107,8 @@ def main():
         'best选择：无NMS Car_3d_moderate_R40；排序分数=' + str(
             cfg['tester'].get('primary_quality_score', '历史默认')),
         f"验证置信度门槛：{cfg['tester']['threshold']}",
+        '跨焦距供体目标最小有效覆盖率：' + str(
+            cfg['dataset'].get('mixup_min_object_valid_ratio', '未配置')),
         'best刷新时BEV NMS阈值：' + ','.join(map(
             str, cfg['tester'].get('best_refresh_bev_nms_thresholds', ()))),
         f"命令：{args.command}",
@@ -120,6 +122,7 @@ def main():
     quality_files = (
         ROOT_DIR / 'lib/datasets/kitti/kitti_dataset.py',
         ROOT_DIR / 'lib/datasets/kitti/kitti_utils.py',
+        ROOT_DIR / 'lib/datasets/kitti/mixup_geometry.py',
         ROOT_DIR / 'lib/helpers/decode_helper.py',
         ROOT_DIR / 'lib/helpers/tester_helper.py',
         ROOT_DIR / 'lib/helpers/trainer_helper.py',
