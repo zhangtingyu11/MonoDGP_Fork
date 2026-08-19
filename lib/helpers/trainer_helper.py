@@ -252,8 +252,15 @@ def quality_ranking_payload(summary):
             'one_to_one_query_rank_p90': (
                 '全局一对一IoU分配query排名P90'),
             'top1_identity_fraction': 'Top1与最优query一致率',
+            'top3_identity_fraction': '最优query进入Top3比例',
             'top1_iou_regret': 'Top1三维IoU遗憾',
+            'pairwise_order_accuracy_gap_ge_0_1': (
+                'IoU差至少0.1候选对排序正确率'),
+            'pairwise_order_pair_count_gap_ge_0_1': (
+                'IoU差至少0.1候选对数'),
             'high_quality_count': '存在IoU至少0.7好query的GT数',
+            'high_quality_top1_iou_ge_0_7_fraction': (
+                '存在好query时Top1仍达IoU0.7比例'),
             'high_quality_best_top1_recall': (
                 'IoU至少0.7最优query进入Top1比例'),
             'high_quality_best_top3_recall': (

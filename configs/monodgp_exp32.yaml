@@ -1,0 +1,26 @@
+base_config: monodgp_exp31.yaml
+
+model_name: 'V2-0032_全query同GT三维IoU质量排序'
+
+model:
+  iou_quality_head:
+    # Experiment 31 supervises only Hungarian positives. Experiment 32 keeps
+    # the same head and inference score, but aligns quality training with the
+    # actual within-target query selection decision.
+    supervision: all_query_same_gt_ranking
+    loss_coef: 1.0
+    point_loss_coef: 1.0
+    rank_loss_coef: 0.2
+    ranking_iou_gap: 0.1
+    # Most queries have essentially zero overlap. Retain their negative signal
+    # without allowing them to dominate the much rarer useful candidates. Use
+    # a continuous ramp so crossing IoU 0.1 cannot cause a tenfold loss jump.
+    low_iou_threshold: 0.1
+    low_iou_weight: 0.1
+    full_weight_iou: 0.5
+
+trainer:
+  swanlab:
+    experiment_name: '实验32_全query同GT三维IoU质量排序'
+    description: '严格基于实验31从头训练，只修改质量头监督：最终层和两个辅助3D Decoder层的全11组×50个query都以对所有GT的最大精确3D IoU为点式目标；IoU不超过0.1时点式权重为0.1，0.1至0.5连续线性升至1，达到0.5后保持1，避免阈值跳变。每个query归给最大IoU对应GT，只在同一查询组、同一归属GT内对IoU差至少0.1的query对计算排序Loss，点式与排序系数为1.0和0.2；IoU目标detach，质量头输入不detach。不改实验31的跨焦距MixUp、Hungarian、分类/回归Loss、推理c×q×d、top-50、NMS或训练日程，新增排序对正确率、Top-3、IoU遗憾、各IoU区间和质量头梯度监控'
+    tags: ['实验32', 'KITTI', '全query质量监督', '同GT排序', '跨焦距MixUp']

@@ -130,6 +130,7 @@ def main():
         ROOT_DIR / 'lib/helpers/swanlab_helper.py',
         ROOT_DIR / 'lib/helpers/gradient_monitor.py',
         ROOT_DIR / 'lib/losses/asymmetric_interval_depth_loss.py',
+        ROOT_DIR / 'lib/losses/query_quality_ranking_loss.py',
         ROOT_DIR / 'lib/models/monodgp/iou3d_match_cost.py',
     )
     receipt.extend(
@@ -152,6 +153,19 @@ def main():
             quality_cfg.get('enabled', False))),
         '质量Loss权重：' + str(
             quality_cfg.get('loss_coef', '未配置')),
+        '质量监督模式：' + str(
+            quality_cfg.get('supervision', 'hungarian_positive')),
+        '全query点式Loss系数：' + str(
+            quality_cfg.get('point_loss_coef', '未配置')),
+        '同GT排序Loss系数：' + str(
+            quality_cfg.get('rank_loss_coef', '未配置')),
+        '排序query对最小IoU差：' + str(
+            quality_cfg.get('ranking_iou_gap', '未配置')),
+        '低IoU点式监督阈值/权重：' + str(
+            quality_cfg.get('low_iou_threshold', '未配置')) + '/'
+            + str(quality_cfg.get('low_iou_weight', '未配置')),
+        '点式监督达到满权重的IoU：' + str(
+            quality_cfg.get('full_weight_iou', '未配置')),
         '质量目标编码：' + str(
             quality_cfg.get('target_encoding', '未配置')),
         '质量头独立初始化种子：' + str(

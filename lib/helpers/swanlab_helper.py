@@ -49,6 +49,8 @@ LOSS_CHINESE_NAMES = {
     'loss_depth_map': '密集深度图损失',
     'loss_region': '物体区域损失',
     'loss_quality': '三维IoU质量回归损失',
+    'loss_quality_point': '全query三维IoU点式损失',
+    'loss_quality_rank': '同GT候选query排序损失',
 }
 
 LOSS_DIAGNOSTIC_CHINESE_NAMES = {
@@ -103,6 +105,17 @@ LOSS_DIAGNOSTIC_CHINESE_NAMES = {
     'monitor_quality_iou_mae': '质量头预测三维IoU绝对误差',
     'monitor_quality_target_iou_mean': '质量头监督目标三维IoU均值',
     'monitor_quality_predicted_iou_mean': '质量头预测三维IoU均值',
+    'monitor_quality_rank_pair_count': '同GT有效排序query对数',
+    'monitor_quality_rank_pair_accuracy': '同GT有效query对排序正确率',
+    'monitor_quality_point_effective_weight_mean': (
+        '全query点式监督平均有效权重'),
+    'monitor_quality_iou_lt_0_1_fraction': 'query最大IoU小于0.1比例',
+    'monitor_quality_iou_0_1_to_0_5_fraction': (
+        'query最大IoU介于0.1至0.5比例'),
+    'monitor_quality_iou_0_5_to_0_7_fraction': (
+        'query最大IoU介于0.5至0.7比例'),
+    'monitor_quality_iou_ge_0_7_fraction': (
+        'query最大IoU大于等于0.7比例'),
 }
 
 _IOU3D_MATCHING_DIAGNOSTICS = {
@@ -143,6 +156,13 @@ _ONLINE_FINAL_DIAGNOSTICS = {
     'monitor_quality_iou_mae',
     'monitor_quality_target_iou_mean',
     'monitor_quality_predicted_iou_mean',
+    'monitor_quality_rank_pair_count',
+    'monitor_quality_rank_pair_accuracy',
+    'monitor_quality_point_effective_weight_mean',
+    'monitor_quality_iou_lt_0_1_fraction',
+    'monitor_quality_iou_0_1_to_0_5_fraction',
+    'monitor_quality_iou_0_5_to_0_7_fraction',
+    'monitor_quality_iou_ge_0_7_fraction',
 }
 
 _ONLINE_GROUP0_DIAGNOSTICS = {
@@ -205,7 +225,8 @@ def chinese_grouped_monitoring(raw_losses, weight_dict, scope,
     result = {}
     final_query_keys = {
         'loss_ce', 'loss_bbox', 'loss_giou', 'loss_dim', 'loss_angle',
-        'loss_depth', 'loss_center', 'loss_quality'}
+        'loss_depth', 'loss_center', 'loss_quality',
+        'loss_quality_point', 'loss_quality_rank'}
     shared_keys = {'loss_depth_map', 'loss_region'}
     final_query_total = 0.0
     full_total = 0.0

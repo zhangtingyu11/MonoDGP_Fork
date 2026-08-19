@@ -20,6 +20,8 @@ from .depth_predictor.ddn_loss import DDNLoss
 from lib.losses.focal_loss import sigmoid_focal_loss
 from lib.losses.asymmetric_interval_depth_loss import (
     asymmetric_interval_and_uncertainty_loss)
+from lib.losses.query_quality_ranking_loss import (
+    all_query_quality_ranking_loss)
 from .position_encoding import PositionEmbeddingCamRay
 
 
@@ -645,6 +647,24 @@ class SetCriterion(nn.Module):
             quality_cfg.get('enabled', False))
         self.iou_quality_target_encoding = quality_cfg.get(
             'target_encoding', 'cia_ssd')
+        self.iou_quality_supervision = quality_cfg.get(
+            'supervision', 'hungarian_positive')
+        supported_quality_supervision = {
+            'hungarian_positive', 'all_query_same_gt_ranking'}
+        if (self.iou_quality_head_enabled
+                and self.iou_quality_supervision
+                not in supported_quality_supervision):
+            raise ValueError(
+                'unsupported IoU quality supervision: '
+                f'{self.iou_quality_supervision}')
+        self.iou_quality_ranking_iou_gap = float(
+            quality_cfg.get('ranking_iou_gap', 0.1))
+        self.iou_quality_low_iou_threshold = float(
+            quality_cfg.get('low_iou_threshold', 0.1))
+        self.iou_quality_low_iou_weight = float(
+            quality_cfg.get('low_iou_weight', 0.1))
+        self.iou_quality_full_weight_iou = float(
+            quality_cfg.get('full_weight_iou', 0.5))
         if (self.iou_quality_head_enabled
                 and self.iou_quality_target_encoding != 'cia_ssd'):
             raise ValueError(
@@ -1068,7 +1088,7 @@ class SetCriterion(nn.Module):
         return losses
 
     def loss_quality(self, outputs, targets, indices, num_boxes):
-        """Regress exact 3D IoU for the current Hungarian-positive pairs.
+        """Supervise the configured exact-3D-IoU quality objective.
 
         The exact IoU values are numerical supervision supplied by the
         matcher.  Predictions retain their complete gradient path through
@@ -1082,6 +1102,15 @@ class SetCriterion(nn.Module):
         if iou3d.shape[:2] != outputs['pred_quality'].shape[:2]:
             raise ValueError('matcher 3D-IoU matrix does not match quality')
 
+        if self.iou_quality_supervision == 'all_query_same_gt_ranking':
+            return all_query_quality_ranking_loss(
+                outputs['pred_quality'], iou3d,
+                tuple(len(target['labels']) for target in targets),
+                group_num=(self.group_num if self.training else 1),
+                ranking_iou_gap=self.iou_quality_ranking_iou_gap,
+                low_iou_threshold=self.iou_quality_low_iou_threshold,
+                low_iou_weight=self.iou_quality_low_iou_weight,
+                full_weight_iou=self.iou_quality_full_weight_iou)
         predictions = []
         targets_iou = []
         for batch_index, (source_index, target_index) in enumerate(indices):
@@ -1402,8 +1431,18 @@ def build(cfg):
     quality_cfg = cfg.get('iou_quality_head') or {}
     quality_enabled = bool(quality_cfg.get('enabled', False))
     if quality_enabled:
-        weight_dict['loss_quality'] = float(
-            quality_cfg.get('loss_coef', 1.0))
+        quality_loss_coef = float(quality_cfg.get('loss_coef', 1.0))
+        quality_supervision = quality_cfg.get(
+            'supervision', 'hungarian_positive')
+        if quality_supervision == 'all_query_same_gt_ranking':
+            weight_dict['loss_quality_point'] = (
+                quality_loss_coef
+                * float(quality_cfg.get('point_loss_coef', 1.0)))
+            weight_dict['loss_quality_rank'] = (
+                quality_loss_coef
+                * float(quality_cfg.get('rank_loss_coef', 0.2)))
+        else:
+            weight_dict['loss_quality'] = quality_loss_coef
 
     if cfg['aux_loss']:
         aux_weight_dict = {}

@@ -148,8 +148,12 @@ class QualityRankingAccumulator:
                 best_ranks = []
                 one_to_one_ranks = []
                 identities = []
+                top3_identities = []
                 regrets = []
                 best_ious = []
+                selected_top1_ious = []
+                ordered_pair_count = 0
+                ordered_pair_correct = 0
                 for row in rows:
                     scores = row['scores'][score_name]
                     order = np.argsort(-scores, kind='stable')
@@ -161,13 +165,31 @@ class QualityRankingAccumulator:
                         int(np.flatnonzero(
                             order == one_to_one_query)[0]) + 1)
                     identities.append(int(order[0] == best_query))
+                    top3_identities.append(int(best_query in order[:3]))
                     target_iou = row['target_iou']
+                    selected_top1_ious.append(float(target_iou[order[0]]))
                     regrets.append(float(
                         row['best_iou'] - target_iou[order[0]]))
                     best_ious.append(row['best_iou'])
+                    iou_difference = (
+                        target_iou[:, None] - target_iou[None, :])
+                    valid_pair = (
+                        np.triu(np.ones_like(
+                            iou_difference, dtype=bool), k=1)
+                        & (np.abs(iou_difference) >= 0.1))
+                    if np.any(valid_pair):
+                        score_difference = (
+                            scores[:, None] - scores[None, :])
+                        signed_difference = (
+                            np.sign(iou_difference[valid_pair])
+                            * score_difference[valid_pair])
+                        ordered_pair_count += int(valid_pair.sum())
+                        ordered_pair_correct += int(
+                            np.count_nonzero(signed_difference > 0))
                 best_ranks = np.asarray(best_ranks)
                 one_to_one_ranks = np.asarray(one_to_one_ranks)
                 best_ious = np.asarray(best_ious)
+                selected_top1_ious = np.asarray(selected_top1_ious)
                 high_quality = best_ious >= 0.7
                 high_quality_count = int(high_quality.sum())
                 high_quality_ranks = best_ranks[high_quality]
@@ -183,8 +205,19 @@ class QualityRankingAccumulator:
                     'one_to_one_query_rank_p90': float(
                         np.quantile(one_to_one_ranks, 0.9)),
                     'top1_identity_fraction': float(np.mean(identities)),
+                    'top3_identity_fraction': float(
+                        np.mean(top3_identities)),
                     'top1_iou_regret': float(np.mean(regrets)),
+                    'pairwise_order_accuracy_gap_ge_0_1': (
+                        float(ordered_pair_correct / ordered_pair_count)
+                        if ordered_pair_count else 0.0),
+                    'pairwise_order_pair_count_gap_ge_0_1': (
+                        ordered_pair_count),
                     'high_quality_count': high_quality_count,
+                    'high_quality_top1_iou_ge_0_7_fraction': (
+                        float(np.mean(
+                            selected_top1_ious[high_quality] >= 0.7))
+                        if high_quality_count else 0.0),
                     'high_quality_best_top1_recall': (
                         float(np.mean(high_quality_ranks <= 1))
                         if high_quality_count else 0.0),

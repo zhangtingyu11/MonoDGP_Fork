@@ -6,6 +6,7 @@ import torch
 
 
 MODULE_CHINESE_NAMES = {
+    'iou_quality_head': '三维IoU质量头',
     'prediction_heads': '预测头',
     'backbone': '骨干网络',
     'depth_predictor': '深度预测器',
@@ -47,8 +48,10 @@ class GradientMonitor:
         claimed = set()
         prediction_modules = [getattr(model, name, None) for name in (
             'class_embed', 'bbox_embed', 'dim_embed_3d', 'angle_embed',
-            'depth_embed', 'iou_quality_embed', 'query_embed')]
+            'depth_embed', 'query_embed')]
         specifications = (
+            ('iou_quality_head', [
+                getattr(model, 'iou_quality_embed', None)]),
             ('prediction_heads', prediction_modules),
             ('backbone', [getattr(model, 'backbone', None)]),
             ('depth_predictor', [getattr(model, 'depth_predictor', None)]),

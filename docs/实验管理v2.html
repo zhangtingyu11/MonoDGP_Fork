@@ -577,22 +577,22 @@
       <h1>实验总览 v2</h1>
       <p>实验总账的可视化索引。每项实验单独记录目的、对比条件、执行过程和客观结果，方便后续持续追加。</p>
       <div class="hero-meta">
-        <span class="pill"><span class="status-dot"></span>31 项实验已记录</span>
+        <span class="pill"><span class="status-dot"></span>32 项实验已记录</span>
         <span class="pill">数据来源：实验总账v2</span>
-        <span class="pill">更新日期：2026-08-18</span>
+        <span class="pill">更新日期：2026-08-19</span>
       </div>
     </header>
 
     <section class="top-grid" aria-label="全局摘要">
       <article class="summary-card">
         <span class="label">正式实验</span>
-        <strong>31 项</strong>
+        <strong>32 项</strong>
         <small>从 v2 重新编号</small>
       </article>
       <article class="summary-card">
         <span class="label">最新状态</span>
-        <strong>31 训练中</strong>
-        <small>30刷新正式最优；31只有阶段结果</small>
+        <strong>32 已停止</strong>
+        <small>31作为后续基线；32中途停止</small>
       </article>
       <article class="summary-card">
         <span class="label">实验类型</span>
@@ -601,7 +601,7 @@
       </article>
       <article class="summary-card">
         <span class="label">当前编号</span>
-        <strong>01—31</strong>
+        <strong>01—32</strong>
         <small>后续实验继续追加</small>
       </article>
     </section>
@@ -739,7 +739,11 @@
         </button>
         <button class="nav-button" data-target="exp31" type="button">
           <span class="nav-index">31</span>
-          <span class="nav-copy"><strong>跨焦距MixUp</strong><small>训练中·阶段记录</small></span>
+          <span class="nav-copy"><strong>跨焦距MixUp</strong><small>完整250轮·后续基线</small></span>
+        </button>
+        <button class="nav-button" data-target="exp32" type="button">
+          <span class="nav-index">32</span>
+          <span class="nav-copy"><strong>全query硬排序</strong><small>第88轮停止·未采用</small></span>
         </button>
       </nav>
 
@@ -868,7 +872,8 @@
               <div class="truth"><span class="number">28</span><h3>高IoU负分类软忽略加零门槛</h3><p>组合实验25训练方法与实验26验证口径，完整训练250轮；结果低于实验26，实验专用代码已回退。</p></div>
               <div class="truth"><span class="number">29</span><h3>3D IoU质量头与query排序</h3><p>只给一对一正匹配query增加质量回归；质量相关性提高，但没有稳定选中最优query，也未超过实验26。</p></div>
               <div class="truth"><span class="number">30</span><h3>完整P2数据增强几何修正</h3><p>统一仿射后P2、物理Z深度、验证逆变换与物理翻转；无NMS中等best刷24.7963，成为新基线。</p></div>
-              <div class="truth"><span class="number">31</span><h3>相机归一化跨焦距MixUp</h3><p>将供体RGB与标签warp到主图相机，仅在完全有效支持中混合；当前仍在训练，页面数值只是阶段快照。</p></div>
+              <div class="truth"><span class="number">31</span><h3>相机归一化跨焦距MixUp</h3><p>完整训练250轮；误差改善没有被分类与排序分数转化成AP，保留为实验32/33的方法基线。</p></div>
+              <div class="truth"><span class="number">32</span><h3>全query同GT硬间隔质量排序</h3><p>全部query做点式IoU回归并对IoU差至少0.1的同GT候选逐对排序；易背景对主导，第88轮后停止。</p></div>
             </div>
           </article>
 
@@ -994,11 +999,12 @@
               </div>
               <div class="mini-card good"><h3>实验 29：对照实验26</h3><p>只增加一对一正匹配query的3D IoU质量头和排序融合，其他训练口径不变。</p></div>
               <div class="mini-card good"><h3>实验 30：对照实验29</h3><p>保留质量头与排序，只统一数据增强、深度和解码中的完整P2几何。</p></div>
-              <div class="mini-card"><h3>实验 31：对照实验30</h3><p>只将同P2 MixUp扩展为相机归一化跨焦距MixUp；训练尚未完成。</p></div>
+              <div class="mini-card"><h3>实验 31：对照实验30</h3><p>只将同P2 MixUp扩展为相机归一化跨焦距MixUp；误差改善未转化为AP，作为实验32/33继续修正排序的基础。</p></div>
+              <div class="mini-card"><h3>实验 32：对照实验31</h3><p>全部query回归最大3D IoU并增加同GT硬间隔逐对排序；易背景对主导，第88轮后停止。</p></div>
             </div>
             <div class="callout warning" style="margin-top:14px">
               <h4>每项实验只和自己明确的对照比</h4>
-              <p>序号1是B8完整运行栈对比；序号2是B16单组基准；序号3—21记录工程优化、正确性修复与正式基线；序号22—28逐步测试几何、匹配、分类与一对多监督；序号29在实验26上增加3D IoU质量头；序号30在实验29上修正完整P2数据增强几何并成为新基线；序号31严格对照实验30测试跨焦距MixUp，目前还在训练。</p>
+              <p>序号1是B8完整运行栈对比；序号2是B16单组基准；序号3—21记录工程优化、正确性修复与正式基线；序号22—28逐步测试几何、匹配、分类与一对多监督；序号29增加3D IoU质量头；序号30修正完整P2数据增强几何并成为AP性能参考；序号31加入跨焦距MixUp，误差改善但没有转化为AP，作为后续排序实验的方法基线；序号32测试全query硬间隔排序并在第88轮停止。</p>
             </div>
           </article>
         </section>
@@ -3195,10 +3201,10 @@
 
         <section id="exp31" class="content-panel" aria-labelledby="exp31-title">
           <article class="section-card">
-            <div class="section-head"><div><span class="section-kicker">实验 31 · 08-18—进行中</span><h2 id="exp31-title">相机归一化跨焦距MixUp</h2><p class="section-subtitle">一句话：严格基于实验30，只将同P2供体MixUp扩展为几何对齐的跨焦距MixUp；实验尚未结束，以下数值都是阶段快照。</p></div><span class="done-badge" style="background:var(--amber-soft);color:#9a5b00">训练中 · 未定论</span></div>
+            <div class="section-head"><div><span class="section-kicker">实验 31 · 08-18—08-19</span><h2 id="exp31-title">相机归一化跨焦距MixUp</h2><p class="section-subtitle">一句话：严格基于实验30加入几何对齐的跨焦距MixUp；误差改善没有被分类与排序分数转化成AP，后续实验继续以它为基础解决排序问题。</p></div><span class="done-badge">已完成 · 后续基线</span></div>
 
             <div class="condition-grid">
-              <article class="condition-card"><header><strong>对照不变</strong><span>实验30从头训练</span></header><dl><div><dt>MixUp请求概率</dt><dd>仍为0.5</dd></div><div><dt>模型与Loss</dt><dd>质量头、权重、匹配全部不变</dd></div><div><dt>排序</dt><dd>分类 × 质量 × 深度精度</dd></div><div><dt>训练</dt><dd>B16、种子444、计划250轮</dd></div></dl></article>
+              <article class="condition-card"><header><strong>对照不变</strong><span>实验30从头训练</span></header><dl><div><dt>MixUp请求概率</dt><dd>仍为0.5</dd></div><div><dt>模型与Loss</dt><dd>质量头、权重、匹配全部不变</dd></div><div><dt>排序</dt><dd>分类 × 质量 × 深度精度</dd></div><div><dt>训练</dt><dd>B16、种子444、完整250轮</dd></div></dl></article>
               <article class="condition-card new"><header><strong>跨焦距新路径</strong><span>RGB和标签同一几何</span></header><dl><div><dt>相机对齐</dt><dd>完整P2求像素单应和3D平移</dd></div><div><dt>RGB有效区</dt><dd>warp mask &gt; 0.999才参与混合</dd></div><div><dt>部分车辆</dt><dd>取消当次MixUp，不使用残缺监督</dd></div><div><dt>Region/深度</dt><dd>与真实有效mask和保留目标对齐</dd></div></dl></article>
             </div>
 
@@ -3210,26 +3216,58 @@
             </div>
 
             <div class="metric-grid">
-              <div class="metric"><span>训练进度快照</span><strong>已完成156轮</strong><em>21:49进入第157轮</em></div>
-              <div class="metric"><span>当前无NMS中等best</span><strong>23.2934</strong><em>第143轮，非最终</em></div>
-              <div class="metric"><span>当前best三档</span><strong>30.1412 / 23.2934 / 20.2965</strong><em>简单 / 中等 / 困难</em></div>
-              <div class="metric"><span>对实验30同轮</span><strong>+0.4611 / +0.3948 / +0.3784</strong><em>两者都是第143轮</em></div>
-              <div class="metric"><span>BEV NMS 0.7</span><strong>30.1994 / 23.5639 / 20.3512</strong><em>当前best checkpoint</em></div>
-              <div class="metric"><span>BEV NMS 0.8</span><strong>30.3233 / 23.5460 / 20.5958</strong><em>中等略低，困难更高</em></div>
-              <div class="metric"><span>实验30最终best</span><strong>24.7963</strong><em>中等，第222轮</em></div>
-              <div class="metric"><span>SwanLab</span><strong>2i7ic54f</strong><em>正在运行</em></div>
+              <div class="metric"><span>无NMS中等best</span><strong>23.5274</strong><em>第181轮</em></div>
+              <div class="metric"><span>best三档</span><strong>30.4433 / 23.5274 / 20.4582</strong><em>简单 / 中等 / 困难</em></div>
+              <div class="metric"><span>最终第250轮</span><strong>29.5360 / 22.2062 / 19.6263</strong><em>三档Car 3D AP_R40</em></div>
+              <div class="metric"><span>对实验30中等best</span><strong>−1.2689</strong><em>23.5274 对 24.7963</em></div>
+              <div class="metric"><span>BEV NMS 0.8</span><strong>30.5618 / 23.8772 / 20.8519</strong><em>best checkpoint</em></div>
+              <div class="metric"><span>NMS 0.8保留 / 删除</span><strong>172,972 / 15,478</strong><em>原始188,450个</em></div>
+              <div class="metric"><span>质量 / 分类 Spearman</span><strong>0.6282 / 0.5670</strong><em>第250轮全验证集</em></div>
+              <div class="metric"><span>SwanLab</span><strong>2i7ic54f</strong><em>退出码0，正常收尾</em></div>
             </div>
 
-            <div class="table-wrap" style="margin-top:14px"><table><thead><tr><th>比较口径</th><th>实验31</th><th>实验30</th><th>能说明什么</th></tr></thead><tbody><tr><td>同轮第143轮</td><td>30.1412 / 23.2934 / 20.2965</td><td>29.6801 / 22.8986 / 19.9181</td><td>实验31当时的训练轨迹更好</td></tr><tr><td>当前/最终best</td><td>第143轮中等23.2934</td><td>第222轮中等24.7963</td><td>实验31还没有超过成熟基线，但比较不同轮</td></tr><tr><td>一对一IoU oracle</td><td>第143轮中等49.8301</td><td>第222轮中等49.9125</td><td>候选上限接近；使用GT，不是可部署AP</td></tr></tbody></table></div>
+            <div class="table-wrap" style="margin-top:14px"><table><thead><tr><th>比较口径</th><th>实验31</th><th>实验30</th><th>差值</th></tr></thead><tbody><tr><td>无NMS中等best</td><td>23.5274（第181轮）</td><td>24.7963（第222轮）</td><td>−1.2689</td></tr><tr><td>BEV NMS 0.8中等</td><td>23.8772</td><td>25.1490</td><td>−1.2718</td></tr><tr><td>完整训练</td><td>250轮，退出码0</td><td>250轮，退出码0</td><td>同规模正式比较</td></tr></tbody></table></div>
 
-            <div class="callout warning" style="margin-top:14px"><h4>现在只能下的结论</h4><p>跨焦距MixUp在第143轮比实验30同轮高，说明它没有表现为明显失败；但实验30的最终best在第222轮，所以实验31还必须继续训练到250轮并复验best，才能判断是否有最终收益。页面不会把当前第143轮写成实验31最终结果。</p></div>
-            <div class="callout" style="margin-top:14px"><h4>运行与产物</h4><p>tmux会话<code>monodgp_exp31_full_visibility_20260818</code>；日志、滚动/当前best checkpoint、运行清单、分数组合、排序监控和NMS诊断均在<code>outputs/V2-0031_相机归一化跨焦跟MixUp/</code>。完成后需用最终数据替换本阶段快照。</p></div>
+            <div class="callout warning" style="margin-top:14px"><h4>结论：误差改善尚未转化为AP，继续作为后续方法基线</h4><p>第143轮的同期优势没有延续为最终AP优势；无NMS和NMS 0.8中等AP都比实验30低约1.27。但训练与几何误差改善说明它不是被弃用的失败路径，主要问题是分类、质量与深度排序分数没有稳定选中更好的query。实验30继续作为AP性能参考；实验31保留为实验32/33的方法与代码基线，后续只针对质量监督和排序转化继续修改。</p></div>
+            <div class="callout" style="margin-top:14px"><h4>运行与产物</h4><p>日志、最新与best checkpoint、运行清单、退出状态、13种分数组合、排序监控和NMS诊断均在<code>outputs/V2-0031_相机归一化跨焦距MixUp/</code>。</p></div>
+          </article>
+        </section>
+
+        <section id="exp32" class="content-panel" aria-labelledby="exp32-title">
+          <article class="section-card">
+            <div class="section-head"><div><span class="section-kicker">实验 32 · 08-19</span><h2 id="exp32-title">全query同GT硬间隔3D IoU质量排序</h2><p class="section-subtitle">一句话：给全部550个query做连续IoU回归，并在同组同GT内对IoU差至少0.1的候选逐对排序；容易背景对主导了目标，第88轮后停止。</p></div><span class="done-badge" style="background:var(--amber-soft);color:#9a5b00">中途停止 · 未采用</span></div>
+
+            <div class="condition-grid">
+              <article class="condition-card"><header><strong>保持不变</strong><span>严格基于实验31</span></header><dl><div><dt>模型主体</dt><dd>跨焦距MixUp与其他Loss不变</dd></div><div><dt>匹配</dt><dd>原Hungarian不变</dd></div><div><dt>推理</dt><dd>c × q × d、零门槛top-50</dd></div><div><dt>训练</dt><dd>B16、种子444、从头初始化</dd></div></dl></article>
+              <article class="condition-card new"><header><strong>质量监督变化</strong><span>点式 + 硬逐对排序</span></header><dl><div><dt>点式目标</dt><dd>全部query最大精确3D IoU</dd></div><div><dt>query归属</dt><dd>唯一归给最大IoU对应GT</dd></div><div><dt>排序候选</dt><dd>同组同GT、IoU差至少0.1</dd></div><div><dt>Loss系数</dt><dd>点式1.0，排序0.2</dd></div></dl></article>
+            </div>
+
+            <div class="stage-grid" style="margin-top:14px">
+              <article class="stage"><span>01</span><h3>全query回归</h3><p>最终层和两个辅助3D decoder层的全部query回归各自最大IoU，低IoU权重连续变化。</p></article>
+              <article class="stage"><span>02</span><h3>唯一归属GT</h3><p>每个query只进入一个GT的候选池，不会同时接受多个GT的排序监督。</p></article>
+              <article class="stage"><span>03</span><h3>硬间隔逐对</h3><p>只要两个同池query的IoU差达到0.1，就要求更高IoU者取得更高质量分数。</p></article>
+              <article class="stage"><span>04</span><h3>发现捷径并停止</h3><p>大量接近背景与稍好背景的容易候选对占据Loss，排序正确率很高但候选几何没有改善。</p></article>
+            </div>
+
+            <div class="metric-grid">
+              <div class="metric"><span>停止边界</span><strong>完成第88轮</strong><em>第89轮未完成</em></div>
+              <div class="metric"><span>退出状态</span><strong>用户停止 · 130</strong><em>不是崩溃</em></div>
+              <div class="metric"><span>第80—88轮平均Loss</span><strong>10.4707</strong><em>实验31同期10.3378</em></div>
+              <div class="metric"><span>同期Loss差</span><strong>+1.29%</strong><em>实验32更高</em></div>
+              <div class="metric"><span>同期一对一平均3D IoU</span><strong>0.5443 / 0.5539</strong><em>实验32 / 实验31</em></div>
+              <div class="metric"><span>第88轮排序正确率</span><strong>97.35%</strong><em>被易背景对抬高</em></div>
+              <div class="metric"><span>第88轮IoU&lt;0.1 query</span><strong>83.55%</strong><em>绝大多数是近背景</em></div>
+              <div class="metric"><span>正式AP</span><strong>没有</strong><em>未到第120轮验证</em></div>
+            </div>
+
+            <div class="callout warning" style="margin-top:14px"><h4>为什么97%排序正确仍然判定目标有问题</h4><p>硬排序统计的是所有IoU差至少0.1的候选对。绝大多数query几乎没有3D重合，因此模型只需把“略好背景”排在“更差背景”前面，就能获得很高正确率；这与每个GT内部能否选中真正最高IoU query不是一回事。同期平均匹配IoU反而更低，说明高正确率没有转化成需要的候选质量。</p></div>
+            <div class="callout"><h4>证据边界与后续</h4><p>实验32未完成250轮，也没有正式AP，因此只能否定这次硬间隔逐对目标和当前训练轨迹，不能否定所有排序方法。原定的软列表后续方案亦已作废并回退代码；日志、滚动checkpoint、运行清单和停止状态保留在<code>outputs/V2-0032_全query同GT三维IoU质量排序/</code>。</p></div>
           </article>
         </section>
       </div>
     </div>
 
-    <footer class="footer">MonoDGP 实验总览 v2 · 序号01—31</footer>
+    <footer class="footer">MonoDGP 实验总览 v2 · 序号01—32</footer>
   </main>
 
   <script>
