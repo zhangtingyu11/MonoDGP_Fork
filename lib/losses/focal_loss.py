@@ -102,6 +102,25 @@ def sigmoid_focal_loss(
 
     return loss.mean(1).sum() / num_boxes
 
+
+def quality_focal_loss(inputs, targets, num_boxes, beta: float = 2.0):
+    """Regress sigmoid scores to continuous quality targets in ``[0, 1]``.
+
+    The absolute score/target error is the focal modulator.  This is the
+    binary Quality Focal Loss form: zero-quality queries are ordinary
+    negatives, while non-zero targets retain their exact quality value rather
+    than being collapsed to a binary positive label.
+    """
+    if inputs.shape != targets.shape:
+        raise ValueError('quality focal inputs and targets must have the same shape')
+    if beta < 0:
+        raise ValueError('quality focal beta must be non-negative')
+    probabilities = inputs.sigmoid()
+    loss = F.binary_cross_entropy_with_logits(
+        inputs, targets, reduction='none')
+    loss = loss * (targets - probabilities).abs().pow(float(beta))
+    return loss.mean(1).sum() / num_boxes
+
 def soft_sigmoid_focal_loss(inputs, targets, num_boxes, masked_soft_labels, alpha: float = 0.25, gamma: float = 2):
     """
     Loss used in RetinaNet for dense detection: https://arxiv.org/abs/1708.02002.

@@ -1,0 +1,27 @@
+base_config: monodgp_exp33.yaml
+
+model_name: 'V2-0036_实验33目标保护跨焦距MixUp'
+
+dataset:
+  # Keep Experiment 33 byte-for-byte behavior whenever donor and recipient P2
+  # match. Only different-P2 donors use camera-normalized warping and the RGB
+  # support mask. A candidate is retried if that mask edge cuts through any
+  # labelled primary or donor Car, independently of loss eligibility.
+  cross_focal_mixup: true
+  cross_focal_mixup_policy: protected_legacy_v3
+  mixup_valid_mask_threshold: 0.999
+  # Once support has been binarized at >0.999, every visible pixel in a
+  # protected vehicle box must have the same mixing state.
+  mixup_min_object_valid_ratio: 1.0
+  mixup_max_attempts: 50
+  mixup_geometry_monitoring: false
+
+trainer:
+  swanlab_batch_interval: 30
+  mixup_target_monitoring:
+    enabled: true
+    interval: 30
+  swanlab:
+    experiment_name: '实验36_实验33目标保护跨焦距MixUp'
+    description: '严格基于实验33：同P2供体继续使用原始整图0.5混合后共同仿射的历史路径；仅新增不同P2供体。跨P2供体按完整3x4 P2映射到主图最终输入坐标，仅RGB支持度大于0.999的像素做0.5混合，无供体像素保留主图。二值有效mask在车辆框内必须全0或全1；若边界切过任意已标注主图或供体Car框则重选供体，最多50次，保护不受难度、深度或Loss资格过滤。通过边界保护后恢复实验33逐目标编码：无法可靠编码的供体车仅不进入分类、框、深度、尺寸、角度及Hungarian监督，其实际可见RGB与Region仍保留。类别、物理尺寸和rotation_y不变；2D框、3D位置、物理Z和alpha按完整P2关系统一。质量头保持关闭，current_cxd、阈值0、top-50、训练与验证日程、无NMS Moderate AP选best及NMS诊断均与实验33一致。'
+    tags: ['实验36', 'KITTI', '实验33增量', '跨焦距MixUp', '目标保护']

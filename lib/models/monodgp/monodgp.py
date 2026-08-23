@@ -17,7 +17,7 @@ from .det3d_transformer import build_det3d_transformer
 from .region_seg_head import RegionSegHead
 from .depth_predictor import DepthPredictor
 from .depth_predictor.ddn_loss import DDNLoss
-from lib.losses.focal_loss import sigmoid_focal_loss
+from lib.losses.focal_loss import quality_focal_loss, sigmoid_focal_loss
 from lib.losses.asymmetric_interval_depth_loss import (
     asymmetric_interval_and_uncertainty_loss)
 from lib.losses.query_quality_ranking_loss import (
@@ -575,6 +575,7 @@ class SetCriterion(nn.Module):
                  iou3d_matching_monitoring=None,
                  high_iou_unmatched_negative_weighting=None,
                  iou_quality_head=None,
+                 iou_classification=None,
                  use_vectorized_ddn_rasterization=False,
                  use_aligned_giou_loss=False,
                  use_post_match_cache=False):
@@ -645,6 +646,21 @@ class SetCriterion(nn.Module):
         quality_cfg = iou_quality_head or {}
         self.iou_quality_head_enabled = bool(
             quality_cfg.get('enabled', False))
+        iou_classification_cfg = iou_classification or {}
+        self.iou_classification_enabled = bool(
+            iou_classification_cfg.get('enabled', False))
+        self.iou_classification_beta = float(
+            iou_classification_cfg.get('beta', 2.0))
+        if self.iou_classification_beta < 0:
+            raise ValueError('3D-IoU classification beta must be non-negative')
+        if (self.iou_classification_enabled
+                and self.matcher.cost_iou3d == 0):
+            raise ValueError(
+                '3D-IoU classification requires exact 3D-IoU matching')
+        if (self.iou_classification_enabled
+                and self.high_iou_unmatched_negative_weighting_enabled):
+            raise ValueError(
+                '3D-IoU classification replaces unmatched-negative weighting')
         self.iou_quality_target_encoding = quality_cfg.get(
             'target_encoding', 'cia_ssd')
         self.iou_quality_supervision = quality_cfg.get(
@@ -674,6 +690,7 @@ class SetCriterion(nn.Module):
             raise ValueError(
                 'the IoU quality head requires exact 3D-IoU matching')
         self.last_final_iou3d_matrix = None
+        self.collect_mixup_target_monitoring = False
 
     @torch.no_grad()
     def _classification_query_weights(self, src_logits, indices,
@@ -783,8 +800,68 @@ class SetCriterion(nn.Module):
             for key, value in values.items()
         }
 
+    @staticmethod
+    def _pearson(values, targets):
+        values = values.float()
+        targets = targets.float()
+        values = values - values.mean()
+        targets = targets - targets.mean()
+        denominator = (
+            values.square().sum().sqrt()
+            * targets.square().sum().sqrt()).clamp_min(1e-12)
+        return (values * targets).sum() / denominator
+
+    @torch.no_grad()
+    def _iou_classification_targets(self, src_logits, targets):
+        iou3d = getattr(self.matcher, 'last_iou3d_matrix', None)
+        if iou3d is None:
+            raise RuntimeError(
+                'matcher did not expose exact 3D-IoU classification targets')
+        if iou3d.shape[:2] != src_logits.shape[:2]:
+            raise ValueError(
+                'matcher 3D-IoU matrix does not match classification logits')
+        soft_targets = torch.zeros_like(src_logits)
+        selected_scores = []
+        selected_ious = []
+        for batch_index, target in enumerate(targets):
+            target_count = int(target['labels'].numel())
+            if target_count == 0:
+                continue
+            image_iou = iou3d[batch_index, :, :target_count].detach()
+            max_iou, closest_target = image_iou.max(dim=-1)
+            closest_labels = target['labels'].reshape(-1).long().index_select(
+                0, closest_target)
+            soft_targets[batch_index].scatter_(
+                1, closest_labels[:, None], max_iou[:, None])
+            selected_scores.append(
+                src_logits[batch_index].sigmoid().gather(
+                    1, closest_labels[:, None]).squeeze(1).detach())
+            selected_ious.append(max_iou)
+
+        metrics = {}
+        if selected_ious:
+            scores = torch.cat(selected_scores)
+            ious = torch.cat(selected_ious)
+            metrics = {
+                'monitor_iou_classification_target_mean': ious.mean(),
+                'monitor_iou_classification_target_nonzero_fraction': (
+                    (ious > 0).float().mean()),
+                'monitor_iou_classification_target_ge_0_1_fraction': (
+                    (ious >= 0.1).float().mean()),
+                'monitor_iou_classification_target_ge_0_5_fraction': (
+                    (ious >= 0.5).float().mean()),
+                'monitor_iou_classification_target_ge_0_7_fraction': (
+                    (ious >= 0.7).float().mean()),
+                'monitor_iou_classification_score_mae': (
+                    scores - ious).abs().mean(),
+                'monitor_iou_classification_score_iou_pearson': (
+                    self._pearson(scores, ious)),
+            }
+        return soft_targets, metrics
+
     def loss_labels(self, outputs, targets, indices, num_boxes, log=True,
-                    matched_cache=None, apply_high_iou_weighting=True):
+                    matched_cache=None, apply_high_iou_weighting=True,
+                    apply_iou_classification=True):
         """Classification loss (Binary focal loss)
         targets dicts must contain the key "labels" containing a tensor of dim [nb_target_boxes]
         """
@@ -798,26 +875,38 @@ class SetCriterion(nn.Module):
             if matched_cache is not None
             else torch.cat([t["labels"][J]
                             for t, (_, J) in zip(targets, indices)]))
-        target_classes = torch.full(src_logits.shape[:2], self.num_classes,
-                                    dtype=torch.int64, device=src_logits.device)
-
-        target_classes[idx] = target_classes_o.squeeze().long()
-
-        target_classes_onehot = torch.zeros([src_logits.shape[0], src_logits.shape[1], src_logits.shape[2]+1],
-                                            dtype=src_logits.dtype, layout=src_logits.layout, device=src_logits.device)
-        target_classes_onehot.scatter_(2, target_classes.unsqueeze(-1), 1)
-
-        target_classes_onehot = target_classes_onehot[:, :, :-1]
-        if apply_high_iou_weighting:
-            query_weights, weighting_metrics = (
-                self._classification_query_weights(
-                    src_logits, indices, targets=targets))
+        use_iou_classification = bool(
+            self.iou_classification_enabled
+            and apply_iou_classification
+            and {'pred_depth', 'pred_3d_dim', 'pred_angle'}.issubset(outputs))
+        if use_iou_classification:
+            target_classes_onehot, weighting_metrics = (
+                self._iou_classification_targets(src_logits, targets))
+            loss_ce = quality_focal_loss(
+                src_logits, target_classes_onehot, num_boxes,
+                beta=self.iou_classification_beta) * src_logits.shape[1]
         else:
-            query_weights, weighting_metrics = None, {}
-        loss_ce = sigmoid_focal_loss(
-            src_logits, target_classes_onehot, num_boxes,
-            alpha=self.focal_alpha, gamma=2,
-            query_weights=query_weights) * src_logits.shape[1]
+            target_classes = torch.full(
+                src_logits.shape[:2], self.num_classes,
+                dtype=torch.int64, device=src_logits.device)
+            target_classes[idx] = target_classes_o.reshape(-1).long()
+            target_classes_onehot = torch.zeros(
+                [src_logits.shape[0], src_logits.shape[1],
+                 src_logits.shape[2] + 1], dtype=src_logits.dtype,
+                layout=src_logits.layout, device=src_logits.device)
+            target_classes_onehot.scatter_(
+                2, target_classes.unsqueeze(-1), 1)
+            target_classes_onehot = target_classes_onehot[:, :, :-1]
+            if apply_high_iou_weighting:
+                query_weights, weighting_metrics = (
+                    self._classification_query_weights(
+                        src_logits, indices, targets=targets))
+            else:
+                query_weights, weighting_metrics = None, {}
+            loss_ce = sigmoid_focal_loss(
+                src_logits, target_classes_onehot, num_boxes,
+                alpha=self.focal_alpha, gamma=2,
+                query_weights=query_weights) * src_logits.shape[1]
         losses = {'loss_ce': loss_ce, **weighting_metrics}
 
         if log:
@@ -1253,6 +1342,7 @@ class SetCriterion(nn.Module):
                 # logits do not correspond to the matcher's cached 550-query
                 # IoU matrix and it must not affect the optimized loss.
                 kwargs['apply_high_iou_weighting'] = False
+                kwargs['apply_iou_classification'] = False
             values = self.get_loss(
                 loss_name, group0_outputs, targets, group0_indices,
                 num_boxes, **kwargs)
@@ -1260,6 +1350,86 @@ class SetCriterion(nn.Module):
                 f'monitor_group0_{key}': value.detach()
                 for key, value in values.items()
             })
+        return metrics
+
+    @torch.no_grad()
+    def _mixup_target_metrics(self, outputs, targets, indices,
+                              matched_cache):
+        """Compare final-layer matched primary and MixUp donor targets."""
+        if matched_cache is None or not all(
+                'mixup_is_donor' in target for target in targets):
+            return {}
+        source_index = matched_cache['source_index']
+        batch_index = source_index[0]
+        matched = matched_cache['matched_targets']
+        donor_mask = torch.cat([
+            target['mixup_is_donor'][target_index]
+            for target, (_, target_index) in zip(targets, indices)
+        ]).bool()
+        if donor_mask.numel() == 0:
+            return {}
+
+        logits = outputs['pred_logits'][source_index]
+        labels = matched['labels'].reshape(-1).long()
+        class_probability = logits.sigmoid().gather(
+            1, labels[:, None]).squeeze(1)
+
+        predicted_boxes = outputs['pred_boxes'][source_index]
+        target_boxes = matched['boxes_3d']
+        bbox_component_mae = (
+            predicted_boxes[:, 2:6] - target_boxes[:, 2:6]
+        ).abs().mean(dim=1)
+        giou_error = 1 - box_ops.generalized_box_iou_aligned(
+            box_ops.box_cxcylrtb_to_xyxy(predicted_boxes),
+            box_ops.box_cxcylrtb_to_xyxy(target_boxes))
+
+        input_sizes = torch.stack([
+            target['projective_input_size'] for target in targets
+        ]).to(device=predicted_boxes.device, dtype=predicted_boxes.dtype)
+        center_error_pixels = (
+            (predicted_boxes[:, :2] - target_boxes[:, :2])
+            * input_sizes.index_select(0, batch_index)
+        ).norm(dim=1)
+
+        predicted_depth = outputs['pred_depth'][source_index][:, 0]
+        target_depth = matched['depth'].reshape(-1)
+        depth_mae = (predicted_depth - target_depth).abs()
+
+        predicted_dims = outputs['pred_3d_dim'][source_index]
+        target_dims = matched['size_3d']
+        dimension_component_mae = (
+            predicted_dims - target_dims).abs().mean(dim=1)
+
+        predicted_angle = outputs['pred_angle'][source_index].view(-1, 24)
+        target_angle_class = matched['heading_bin'].reshape(-1).long()
+        target_angle_residual = matched['heading_res'].reshape(-1)
+        angle_class_correct = (
+            predicted_angle[:, :12].argmax(dim=1) == target_angle_class
+        ).to(dtype=predicted_angle.dtype)
+        predicted_residual = predicted_angle[:, 12:24].gather(
+            1, target_angle_class[:, None]).squeeze(1)
+        angle_residual_mae = (
+            predicted_residual - target_angle_residual).abs()
+
+        values = {
+            'matched_class_probability': class_probability,
+            'bbox_component_mae': bbox_component_mae,
+            'giou_error': giou_error,
+            'center_error_pixels': center_error_pixels,
+            'depth_mae_m': depth_mae,
+            'dimension_component_mae': dimension_component_mae,
+            'angle_class_accuracy': angle_class_correct,
+            'angle_residual_mae': angle_residual_mae,
+        }
+        metrics = {}
+        for name, subset in (
+                ('primary', ~donor_mask), ('donor', donor_mask)):
+            count = subset.sum()
+            metrics[f'monitor_mixup_{name}_matched_count'] = count.float()
+            denominator = count.clamp_min(1)
+            for metric_name, metric_values in values.items():
+                metrics[f'monitor_mixup_{name}_{metric_name}'] = (
+                    metric_values[subset].sum() / denominator)
         return metrics
 
     def forward(self, outputs, targets, mask_dict=None):
@@ -1310,7 +1480,8 @@ class SetCriterion(nn.Module):
         final_iou3d = getattr(self.matcher, 'last_iou3d_matrix', None)
         self.last_final_iou3d_matrix = (
             final_iou3d.detach()
-            if (self.iou_quality_head_enabled
+            if ((self.iou_quality_head_enabled
+                 or self.iou_classification_enabled)
                 and final_iou3d is not None) else None)
         if collect_iou3d_comparison:
             self._append_iou3d_matching_receipt(
@@ -1321,6 +1492,9 @@ class SetCriterion(nn.Module):
             losses.update(self.get_loss(
                 loss, outputs, targets, indices, num_boxes,
                 matched_cache=matched_cache))
+        if self.training and self.collect_mixup_target_monitoring:
+            losses.update(self._mixup_target_metrics(
+                outputs_without_aux, targets, indices, matched_cache))
         if (self.query_monitoring_enabled and self.training
                 and group_num > 1):
             group0_num_boxes = sum(len(t['labels']) for t in targets)
@@ -1479,6 +1653,7 @@ def build(cfg):
         high_iou_unmatched_negative_weighting=cfg.get(
             'high_iou_unmatched_negative_weighting'),
         iou_quality_head=cfg.get('iou_quality_head'),
+        iou_classification=cfg.get('iou_classification'),
         use_vectorized_ddn_rasterization=cfg.get(
             'use_vectorized_ddn_rasterization', False),
         use_aligned_giou_loss=cfg.get('use_aligned_giou_loss', False),

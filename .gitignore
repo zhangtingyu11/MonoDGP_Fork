@@ -1,0 +1,15 @@
+# Local experiment diagnostics and generated evidence.
+diagnostics/
+
+# Local-only experiment verification tests.
+tests/test_experiment_33_config.py
+tests/test_experiment_34_config.py
+tests/test_experiment_36_config.py
+tests/test_mixup_target_monitoring.py
+
+# Local-only MixUp audit, rendering, and benchmark tools.
+tools/audit_exp34_label_examples.py
+tools/benchmark_exp34_monitoring_b16.py
+tools/render_exp34_label_examples.py
+tools/smoke_exp36_b1.py
+tools/smoke_exp37_b16.py

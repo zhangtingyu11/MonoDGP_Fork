@@ -1,0 +1,26 @@
+base_config: monodgp_exp33.yaml
+
+model_name: 'V2-0034_实验33统一目标跨焦距MixUp'
+
+dataset:
+  # Experiment 34 starts from Experiment 33 and enables the independently
+  # audited donor policy. Every retained donor has full RGB support and one
+  # shared target record for matching and all object-level losses.
+  cross_focal_mixup: true
+  cross_focal_mixup_policy: unified_v2
+  mixup_valid_mask_threshold: 0.999
+  mixup_min_object_valid_ratio: 0.999
+  mixup_max_attempts: 50
+  mixup_geometry_monitoring: true
+
+trainer:
+  # Sample the read-only primary/donor matched-target comparison without
+  # repeating model forward or Hungarian matching. Validation is unchanged.
+  swanlab_batch_interval: 30
+  mixup_target_monitoring:
+    enabled: true
+    interval: 30
+  swanlab:
+    experiment_name: '实验34_实验33统一目标跨焦距MixUp'
+    description: '严格基于实验33，继续关闭三维IoU质量头并保持current_cxd推理；独立启用统一目标跨焦距MixUp。供体RGB按完整P2一次warp到最终输入；仅保留2D框完整受RGB有效区支持且3D投影中心在最终框和输入内的2至65米Car，部分可见或中心不可编码时重选供体，完全在外的目标忽略；保留目标由分类、二维框、GIoU、三维中心、深度、尺寸、角度、Hungarian、Region和DDN深度图共同使用。DDN重叠近深度规则、Loss权重、训练日程、无NMS选best及NMS诊断保持实验33不变。'
+    tags: ['实验34', 'KITTI', '实验33增量', '跨焦距MixUp', '统一目标']

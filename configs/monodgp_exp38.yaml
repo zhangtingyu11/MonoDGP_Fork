@@ -1,0 +1,38 @@
+base_config: monodgp_exp37.yaml
+
+model_name: 'V2-0038_实验37全Query三维IoU分类'
+
+model:
+  # Replace binary Hungarian-positive classification supervision on every 3D
+  # decoder query with its maximum exact 3D IoU to any same-image GT.  The
+  # target is detached and remains continuous over the full [0, 1] interval.
+  iou_classification:
+    enabled: true
+    beta: 2.0
+  # This policy belongs to the old binary-positive objective and must not be
+  # combined with continuous all-query IoU targets.
+  high_iou_unmatched_negative_weighting:
+    enabled: false
+
+tester:
+  threshold: 0.0
+  topk: 50
+  # The classification probability is now the predicted 3D IoU.  Use it
+  # directly for top-k, AP ordering and NMS ordering; do not multiply depth
+  # precision a second time.
+  primary_quality_score: iou_classification
+  quality_score_fusions:
+    - {name: iou_classification, classification_only: true}
+  quality_ranking_monitoring: true
+  quality_ranking_car_class_id: 1
+
+trainer:
+  # Unlike the interrupted first run, E10/E20/.../E110 participate in the
+  # same no-NMS Moderate AP best selection as formal validation. Whenever an
+  # early epoch refreshes best, immediately evaluate the registered BEV NMS
+  # thresholds from the same cached predictions and overwrite the diagnostic.
+  early_validation_updates_best: true
+  swanlab:
+    experiment_name: '实验38_实验37全Query三维IoU分类'
+    description: '严格基于实验37，仅重定义3D decoder分类语义：最终层和两个3D辅助层中，每个query的Car分类软目标均为该预测框与同图全部有效GT的最大精确3D IoU；无GT时为0。目标停止梯度，使用beta=2的Quality Focal Loss，11组共550个训练query全部监督。2D proposal中间层因没有深度、尺寸和角度，保留原01分类监督。Hungarian及全部框、深度、尺寸、角度、Region、MixUp和虚拟焦距设置不变。推理直接使用分类概率作为预测3D IoU分数，不再乘深度置信度；top-50、0阈值、无NMS Moderate AP选best保持不变。E10/E20/.../E110也参与best选择，无NMS Moderate AP刷新时立即使用同轮预测计算0.1至0.9的BEV NMS诊断。'
+    tags: ['实验38', 'KITTI', '实验37增量', '全Query', '3D-IoU分类', 'Quality-Focal']

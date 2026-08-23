@@ -125,6 +125,8 @@ class Tester(object):
                 'gamma': float(spec.get('gamma', 1.0)),
                 'historical_topk': bool(
                     spec.get('historical_topk', False)),
+                'classification_only': bool(
+                    spec.get('classification_only', False)),
             }
             for spec in cfg.get('quality_score_fusions', ()))
         score_names = [spec['name'] for spec in self.quality_score_specs]
@@ -184,21 +186,39 @@ class Tester(object):
                 results = self.inference()
                 self.evaluate(results)
 
-    def inference(self):
+    def inference(self, collect_diagnostics=True, primary_only=False):
+        """Run validation inference.
+
+        ``collect_diagnostics=False`` is the lightweight path used by early
+        AP checks: it skips validation losses and ranking monitors.
+        ``primary_only=True`` additionally decodes only the configured primary
+        score, so pre-registered score grids do not add work.
+        """
         torch.set_grad_enabled(False)
         self.model.eval()
-        if self.criterion is not None:
+        if collect_diagnostics and self.criterion is not None:
             self.criterion.eval()
 
         results = {}
+        active_quality_score_specs = self.quality_score_specs
+        if primary_only and active_quality_score_specs:
+            active_quality_score_specs = tuple(
+                spec for spec in active_quality_score_specs
+                if spec['name'] == self.primary_quality_score)
+            if len(active_quality_score_specs) != 1:
+                raise RuntimeError(
+                    'lightweight validation could not resolve the primary '
+                    'quality score')
         variant_results = {
-            spec['name']: {} for spec in self.quality_score_specs}
+            spec['name']: {} for spec in active_quality_score_specs}
         ranking_monitor = (
             QualityRankingAccumulator(
                 self.quality_score_specs,
                 car_class_id=int(self.cfg.get(
                     'quality_ranking_car_class_id', 1)))
-            if self.cfg.get('quality_ranking_monitoring', False) else None)
+            if (collect_diagnostics
+                and self.cfg.get('quality_ranking_monitoring', False))
+            else None)
         loss_accumulator = ScalarMeanAccumulator()
         geometry_interval_accumulator = GeometryIntervalAccumulator()
         validation_start = time.time()
@@ -227,7 +247,7 @@ class Tester(object):
                 outputs = self.model(inputs, calibs, targets, img_sizes, dn_args = 0)
                 ###
 
-                if self.criterion is not None:
+                if collect_diagnostics and self.criterion is not None:
                     device_targets = {
                         key: (value.to(self.device, non_blocking=True)
                               if torch.is_tensor(value) else value)
@@ -275,10 +295,12 @@ class Tester(object):
                 calibs = [self.dataloader.dataset.get_calib(index) for index in info['img_id']]
                 info = {key: val.detach().cpu().numpy() for key, val in info.items()}
                 cls_mean_size = self.dataloader.dataset.cls_mean_size
-                if self.quality_score_specs:
-                    for spec in self.quality_score_specs:
+                if active_quality_score_specs:
+                    for spec in active_quality_score_specs:
                         ranking_scores = (
                             None if spec['historical_topk'] else
+                            outputs['pred_logits'].sigmoid()
+                            if spec['classification_only'] else
                             fused_quality_score(
                                 outputs, alpha=spec['alpha'],
                                 beta=spec['beta'], gamma=spec['gamma']))

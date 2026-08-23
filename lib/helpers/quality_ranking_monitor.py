@@ -2,9 +2,6 @@ import numpy as np
 from scipy.optimize import linear_sum_assignment
 from scipy.stats import rankdata
 
-from lib.helpers.decode_helper import quality_score_components
-
-
 def _correlations(score, target):
     finite = np.isfinite(score) & np.isfinite(target)
     score = score[finite]
@@ -26,7 +23,7 @@ class QualityRankingAccumulator:
         self.car_class_id = int(car_class_id)
         self.query_iou = []
         self.query_scores = {
-            name: [] for name in ('classification', 'quality', 'depth')
+            name: [] for name in ('classification', 'depth')
         }
         self.query_scores.update({spec['name']: [] for spec in score_specs})
         self.oracle_rows = []
@@ -35,17 +32,30 @@ class QualityRankingAccumulator:
             raw_target_mask):
         if iou3d_matrix is None:
             raise RuntimeError('quality ranking monitor requires exact 3D IoU')
-        classification, quality, depth = quality_score_components(outputs)
-        classification = classification[..., self.car_class_id].detach().cpu().numpy()
-        quality = quality[..., 0].detach().cpu().numpy()
-        depth = depth[..., 0].detach().cpu().numpy()
+        classification = outputs['pred_logits'].sigmoid()[
+            ..., self.car_class_id].detach().cpu().numpy()
+        depth = np.exp(-outputs['pred_depth'][
+            ..., 1].detach().cpu().numpy())
+        quality = None
+        if 'pred_quality' in outputs:
+            quality = (((outputs['pred_quality'] + 1.0) * 0.5)
+                       .clamp(0, 1)[..., 0].detach().cpu().numpy())
+            self.query_scores.setdefault('quality', [])
         iou3d = iou3d_matrix.detach().cpu().numpy()
         fused = {}
         for spec in self.score_specs:
-            fused[spec['name']] = (
-                np.maximum(classification, 1e-12) ** spec['alpha']
-                * np.maximum(quality, 1e-12) ** spec['beta']
-                * np.maximum(depth, 1e-12) ** spec['gamma'])
+            if spec.get('historical_topk', False):
+                fused[spec['name']] = classification * depth
+            elif spec.get('classification_only', False):
+                fused[spec['name']] = classification
+            else:
+                if quality is None:
+                    raise RuntimeError(
+                        'quality score fusion requires pred_quality')
+                fused[spec['name']] = (
+                    np.maximum(classification, 1e-12) ** spec['alpha']
+                    * np.maximum(quality, 1e-12) ** spec['beta']
+                    * np.maximum(depth, 1e-12) ** spec['gamma'])
 
         image_ids = info['img_id'].detach().cpu().numpy().tolist()
         masks = raw_target_mask.detach().cpu().numpy().astype(bool)
@@ -57,7 +67,9 @@ class QualityRankingAccumulator:
                     classification[batch_index]))
                 self.query_scores['classification'].append(
                     classification[batch_index])
-                self.query_scores['quality'].append(quality[batch_index])
+                if quality is not None:
+                    self.query_scores['quality'].append(
+                        quality[batch_index])
                 self.query_scores['depth'].append(depth[batch_index])
                 for name, values in fused.items():
                     self.query_scores[name].append(values[batch_index])
@@ -67,7 +79,9 @@ class QualityRankingAccumulator:
             self.query_iou.append(max_iou)
             self.query_scores['classification'].append(
                 classification[batch_index])
-            self.query_scores['quality'].append(quality[batch_index])
+            if quality is not None:
+                self.query_scores['quality'].append(
+                    quality[batch_index])
             self.query_scores['depth'].append(depth[batch_index])
             for name, values in fused.items():
                 self.query_scores[name].append(values[batch_index])
@@ -111,8 +125,9 @@ class QualityRankingAccumulator:
                         name: values[batch_index]
                         for name, values in {
                             'classification': classification,
-                            'quality': quality,
                             'depth': depth,
+                            **({'quality': quality}
+                               if quality is not None else {}),
                             **fused,
                         }.items()
                     },

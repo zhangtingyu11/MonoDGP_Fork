@@ -1,0 +1,18 @@
+base_config: monodgp_exp36.yaml
+
+model_name: 'V2-0037_实验36_MixUp绑定确定性虚拟焦距'
+
+dataset:
+  # Only samples that successfully apply Experiment 36 MixUp receive this
+  # extra focal augmentation. image_id + epoch deterministically cycles the
+  # multiplier so the schedule is independent of the KITTI P2 group. The
+  # multiplier is composed into the existing crop/resize affine; primary and
+  # donor share it and each source is interpolated only once.
+  mixup_virtual_focal: true
+  mixup_virtual_focal_multipliers: [0.9, 1.0, 1.1]
+
+trainer:
+  swanlab:
+    experiment_name: '实验37_实验36_MixUp绑定确定性虚拟焦距'
+    description: '严格基于实验36：只对实际成功MixUp的样本增加确定性虚拟焦距增强，焦距倍率按(image_id+epoch)%3在0.9、1.0、1.1之间循环，与KITTI相机P2组无关。主图与供体共用同一倍率，并将虚拟焦距与原裁剪/Resize矩阵合并，每个RGB来源只插值一次；最终完整P2、2D框和3D投影中心使用同一矩阵。保留实验36跨P2 RGB有效区边界保护，另增量比较实验36原变换与虚拟焦距变换；仅当虚拟焦距新将主图或供体Car变为画布边界部分可见时撤销倍率至1.0，不改变实验36已有裁剪行为。若供体选择失败，同样撤销虚拟焦距。质量头、分类与全部Loss、Hungarian匹配、推理current_cxd、top-50、0阈值、NMS、训练验证日程均与实验36不变。'
+    tags: ['实验37', 'KITTI', '实验36增量', 'MixUp绑定', '确定性虚拟焦距']

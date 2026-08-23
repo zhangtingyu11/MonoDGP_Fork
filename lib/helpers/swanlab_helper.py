@@ -353,6 +353,8 @@ class ScalarMeanAccumulator:
     def __init__(self):
         self._sums = {}
         self._counts = {}
+        self._weighted_sums = {}
+        self._weighted_counts = {}
 
     def add(self, values):
         for key, value in values.items():
@@ -365,11 +367,41 @@ class ScalarMeanAccumulator:
             self._sums[key].add_(detached)
             self._counts[key] += 1
 
+        # MixUp primary/donor diagnostics are emitted as a per-batch mean plus
+        # the number of matched targets behind that mean.  Preserve the batch
+        # values for step logging, but aggregate epoch summaries over matches
+        # rather than giving a one-match batch and a twenty-match batch equal
+        # weight.
+        for source in ('primary', 'donor'):
+            prefix = f'monitor_mixup_{source}_'
+            count_key = prefix + 'matched_count'
+            count = values.get(count_key)
+            if (not torch.is_tensor(count) or count.numel() != 1):
+                continue
+            detached_count = count.detach().reshape(()).to(dtype=torch.float64)
+            for key, value in values.items():
+                if (key == count_key or not key.startswith(prefix)
+                        or not torch.is_tensor(value) or value.numel() != 1):
+                    continue
+                detached = value.detach().reshape(()).to(dtype=torch.float64)
+                if key not in self._weighted_sums:
+                    self._weighted_sums[key] = torch.zeros_like(detached)
+                    self._weighted_counts[key] = torch.zeros_like(
+                        detached_count)
+                self._weighted_sums[key].add_(detached * detached_count)
+                self._weighted_counts[key].add_(detached_count)
+
     def finalize(self):
-        return scalar_values_to_floats({
+        means = {
             key: total / self._counts[key]
             for key, total in self._sums.items()
-        })
+        }
+        for key, total in self._weighted_sums.items():
+            denominator = self._weighted_counts[key]
+            means[key] = torch.where(
+                denominator > 0, total / denominator.clamp_min(1),
+                torch.zeros_like(total))
+        return scalar_values_to_floats(means)
 
 
 class GeometryIntervalAccumulator:

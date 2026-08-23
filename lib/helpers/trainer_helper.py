@@ -50,7 +50,18 @@ _MIXUP_TARGET_KEYS = (
     'mixup_valid_ratio', 'mixup_attempts', 'mixup_reject_capacity',
     'mixup_reject_geometry', 'mixup_reject_no_overlap',
     'mixup_reject_partial_object',
+    'mixup_reject_primary_mask_boundary',
+    'mixup_reject_donor_mask_boundary',
+    'mixup_reject_center_outside', 'mixup_reject_no_valid_target',
     'mixup_focal_scale_x', 'mixup_focal_scale_y',
+    'mixup_virtual_focal_multiplier',
+    'mixup_virtual_focal_requested_multiplier',
+    'mixup_virtual_focal_cancelled',
+    'mixup_donor_target_count', 'mixup_retained_support_min',
+    'mixup_retained_support_observed',
+    'mixup_projection_residual_sum', 'mixup_projection_residual_max',
+    'mixup_depth_shift_abs_sum', 'mixup_depth_shift_abs_max',
+    'mixup_primary_donor_overlap_ratio',
 )
 
 
@@ -63,6 +74,23 @@ def collect_mixup_counts(targets):
     valid_ratio = targets['mixup_valid_ratio'].detach().float().reshape(-1)
     focal_scale_x = targets['mixup_focal_scale_x'].detach().float().reshape(-1)
     focal_scale_y = targets['mixup_focal_scale_y'].detach().float().reshape(-1)
+    virtual_focal = (
+        targets['mixup_virtual_focal_multiplier']
+        .detach().float().reshape(-1))
+    virtual_focal_requested = (
+        targets['mixup_virtual_focal_requested_multiplier']
+        .detach().float().reshape(-1))
+    virtual_focal_cancelled = (
+        targets['mixup_virtual_focal_cancelled']
+        .detach().float().reshape(-1))
+    donor_target_count = (
+        targets['mixup_donor_target_count'].detach().float().reshape(-1))
+    retained_support = (
+        targets['mixup_retained_support_min'].detach().float().reshape(-1))
+    retained_support_observed = (
+        targets['mixup_retained_support_observed']
+        .detach().float().reshape(-1))
+    applied_mask = applied > 0
     return {
         'sample_count': requested.new_tensor(float(requested.numel())),
         'requested_count': requested.sum(),
@@ -79,10 +107,70 @@ def collect_mixup_counts(targets):
             targets['mixup_reject_no_overlap'].detach().float().sum()),
         'reject_partial_object_count': (
             targets['mixup_reject_partial_object'].detach().float().sum()),
+        'reject_primary_mask_boundary_count': (
+            targets['mixup_reject_primary_mask_boundary']
+            .detach().float().sum()),
+        'reject_donor_mask_boundary_count': (
+            targets['mixup_reject_donor_mask_boundary']
+            .detach().float().sum()),
+        'reject_center_outside_count': (
+            targets['mixup_reject_center_outside'].detach().float().sum()),
+        'reject_no_valid_target_count': (
+            targets['mixup_reject_no_valid_target'].detach().float().sum()),
         'focal_scale_x_sum': focal_scale_x.sum(),
         'focal_scale_y_sum': focal_scale_y.sum(),
         'cross_focal_scale_x_sum': (focal_scale_x * cross_focal).sum(),
         'cross_focal_scale_y_sum': (focal_scale_y * cross_focal).sum(),
+        'virtual_focal_sum': (virtual_focal * applied).sum(),
+        'virtual_focal_cancelled_count': (
+            virtual_focal_cancelled * applied).sum(),
+        'virtual_focal_requested_0_9_count': (
+            applied * torch.isclose(
+                virtual_focal_requested,
+                virtual_focal_requested.new_tensor(0.9))).sum(),
+        'virtual_focal_requested_1_1_count': (
+            applied * torch.isclose(
+                virtual_focal_requested,
+                virtual_focal_requested.new_tensor(1.1))).sum(),
+        'virtual_focal_cancelled_0_9_count': (
+            applied * virtual_focal_cancelled * torch.isclose(
+                virtual_focal_requested,
+                virtual_focal_requested.new_tensor(0.9))).sum(),
+        'virtual_focal_cancelled_1_1_count': (
+            applied * virtual_focal_cancelled * torch.isclose(
+                virtual_focal_requested,
+                virtual_focal_requested.new_tensor(1.1))).sum(),
+        'virtual_focal_0_9_count': (
+            applied * torch.isclose(
+                virtual_focal, virtual_focal.new_tensor(0.9))).sum(),
+        'virtual_focal_1_0_count': (
+            applied * torch.isclose(
+                virtual_focal, virtual_focal.new_tensor(1.0))).sum(),
+        'virtual_focal_1_1_count': (
+            applied * torch.isclose(
+                virtual_focal, virtual_focal.new_tensor(1.1))).sum(),
+        'donor_target_count_sum': donor_target_count.sum(),
+        'total_target_count_sum': (
+            targets['mask_2d'].detach().float().sum()),
+        'retained_support_minimum': torch.where(
+            applied_mask & (retained_support_observed > 0), retained_support,
+            torch.ones_like(retained_support)).min(),
+        'retained_support_observed_count': (
+            (applied_mask & (retained_support_observed > 0)).float().sum()),
+        'projection_residual_sum': (
+            targets['mixup_projection_residual_sum'].detach().float().sum()),
+        'projection_residual_maximum': (
+            targets['mixup_projection_residual_max'].detach().float().max()),
+        'depth_shift_abs_sum': (
+            targets['mixup_depth_shift_abs_sum'].detach().float().sum()),
+        'depth_shift_abs_maximum': (
+            targets['mixup_depth_shift_abs_max'].detach().float().max()),
+        'overlap_ratio_sum': (
+            targets['mixup_primary_donor_overlap_ratio']
+            .detach().float().sum()),
+        'overlap_positive_count': (
+            (targets['mixup_primary_donor_overlap_ratio'] > 0)
+            .detach().float().sum()),
     }
 
 
@@ -92,7 +180,14 @@ def add_mixup_counts(total, current):
     if not total:
         return {key: value.clone() for key, value in current.items()}
     for key, value in current.items():
-        total[key] = total[key] + value
+        if key in (
+                'retained_support_minimum',
+                'projection_residual_maximum',
+                'depth_shift_abs_maximum'):
+            operation = torch.minimum if key == 'retained_support_minimum' else torch.maximum
+            total[key] = operation(total[key], value)
+        else:
+            total[key] = total[key] + value
     return total
 
 
@@ -109,7 +204,7 @@ def mixup_monitor_payload(counts, scope):
     safe_applied = applied if applied else 1.0
     safe_cross_focal = cross_focal if cross_focal else 1.0
     prefix = f'{scope}跨焦距MixUp'
-    return {
+    payload = {
         f'{prefix}/请求样本比例': requested / safe_sample,
         f'{prefix}/实际启用样本比例': applied / safe_sample,
         f'{prefix}/请求后成功率': applied / safe_requested,
@@ -129,6 +224,43 @@ def mixup_monitor_payload(counts, scope):
             values['cross_focal_scale_x_sum'] / safe_cross_focal),
         f'{prefix}/跨P2样本平均垂直焦距倍率': (
             values['cross_focal_scale_y_sum'] / safe_cross_focal),
+        f'{prefix}/成功样本平均虚拟焦距倍率': (
+            values['virtual_focal_sum'] / safe_applied),
+        f'{prefix}/成功样本虚拟焦距因新增裁车取消比例': (
+            values['virtual_focal_cancelled_count'] / safe_applied),
+        f'{prefix}/请求0.9虚拟焦距样本取消比例': (
+            values['virtual_focal_cancelled_0_9_count']
+            / max(values['virtual_focal_requested_0_9_count'], 1.0)),
+        f'{prefix}/请求1.1虚拟焦距样本取消比例': (
+            values['virtual_focal_cancelled_1_1_count']
+            / max(values['virtual_focal_requested_1_1_count'], 1.0)),
+        f'{prefix}/成功样本虚拟焦距0.9比例': (
+            values['virtual_focal_0_9_count'] / safe_applied),
+        f'{prefix}/成功样本虚拟焦距1.0比例': (
+            values['virtual_focal_1_0_count'] / safe_applied),
+        f'{prefix}/成功样本虚拟焦距1.1比例': (
+            values['virtual_focal_1_1_count'] / safe_applied),
+        f'{prefix}/成功样本平均供体GT数': (
+            values['donor_target_count_sum'] / safe_applied),
+        f'{prefix}/全部训练GT中供体GT比例': (
+            values['donor_target_count_sum']
+            / max(values['total_target_count_sum'], 1.0)),
+        f'{prefix}/具有可统计供体车辆的成功样本比例': (
+            values['retained_support_observed_count'] / safe_applied),
+        f'{prefix}/供体三维中心投影一致性平均误差像素': (
+            values['projection_residual_sum']
+            / max(values['donor_target_count_sum'], 1.0)),
+        f'{prefix}/供体三维中心投影一致性最大误差像素': (
+            values['projection_residual_maximum']),
+        f'{prefix}/供体转换前后深度绝对变化均值米': (
+            values['depth_shift_abs_sum']
+            / max(values['donor_target_count_sum'], 1.0)),
+        f'{prefix}/供体转换前后深度绝对变化最大值米': (
+            values['depth_shift_abs_maximum']),
+        f'{prefix}/主图供体Region平均重叠比例': (
+            values['overlap_ratio_sum'] / safe_applied),
+        f'{prefix}/成功样本中主图供体Region发生重叠比例': (
+            values['overlap_positive_count'] / safe_applied),
         f'{prefix}/每个请求因目标数上限拒绝次数': (
             values['reject_capacity_count'] / safe_requested),
         f'{prefix}/每个请求因投影几何拒绝次数': (
@@ -137,7 +269,46 @@ def mixup_monitor_payload(counts, scope):
             values['reject_no_overlap_count'] / safe_requested),
         f'{prefix}/请求样本因供体目标部分可见取消比例': (
             values['reject_partial_object_count'] / safe_requested),
+        f'{prefix}/每个请求因有效区边界切过主图车辆拒绝次数': (
+            values['reject_primary_mask_boundary_count'] / safe_requested),
+        f'{prefix}/每个请求因有效区边界切过供体车辆拒绝次数': (
+            values['reject_donor_mask_boundary_count'] / safe_requested),
+        f'{prefix}/每个请求因三维中心不可编码拒绝次数': (
+            values['reject_center_outside_count'] / safe_requested),
+        f'{prefix}/每个请求因无可训练供体目标拒绝次数': (
+            values['reject_no_valid_target_count'] / safe_requested),
     }
+    if values['retained_support_observed_count'] > 0:
+        payload[f'{prefix}/保留供体框最小RGB有效覆盖率'] = (
+            values['retained_support_minimum'])
+    return payload
+
+
+_MIXUP_MATCHED_METRIC_LABELS = {
+    'matched_count': '匹配数量',
+    'matched_class_probability': '匹配query真实类别概率',
+    'bbox_component_mae': '二维框四分量平均绝对误差',
+    'giou_error': '二维框GIoU误差',
+    'center_error_pixels': '三维投影中心像素误差',
+    'depth_mae_m': '深度绝对误差米',
+    'dimension_component_mae': '三维尺寸分量平均绝对误差',
+    'angle_class_accuracy': '航向角分箱正确率',
+    'angle_residual_mae': '航向角残差绝对误差',
+}
+
+
+def mixup_matched_target_payload(raw_values, scope):
+    payload = {}
+    for source, source_label in (
+            ('primary', '主图GT'), ('donor', '供体GT')):
+        prefix = f'monitor_mixup_{source}_'
+        for metric, label in _MIXUP_MATCHED_METRIC_LABELS.items():
+            key = prefix + metric
+            if key in raw_values:
+                payload[
+                    f'{scope}MixUp主供体匹配对照/{source_label}/{label}'
+                ] = raw_values[key]
+    return payload
 
 def grouped_gradient_payload(metrics, scope, epoch_summary=False):
     payload = {}
@@ -462,6 +633,8 @@ class Trainer(object):
             # reset random seed
             # ref: https://github.com/pytorch/pytorch/issues/5059
             np.random.seed(np.random.get_state()[1][0] + epoch)
+            if hasattr(self.train_loader.dataset, 'set_epoch'):
+                self.train_loader.dataset.set_epoch(epoch)
             # train one epoch
             train_summary = self.train_one_epoch(epoch)
             self.epoch += 1
@@ -486,6 +659,8 @@ class Trainer(object):
                     train_summary['gradient_monitoring'], scope='每轮训练'))
                 payload.update(mixup_monitor_payload(
                     train_summary['mixup_counts'], scope='每轮训练'))
+                payload.update(mixup_matched_target_payload(
+                    train_summary['mean_raw_losses'], scope='每轮训练'))
                 self.tracker.log(
                     payload, step=self.epoch * len(self.train_loader))
 
@@ -509,12 +684,102 @@ class Trainer(object):
 
                 validation_start_epoch = max(
                     1, int(self.cfg.get('validation_start_epoch', 1)))
+                early_validation_interval = max(
+                    0, int(self.cfg.get('early_validation_interval', 0)))
+                formal_validation = self.epoch >= validation_start_epoch
+                early_validation = (
+                    self.epoch < validation_start_epoch
+                    and early_validation_interval > 0
+                    and self.epoch % early_validation_interval == 0)
+                early_validation_updates_best = bool(
+                    self.cfg.get('early_validation_updates_best', False))
                 if (self.tester is not None
-                        and self.epoch >= validation_start_epoch):
-                    self.logger.info("Test Epoch {}".format(self.epoch))
-                    results = self.tester.inference()
+                        and (formal_validation or early_validation)):
+                    validation_kind = (
+                        'formal' if formal_validation else 'early-diagnostic')
+                    self.logger.info(
+                        "Test Epoch %d (%s)", self.epoch, validation_kind)
+                    results = self.tester.inference(
+                        collect_diagnostics=formal_validation,
+                        primary_only=early_validation)
                     evaluation = self.tester.evaluate(
                         results, return_metrics=True)
+                    if early_validation:
+                        early_suffix = (
+                            'best selection enabled'
+                            if early_validation_updates_best
+                            else 'best selection unchanged')
+                        self.logger.info(
+                            'Early diagnostic AP: epoch=%d, '
+                            'Car_3d_easy_R40=%.6f, '
+                            'Car_3d_moderate_R40=%.6f, '
+                            'Car_3d_hard_R40=%.6f; %s',
+                            self.epoch,
+                            evaluation['metrics'].get(
+                                'Car_3d_easy_R40', float('nan')),
+                            evaluation['metrics'].get(
+                                'Car_3d_moderate_R40', float('nan')),
+                            evaluation['metrics'].get(
+                                'Car_3d_hard_R40', float('nan')),
+                            early_suffix)
+                        payload = {'训练轮次': self.epoch}
+                        for difficulty, chinese in _AP_DIFFICULTIES:
+                            metric = f'Car_3d_{difficulty}_R40'
+                            if metric in evaluation['metrics']:
+                                payload[
+                                    '前120轮诊断三维检测精度/'
+                                    f'{chinese}难度AP_R40'
+                                ] = evaluation['metrics'][metric]
+
+                        if early_validation_updates_best:
+                            update_best_ap_snapshots(
+                                best_ap_snapshots,
+                                evaluation['metrics'], self.epoch)
+                            cur_result = evaluation['selection_score']
+                            nms_report = {}
+                            if cur_result > best_result:
+                                best_result = cur_result
+                                best_epoch = self.epoch
+                                ckpt_name = os.path.join(
+                                    self.output_dir, 'checkpoint_best')
+                                save_checkpoint(
+                                    get_checkpoint_state(
+                                        self.model, self.optimizer,
+                                        self.epoch, best_result, best_epoch),
+                                    ckpt_name)
+                                nms_report = (
+                                    self.tester
+                                    .evaluate_best_refresh_bev_nms(results))
+                                if nms_report:
+                                    diagnostics_dir = os.path.join(
+                                        self.output_dir, 'diagnostics')
+                                    os.makedirs(
+                                        diagnostics_dir, exist_ok=True)
+                                    report_path = os.path.join(
+                                        diagnostics_dir,
+                                        'best_refresh_bev_nms.json')
+                                    _write_json_atomically(report_path, {
+                                        'checkpoint_selection': {
+                                            'metric': (
+                                                'Car_3d_moderate_R40'),
+                                            'nms': 'none',
+                                            'epoch': int(self.epoch),
+                                            'score': float(cur_result),
+                                        },
+                                        'bev_nms': nms_report,
+                                    })
+                            self.logger.info(
+                                "Best Result:{}, epoch:{}".format(
+                                    best_result, best_epoch))
+                            payload.update(historical_best_ap_payload(
+                                best_ap_snapshots))
+                            payload.update(best_refresh_nms_payload(
+                                nms_report))
+                        if self.tracker is not None:
+                            self.tracker.log(
+                                payload,
+                                step=self.epoch * len(self.train_loader))
+                        continue
                     quality_score_report = (
                         self.tester.evaluate_quality_score_variants(
                             primary_evaluation=evaluation))
@@ -636,6 +901,12 @@ class Trainer(object):
         log_frequency = max(1, int(self.cfg.get('log_frequency', 30)))
         swanlab_interval = max(
             1, int(self.cfg.get('swanlab_batch_interval', 5)))
+        batch_monitor_scope = f'训练中每{swanlab_interval}批'
+        mixup_target_cfg = self.cfg.get('mixup_target_monitoring', {})
+        mixup_target_monitoring_enabled = bool(
+            mixup_target_cfg.get('enabled', False))
+        mixup_target_interval = max(
+            1, int(mixup_target_cfg.get('interval', 30)))
         self.logger.info(
             "Train epoch started: epoch=%d/%d, batches=%d",
             epoch + 1, self.cfg['max_epoch'], batch_count)
@@ -683,6 +954,10 @@ class Trainer(object):
                 self.detr_loss.collect_iou3d_matching_comparison = (
                     batch_idx % swanlab_interval == 0
                     or batch_idx + 1 == batch_count)
+                self.detr_loss.collect_mixup_target_monitoring = (
+                    mixup_target_monitoring_enabled
+                    and (batch_idx % mixup_target_interval == 0
+                         or batch_idx + 1 == batch_count))
                 detr_losses_dict = self.detr_loss(outputs, targets, mask_dict)
 
                 weight_dict = self.detr_loss.weight_dict
@@ -738,10 +1013,12 @@ class Trainer(object):
                     }
                     swanlab_payload.update(chinese_grouped_monitoring(
                         raw_values, weight_dict,
-                        scope='训练中每5批',
+                        scope=batch_monitor_scope,
                         final_query_label='全部11组'))
                     swanlab_payload.update(mixup_monitor_payload(
-                        mixup_batch_counts, scope='训练中每5批'))
+                        mixup_batch_counts, scope=batch_monitor_scope))
+                    swanlab_payload.update(mixup_matched_target_payload(
+                        raw_values, scope=batch_monitor_scope))
                     if geometry_receipt is not None:
                         count_keys = (
                             'matched_count', 'unique_matched_car_count',
@@ -759,7 +1036,7 @@ class Trainer(object):
                         counts['outside_fraction'] = (
                             counts['outside_count'] / valid if valid else 0.0)
                         swanlab_payload.update({
-                            f'训练中每5批可行区间诊断/{key}': value
+                            f'{batch_monitor_scope}可行区间诊断/{key}': value
                             for key, value in chinese_geometry_metrics(
                                 counts).items()
                         })
@@ -799,10 +1076,10 @@ class Trainer(object):
                 if swanlab_payload is not None:
                     swanlab_payload.update(grouped_gradient_payload(
                         scalar_values_to_floats(gradient_snapshot),
-                        scope='训练中每5批'))
+                        scope=batch_monitor_scope))
                     swanlab_payload.update(depth_mean_clipping_payload(
                         scalar_values_to_floats(gradient_snapshot),
-                        scope='训练中每5批'))
+                        scope=batch_monitor_scope))
                     self.tracker.log(
                         swanlab_payload, step=swanlab_step)
                 self.optimizer.step()
@@ -880,7 +1157,8 @@ class Trainer(object):
         key_list = [
             'labels', 'boxes', 'calibs', 'depth', 'size_3d',
             'heading_bin', 'heading_res', 'boxes_3d', 'src_size_3d',
-            'depth_unit_scale', 'projective_rotation_y']
+            'depth_unit_scale', 'projective_rotation_y',
+            'mixup_is_donor']
         for bz in range(batch_size):
             target_dict = {}
             for key, val in targets.items():

@@ -1,0 +1,14 @@
+base_config: monodgp_exp33.yaml
+
+model_name: 'V2-0035_实验33完全关闭MixUp'
+
+dataset:
+  # Pure ablation of the historical same-camera MixUp inherited by Exp33.
+  # A zero probability bypasses both same-camera and cross-focal MixUp.
+  random_mixup3d: 0.0
+
+trainer:
+  swanlab:
+    experiment_name: '实验35_实验33完全关闭MixUp'
+    description: '严格基于实验33，只将random_mixup3d从0.5改为0，完全关闭同相机与跨焦距MixUp。三维IoU质量头保持关闭，推理继续使用分类分数乘深度置信度，分类门槛保持0，top-50、完整P2几何修正、其余数据增强、Loss、Hungarian匹配、训练250轮、无NMS Moderate 3D AP_R40选best及best刷新NMS诊断全部保持实验33不变。'
+    tags: ['实验35', 'KITTI', '实验33消融', '完全关闭MixUp']

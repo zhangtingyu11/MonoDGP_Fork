@@ -745,6 +745,30 @@
           <span class="nav-index">32</span>
           <span class="nav-copy"><strong>全query硬排序</strong><small>第88轮停止·未采用</small></span>
         </button>
+        <button class="nav-button" data-target="exp33" type="button">
+          <span class="nav-index">33</span>
+          <span class="nav-copy"><strong>去除3D IoU质量头</strong><small>完整250轮·MixUp基线</small></span>
+        </button>
+        <button class="nav-button" data-target="exp34" type="button">
+          <span class="nav-index">34</span>
+          <span class="nav-copy"><strong>统一目标跨焦距MixUp</strong><small>完整250轮·未采用</small></span>
+        </button>
+        <button class="nav-button" data-target="exp35" type="button">
+          <span class="nav-index">35</span>
+          <span class="nav-copy"><strong>完全关闭MixUp</strong><small>完整250轮·显著下降</small></span>
+        </button>
+        <button class="nav-button" data-target="exp36" type="button">
+          <span class="nav-index">36</span>
+          <span class="nav-copy"><strong>目标保护跨焦距MixUp</strong><small>完整250轮·基本持平</small></span>
+        </button>
+        <button class="nav-button" data-target="exp37" type="button">
+          <span class="nav-index">37</span>
+          <span class="nav-copy"><strong>绑定确定性虚拟焦距</strong><small>完整250轮·未确认涨点</small></span>
+        </button>
+        <button class="nav-button" data-target="exp38" type="button">
+          <span class="nav-index">38</span>
+          <span class="nav-copy"><strong>全query三维IoU分类</strong><small>完整250轮·排序未转化</small></span>
+        </button>
       </nav>
 
       <div>
@@ -1001,10 +1025,13 @@
               <div class="mini-card good"><h3>实验 30：对照实验29</h3><p>保留质量头与排序，只统一数据增强、深度和解码中的完整P2几何。</p></div>
               <div class="mini-card"><h3>实验 31：对照实验30</h3><p>只将同P2 MixUp扩展为相机归一化跨焦距MixUp；误差改善未转化为AP，作为实验32/33继续修正排序的基础。</p></div>
               <div class="mini-card"><h3>实验 32：对照实验31</h3><p>全部query回归最大3D IoU并增加同GT硬间隔逐对排序；易背景对主导，第88轮后停止。</p></div>
+              <div class="mini-card good"><h3>实验 33：对照实验30</h3><p>只关闭三维IoU质量头，恢复分类×深度置信度推理；完整训练后作为后续MixUp消融的无质量头基线。</p></div>
+              <div class="mini-card"><h3>实验 34：对照实验33</h3><p>加入统一目标跨焦距MixUp，但同时改变混合顺序、有效mask、供体筛选和标签保留规则；结果下降，不能归因于跨焦距单变量。</p></div>
+              <div class="mini-card"><h3>实验 35：对照实验33</h3><p>只将MixUp概率从0.5改为0；当前仍在训练，网页只记录运行状态，不提前写最终结论。</p></div>
             </div>
             <div class="callout warning" style="margin-top:14px">
               <h4>每项实验只和自己明确的对照比</h4>
-              <p>序号1是B8完整运行栈对比；序号2是B16单组基准；序号3—21记录工程优化、正确性修复与正式基线；序号22—28逐步测试几何、匹配、分类与一对多监督；序号29增加3D IoU质量头；序号30修正完整P2数据增强几何并成为AP性能参考；序号31加入跨焦距MixUp，误差改善但没有转化为AP，作为后续排序实验的方法基线；序号32测试全query硬间隔排序并在第88轮停止。</p>
+              <p>序号1是B8完整运行栈对比；序号2是B16单组基准；序号3—21记录工程优化、正确性修复与正式基线；序号22—28逐步测试几何、匹配、分类与一对多监督；序号29增加3D IoU质量头；序号30修正完整P2数据增强几何并成为AP性能参考；序号31—32测试跨焦距MixUp与query排序；序号33关闭质量头建立新消融基线；序号34—37依次消融、修正跨焦距MixUp并加入虚拟焦距；序号38测试全query三维IoU分类。</p>
             </div>
           </article>
         </section>
@@ -3264,10 +3291,177 @@
             <div class="callout"><h4>证据边界与后续</h4><p>实验32未完成250轮，也没有正式AP，因此只能否定这次硬间隔逐对目标和当前训练轨迹，不能否定所有排序方法。原定的软列表后续方案亦已作废并回退代码；日志、滚动checkpoint、运行清单和停止状态保留在<code>outputs/V2-0032_全query同GT三维IoU质量排序/</code>。</p></div>
           </article>
         </section>
+
+        <section id="exp33" class="content-panel" aria-labelledby="exp33-title">
+          <article class="section-card">
+            <div class="section-head"><div><span class="section-kicker">实验 33 · 08-19—08-20</span><h2 id="exp33-title">实验30去除三维IoU质量头</h2><p class="section-subtitle">一句话：只关闭质量头和质量Loss，恢复分类×深度置信度推理；没有超过实验30，但成为后续MixUp实验的无质量头基线。</p></div><span class="done-badge">已完成 · 消融基线</span></div>
+            <div class="condition-grid">
+              <article class="condition-card"><header><strong>严格保留实验30</strong><span>完整P2与训练口径不变</span></header><dl><div><dt>数据</dt><dd>同P2 MixUp概率0.5</dd></div><div><dt>验证</dt><dd>阈值0、top-50、无NMS选best</dd></div><div><dt>NMS</dt><dd>best刷新诊断0.1—0.9</dd></div><div><dt>训练</dt><dd>从头250轮</dd></div></dl></article>
+              <article class="condition-card new"><header><strong>唯一方法改动</strong><span>关闭质量分支</span></header><dl><div><dt>质量头</dt><dd>关闭</dd></div><div><dt>质量Loss</dt><dd>删除</dd></div><div><dt>推理分数</dt><dd>分类 × 深度置信度</dd></div><div><dt>其他Loss</dt><dd>全部不变</dd></div></dl></article>
+            </div>
+            <div class="metric-grid">
+              <div class="metric"><span>无NMS中等best</span><strong>24.0124</strong><em>第223轮</em></div>
+              <div class="metric"><span>best三档</span><strong>30.9857 / 24.0124 / 21.3809</strong><em>简单 / 中等 / 困难</em></div>
+              <div class="metric"><span>对实验30中等best</span><strong>−0.7839</strong><em>24.0124 对 24.7963</em></div>
+              <div class="metric"><span>BEV NMS 0.8</span><strong>31.0552 / 24.1904 / 21.5563</strong><em>保留170426，删除18024</em></div>
+            </div>
+            <div class="callout warning"><h4>结论</h4><p>本次结果不支持“质量头完全没用”，但实验33仍适合作为无质量头的MixUp消融基线。实验34和35均严格从它出发。</p></div>
+          </article>
+        </section>
+
+        <section id="exp34" class="content-panel" aria-labelledby="exp34-title">
+          <article class="section-card">
+            <div class="section-head"><div><span class="section-kicker">实验 34 · 08-20</span><h2 id="exp34-title">实验33统一目标跨焦距MixUp</h2><p class="section-subtitle">一句话：完整P2跨焦距几何是正确的，但本轮同时改变图像混合、供体筛选与标签保留规则，结果下降且无法归因于单一变量。</p></div><span class="done-badge" style="background:var(--amber-soft);color:#9a5b00">已完成 · 当前实现未采用</span></div>
+            <div class="table-wrap"><table><thead><tr><th>链路</th><th>实验33</th><th>实验34</th></tr></thead><tbody>
+              <tr><td>供体</td><td>完整P2和原图尺寸相同；允许抽到自身</td><td>任意P2和尺寸；排除自身</td></tr>
+              <tr><td>RGB顺序</td><td>原图整幅0.5混合后共同裁剪/Resize</td><td>主图先到最终输入，供体原图再一次warp</td></tr>
+              <tr><td>混合区域</td><td>整幅图全部混合</td><td>仅支持mask&gt;0.999的像素混合，其余保留主图</td></tr>
+              <tr><td>供体目标失败</td><td>按车辆逐个跳过，其他车辆继续使用</td><td>任一可训练车部分可见或中心不可编码就整张供体重选</td></tr>
+              <tr><td>Region</td><td>主图和供体框区域直接并集</td><td>供体Region与RGB有效mask相交后再并集</td></tr>
+            </tbody></table></div>
+            <div class="metric-grid">
+              <div class="metric"><span>无NMS中等best</span><strong>22.9579</strong><em>第155轮</em></div>
+              <div class="metric"><span>best三档</span><strong>31.2826 / 22.9579 / 19.8203</strong><em>简单 / 中等 / 困难</em></div>
+              <div class="metric"><span>对实验33中等best</span><strong>−1.0545</strong><em>不能归因于跨焦距单变量</em></div>
+              <div class="metric"><span>BEV NMS 0.8</span><strong>31.4186 / 23.4014 / 20.2714</strong><em>保留175556，删除12894</em></div>
+            </div>
+            <div class="callout warning"><h4>为什么不能直接说“跨焦距MixUp无效”</h4><p>实验34不仅扩大了P2范围，还改变了同P2样本的混合顺序、自身供体、有效mask、整图重选、GT过滤、Region和随机候选序列。下一版回到实验33：同P2路径完全不动，只给不同P2供体增加完整P2 warp和车辆边界保护。</p></div>
+          </article>
+        </section>
+
+        <section id="exp35" class="content-panel" aria-labelledby="exp35-title">
+          <article class="section-card">
+            <div class="section-head"><div><span class="section-kicker">实验 35 · 08-20—08-21</span><h2 id="exp35-title">实验33完全关闭MixUp</h2><p class="section-subtitle">一句话：严格只关闭原始同P2 MixUp，结果明显下降，支持保留实验33的MixUp。</p></div><span class="done-badge">已完成 · 退出码0</span></div>
+            <div class="condition-grid"><article class="condition-card"><header><strong>对照：实验33</strong><span>其余设置全部不变</span></header><dl><div><dt>模型</dt><dd>无质量头</dd></div><div><dt>推理</dt><dd>分类×深度，阈值0</dd></div><div><dt>训练</dt><dd>250轮，从头初始化</dd></div><div><dt>选best</dt><dd>无NMS中等AP</dd></div></dl></article><article class="condition-card new"><header><strong>唯一变量</strong><span>完全关闭MixUp</span></header><dl><div><dt>实验33</dt><dd>random_mixup3d=0.5</dd></div><div><dt>实验35</dt><dd>random_mixup3d=0</dd></div><div><dt>其他模型与Loss</dt><dd>不变</dd></div><div><dt>验证与NMS口径</dt><dd>不变</dd></div></dl></article></div>
+            <h3>为什么要做这个实验</h3>
+            <p>实验34下降时同时改了跨P2选择、图像混合区域、目标过滤和重采样，无法判断到底是“MixUp本身无效”，还是新跨焦距流程有问题。实验35因此采用最干净的消融：回到实验33，只把MixUp请求概率从0.5设为0。</p>
+            <div class="table-wrap"><table><thead><tr><th>训练环节</th><th>实验33</th><th>实验35</th><th>是否属于本实验变量</th></tr></thead><tbody>
+              <tr><td>主图颜色、翻转、裁剪、Resize</td><td>启用</td><td>启用</td><td>否</td></tr>
+              <tr><td>同P2供体RGB</td><td>整图以0.5混入</td><td>不加载、不混入</td><td><strong>是</strong></td></tr>
+              <tr><td>供体Car标签</td><td>与主图GT共同监督</td><td>不存在供体GT</td><td><strong>是</strong></td></tr>
+              <tr><td>主图分类、2D框、深度、尺寸、角度标签</td><td>正常监督</td><td>完全相同</td><td>否</td></tr>
+              <tr><td>模型及独立3D IoU质量头</td><td>质量头关闭</td><td>质量头关闭</td><td>否</td></tr>
+              <tr><td>推理排序</td><td>分类概率×深度精度</td><td>相同</td><td>否</td></tr>
+            </tbody></table></div>
+            <div class="metric-grid"><div class="metric"><span>无NMS best</span><strong>29.1753 / 21.4716 / 18.0627</strong><em>第228轮</em></div><div class="metric"><span>第250轮</span><strong>27.6313 / 20.3659 / 17.1455</strong><em>简单 / 中等 / 困难</em></div><div class="metric"><span>对实验33中等</span><strong>−2.5408</strong><em>无NMS best</em></div><div class="metric"><span>BEV NMS 0.8</span><strong>29.1303 / 21.5951 / 18.1710</strong><em>保留174263，删除14187</em></div></div>
+            <div class="table-wrap"><table><thead><tr><th>口径</th><th>实验33</th><th>实验35</th><th>实验35－实验33</th></tr></thead><tbody>
+              <tr><td>无NMS best</td><td>30.9857 / 24.0124 / 21.3809</td><td>29.1753 / 21.4716 / 18.0627</td><td><strong>−1.8104 / −2.5408 / −3.3182</strong></td></tr>
+              <tr><td>BEV NMS 0.8</td><td>31.0552 / 24.1904 / 21.5563</td><td>29.1303 / 21.5951 / 18.1710</td><td><strong>−1.9249 / −2.5953 / −3.3853</strong></td></tr>
+            </tbody></table></div>
+            <div class="callout warning"><h4>结论</h4><p>这是单变量消融，现有证据支持原始同P2 MixUp有正收益；它不代表任意跨焦距MixUp流程都同样有效。</p></div>
+          </article>
+        </section>
+
+        <section id="exp36" class="content-panel" aria-labelledby="exp36-title">
+          <article class="section-card">
+            <div class="section-head"><div><span class="section-kicker">实验 36 · 08-21—08-22</span><h2 id="exp36-title">实验33目标保护跨焦距MixUp</h2><p class="section-subtitle">一句话：同P2旧路径完全不动，仅为跨P2供体增加完整P2 warp和车辆边界保护；结果与实验33接近。</p></div><span class="done-badge">已完成 · 基本持平</span></div>
+            <h3>为什么实验34之后还要做实验36</h3>
+            <p>实验34把所有MixUp都改走统一新路径，连原本已经有效的同P2 MixUp也被改变，因此下降无法定位。实验36把它拆开：同P2样本逐行保持实验33历史行为；只有P2不同的供体才进入新几何路径。这样实验36相对实验33新增的内容，才主要是“可被保护地加入跨P2供体”。</p>
+            <div class="table-wrap"><table><thead><tr><th>项目</th><th>实验36做法</th></tr></thead><tbody><tr><td>同P2供体</td><td>继续走实验33原始整图MixUp，不改行为</td></tr><tr><td>跨P2供体</td><td>用完整P2把供体RGB、2D框和3D位置统一变换到主图相机</td></tr><tr><td>边界保护</td><td>有效区域边界切过任一Car框时整张供体作废并重选，最多50次</td></tr><tr><td>目标监督</td><td>通过保护后恢复实验33逐目标编码，分类、框、深度、尺寸、角度和稠密监督一致</td></tr></tbody></table></div>
+            <h3>一张训练图实际怎样生成</h3>
+            <div class="table-wrap"><table><thead><tr><th>步骤</th><th>同P2供体</th><th>跨P2供体</th></tr></thead><tbody>
+              <tr><td>1. 主图增强参数</td><td colspan="2">先确定主图颜色增强、水平翻转、裁剪和最终1280×384 Resize参数</td></tr>
+              <tr><td>2. 供体选择</td><td>P2和图像尺寸匹配即可</td><td>允许P2不同；容量或几何不合法则继续重选</td></tr>
+              <tr><td>3. RGB对齐</td><td>两张原图整幅0.5混合，再共享主图仿射</td><td>由两套完整3×4 P2求供体到主图的变换，再合入翻转和主图最终仿射</td></tr>
+              <tr><td>4. 有效像素</td><td>整图都有供体来源</td><td>只在warp支持值&gt;0.999处做0.5混合；其余像素保持纯主图</td></tr>
+              <tr><td>5. 车辆保护</td><td>历史行为不变</td><td>有效区边界若穿过任一主图或供体Car框，整张供体作废并重选</td></tr>
+              <tr><td>6. 标签</td><td>沿用实验33</td><td>2D框随像素变换；3D位置加入完整P2导出的相机平移；物理Z随位置变化；尺寸、类别和rotation_y不变；alpha重新计算</td></tr>
+            </tbody></table></div>
+            <div class="callout"><h4><code>mask &gt; 0.999</code>具体代表什么</h4><p>把一张全1的供体画布用完全相同的几何变换warp到主图最终画布：某像素结果接近1，说明该像素的插值邻域全部来自真实供体图像；小于等于0.999说明它靠近warp边界，插值已经混入画布外的0。阈值不是置信度，也不是车辆分割mask，只是在判断“这个输出像素有没有完整供体RGB来源”。</p></div>
+            <h3>各类监督如何处理</h3>
+            <div class="table-wrap"><table><thead><tr><th>监督</th><th>主图</th><th>通过保护的供体</th><th>无法可靠编码的供体车</th></tr></thead><tbody>
+              <tr><td>分类 / Hungarian</td><td>保留</td><td>作为新增GT保留</td><td>不进入</td></tr>
+              <tr><td>2D框 / GIoU / 中心</td><td>按主图仿射变换</td><td>按跨P2与最终仿射统一变换</td><td>不进入</td></tr>
+              <tr><td>物理深度Z</td><td>物理值不因Resize改变</td><td>使用跨相机平移后的物理Z</td><td>不进入</td></tr>
+              <tr><td>尺寸 / 航向</td><td>保留物理尺寸并按翻转修正航向</td><td>尺寸、rotation_y不因相机内参改变；alpha按新位置重算</td><td>不进入</td></tr>
+              <tr><td>Region</td><td>保留</td><td>只覆盖实际出现供体RGB的区域</td><td>可见RGB与Region仍保留</td></tr>
+            </tbody></table></div>
+            <div class="metric-grid"><div class="metric"><span>无NMS best</span><strong>31.9210 / 23.9251 / 20.8224</strong><em>第195轮</em></div><div class="metric"><span>第250轮</span><strong>29.9419 / 22.6167 / 19.6210</strong><em>简单 / 中等 / 困难</em></div><div class="metric"><span>对实验33中等</span><strong>−0.0873</strong><em>无NMS，基本持平</em></div><div class="metric"><span>BEV NMS 0.8</span><strong>32.0269 / 24.3887 / 21.3082</strong><em>对实验33中等 +0.1983</em></div></div>
+            <div class="table-wrap"><table><thead><tr><th>口径</th><th>实验33</th><th>实验36</th><th>实验36－实验33</th></tr></thead><tbody>
+              <tr><td>无NMS best</td><td>30.9857 / 24.0124 / 21.3809</td><td>31.9210 / 23.9251 / 20.8224</td><td><strong>+0.9353 / −0.0873 / −0.5585</strong></td></tr>
+              <tr><td>BEV NMS 0.8</td><td>31.0552 / 24.1904 / 21.5563</td><td>32.0269 / 24.3887 / 21.3082</td><td><strong>+0.9717 / +0.1983 / −0.2481</strong></td></tr>
+            </tbody></table></div>
+            <h3>BS1一对一最优诊断</h3>
+            <div class="table-wrap"><table><thead><tr><th>实验36第195轮best的选框方式</th><th>简单</th><th>中等</th><th>困难</th><th>说明</th></tr></thead><tbody>
+              <tr><td>一对一约束，仍按模型现有分数选query</td><td>34.7517</td><td>29.7162</td><td>26.8652</td><td>去掉同一query重复对应多个GT后，衡量现有分数真正能选出多少好框</td></tr>
+              <tr><td>一对一约束，按真实3D IoU选query</td><td>54.8806</td><td>47.3440</td><td>42.3735</td><td>每个GT从候选中选真实IoU最高且query不重复，表示当前候选池的几何上限</td></tr>
+              <tr><td>两者差距</td><td><strong>20.1289</strong></td><td><strong>17.6278</strong></td><td><strong>15.5083</strong></td><td>候选框已经存在，但模型排序分数没有把最佳query稳定排到前面</td></tr>
+            </tbody></table></div>
+            <div class="callout"><h4>如何解读</h4><p>实验36实际NMS 0.8中等AP是24.3887；在一对一且仍按模型分数选框时可到29.7162；如果知道真实IoU再选，则可到47.3440。三者逐层分开了“重复框/NMS问题”“模型分数排序问题”和“候选池本身有没有好框”。</p></div>
+            <div class="callout warning"><h4>结论边界</h4><p>无NMS微降、NMS 0.8微升，且差值都很小，因此不把它写成稳定涨点；实验36主要确立目标保护版跨焦距实现。</p></div>
+          </article>
+        </section>
+
+        <section id="exp37" class="content-panel" aria-labelledby="exp37-title">
+          <article class="section-card">
+            <div class="section-head"><div><span class="section-kicker">实验 37 · 08-22</span><h2 id="exp37-title">实验36绑定确定性虚拟焦距</h2><p class="section-subtitle">一句话：只在成功MixUp样本上让主图和供体共享0.9/1.0/1.1虚拟焦距倍率，没有形成稳定AP收益。</p></div><span class="done-badge" style="background:var(--amber-soft);color:#9a5b00">已完成 · 未确认涨点</span></div>
+            <h3>想解决什么问题</h3>
+            <p>实验36虽然允许跨P2，但新增样本仍受KITTI原相机组数量影响：某些焦距组合天然更常出现。实验37不再依赖随机相机组来决定尺度变化，而是在已经成功MixUp的样本上，确定性地追加一组虚拟焦距，使0.9、1.0、1.1三档随图像编号和epoch均匀轮换。</p>
+            <div class="condition-grid"><article class="condition-card new"><header><strong>新增变量</strong><span>与MixUp绑定的虚拟焦距</span></header><dl><div><dt>倍率</dt><dd>0.9 / 1.0 / 1.1确定性循环</dd></div><div><dt>作用对象</dt><dd>主图与供体共享倍率</dd></div><div><dt>插值</dt><dd>每个RGB来源只做一次</dd></div><div><dt>截车保护</dt><dd>触发时回退倍率1.0</dd></div></dl></article><article class="condition-card"><header><strong>不变部分</strong><span>严格继承实验36</span></header><dl><div><dt>跨P2几何</dt><dd>完整P2 warp</dd></div><div><dt>MixUp概率</dt><dd>0.5</dd></div><div><dt>模型与Loss</dt><dd>不变</dd></div><div><dt>推理</dt><dd>分类×深度，阈值0</dd></div></dl></article></div>
+            <h3>虚拟焦距具体怎样作用</h3>
+            <div class="table-wrap"><table><thead><tr><th>问题</th><th>实验37的准确做法</th></tr></thead><tbody>
+              <tr><td>倍率怎样选</td><td><code>(image_id + epoch) % 3</code>选择0.9、1.0或1.1，不额外消耗随机数，也不依赖P2相机组</td></tr>
+              <tr><td>怎样改变焦距</td><td>把原裁剪尺寸除以倍率：0.9看到更宽的视野，1.1看到更窄的视野；新的仿射同时写入增强后完整P2</td></tr>
+              <tr><td>何时做裁剪和Resize</td><td>虚拟焦距矩阵与原裁剪/Resize矩阵先合并，随后主图和供体各只采样一次，避免连续两次插值模糊</td></tr>
+              <tr><td>主图与供体是否一致</td><td>同一MixUp样本共享一个倍率，因此RGB、2D框、投影中心和P2处于同一最终坐标系</td></tr>
+              <tr><td>什么时候取消</td><td>若相对实验36原变换，虚拟焦距新增了“车辆被最终画布边界切开”的情况，只撤销虚拟焦距并回退倍率1.0；MixUp本身仍继续</td></tr>
+              <tr><td>MixUp选择失败怎么办</td><td>该样本不做MixUp，同时虚拟焦距也撤销，避免实验37把非MixUp样本一并改变</td></tr>
+            </tbody></table></div>
+            <div class="callout"><h4>为什么它不是简单把焦距数值乘一下</h4><p>如果只改P2而不改图像，投影几何会与RGB错位。实验37实际改变了“相机看到的视野”，同时用同一矩阵更新RGB、2D标签和完整P2；物理3D尺寸与物理深度不会因为Resize凭空变化。</p></div>
+            <div class="metric-grid"><div class="metric"><span>无NMS best</span><strong>32.1382 / 23.9771 / 21.0618</strong><em>第153轮</em></div><div class="metric"><span>对实验36中等</span><strong>+0.0520</strong><em>无NMS，变化很小</em></div><div class="metric"><span>NMS 0.8</span><strong>32.2771 / 24.0498 / 21.3266</strong><em>中等比实验36低0.3389</em></div><div class="metric"><span>本轮最高NMS中等</span><strong>24.1324</strong><em>阈值0.9，仍低于实验36</em></div></div>
+            <div class="table-wrap"><table><thead><tr><th>口径</th><th>实验36</th><th>实验37</th><th>实验37－实验36</th></tr></thead><tbody>
+              <tr><td>无NMS best</td><td>31.9210 / 23.9251 / 20.8224</td><td>32.1382 / 23.9771 / 21.0618</td><td><strong>+0.2172 / +0.0520 / +0.2394</strong></td></tr>
+              <tr><td>BEV NMS 0.8</td><td>32.0269 / 24.3887 / 21.3082</td><td>32.2771 / 24.0498 / 21.3266</td><td><strong>+0.2502 / −0.3389 / +0.0184</strong></td></tr>
+            </tbody></table></div>
+            <h3>BS1一对一最优诊断</h3>
+            <div class="table-wrap"><table><thead><tr><th>选框方式</th><th>实验36 E195</th><th>实验37 E153</th><th>实验37－实验36</th></tr></thead><tbody>
+              <tr><td>一对一约束，仍按模型现有分数</td><td>34.7517 / 29.7162 / 26.8652</td><td>36.2971 / 29.7835 / 27.0772</td><td><strong>+1.5455 / +0.0673 / +0.2120</strong></td></tr>
+              <tr><td>一对一约束，按真实3D IoU选最优query</td><td>54.8806 / 47.3440 / 42.3735</td><td>57.1871 / 47.2079 / 42.3239</td><td><strong>+2.3065 / −0.1361 / −0.0496</strong></td></tr>
+              <tr><td>实验37内部：真实IoU选框－模型分数选框</td><td>—</td><td>20.8900 / 17.4244 / 15.2467</td><td>排序仍留下很大损失</td></tr>
+            </tbody></table></div>
+            <div class="callout"><h4>一对一诊断的结论</h4><p>虚拟焦距主要提高了Easy候选和Easy选框；Moderate与Hard的真实IoU候选上限反而极轻微下降，模型分数选框也只增加0.0673和0.2120。它没有实质解决中、困难样本的query排序问题，这与NMS 0.8 Moderate下降0.3389的结果一致。</p></div>
+            <div class="callout warning"><h4>最终判断</h4><p>无NMS三档虽都略高，但中等只高0.052；加入NMS后中等反而低0.339。证据不足以声称虚拟焦距稳定有效，因此实验37保留为实验38的代码基线，而不是已确认的AP涨点。</p></div>
+          </article>
+        </section>
+
+        <section id="exp38" class="content-panel" aria-labelledby="exp38-title">
+          <article class="section-card">
+            <div class="section-head"><div><span class="section-kicker">实验 38 · 08-22—08-23</span><h2 id="exp38-title">实验37全query三维IoU分类</h2><p class="section-subtitle">一句话：所有550个query都用最大精确3D IoU作为分类软目标；候选池明显增强，但分数排序没有转化为更高部署AP。</p></div><span class="done-badge" style="background:var(--amber-soft);color:#9a5b00">已完成 · 排序仍是瓶颈</span></div>
+            <h3>实验动机</h3>
+            <p>实验36、37的一对一诊断一直显示：模型已经能生成比最终AP更好的候选框，但分类×深度分数经常没有把同一目标的最佳query排在最前。实验38因此不再增加一个独立质量头，而是直接把3D decoder原有的Car分类分数改造成“这个query的真实3D IoU预测”。</p>
+            <div class="table-wrap"><table><thead><tr><th>环节</th><th>实验38</th></tr></thead><tbody><tr><td>分类目标</td><td>每个query对同图全部GT的最大精确3D IoU</td></tr><tr><td>监督范围</td><td>最终层和两个3D辅助层，全部11×50个query</td></tr><tr><td>分类Loss</td><td>Quality Focal Loss，beta=2</td></tr><tr><td>推理分数</td><td>直接使用分类概率，不再乘深度置信度</td></tr><tr><td>验证</td><td>10—110轮每10轮；120轮起逐轮；无NMS选主best并记录NMS</td></tr></tbody></table></div>
+            <h3>分类标签到底怎么生成</h3>
+            <div class="callout"><h4>每个query都有连续目标</h4><p>对同一张图的每个3D query，批量计算它与全部有效GT的精确3D IoU（BEV旋转相交面积再乘高度交集），取最大值：<code>y_q = max_g IoU3D(box_q, GT_g)</code>。没有GT时目标为0。这个IoU目标停止梯度，避免模型通过移动框来“篡改标签”；分类logit和共享特征仍正常反向。</p></div>
+            <div class="table-wrap"><table><thead><tr><th>输出层</th><th>实验37标签</th><th>实验38标签</th><th>原因</th></tr></thead><tbody>
+              <tr><td>最终3D decoder层</td><td>Hungarian匹配为1，其余为0</td><td>全部11×50个query使用连续3D IoU</td><td>框已经具备完整深度、尺寸和角度，可计算精确3D IoU</td></tr>
+              <tr><td>两个3D辅助层</td><td>0/1</td><td>同样改为连续3D IoU</td><td>避免只有最终层学习新分数语义</td></tr>
+              <tr><td>三个2D proposal中间层</td><td>0/1</td><td>仍为0/1</td><td>这些层没有完整3D框，不能定义精确3D IoU</td></tr>
+              <tr><td>框、中心、深度、尺寸、角度Loss</td><td>Hungarian正匹配监督</td><td>完全不变</td><td>本实验只改分类语义，不改候选框回归任务</td></tr>
+            </tbody></table></div>
+            <h3>Quality Focal Loss在这里做什么</h3>
+            <p>它不是把IoU粗暴切成正负样本。预测概率为<code>p</code>、真实目标为<code>y</code>时，仍用二元交叉熵拟合连续目标，同时乘上<code>|p−y|²</code>：预测已经接近真实IoU的query权重变小，误差大的query受到更强惩罚。因此IoU 0.05、0.45和0.85分别会学向不同分数，而不是统一学成0或1。</p>
+            <h3>推理为什么也必须改变</h3>
+            <div class="table-wrap"><table><thead><tr><th>实验</th><th>分类分数含义</th><th>最终排序分数</th></tr></thead><tbody>
+              <tr><td>实验37</td><td>Car类别概率</td><td>类别概率 × 深度精度</td></tr>
+              <tr><td>实验38</td><td>预测3D IoU</td><td>直接使用预测3D IoU</td></tr>
+            </tbody></table></div>
+            <p>如果实验38继续乘深度精度，就会把深度信息重复加入一次，重新扭曲新分类分数的含义。因此top-50、AP排序和NMS保留顺序都直接使用该分类概率；置信度门槛仍为0。</p>
+            <div class="metric-grid"><div class="metric"><span>最终best</span><strong>第175轮</strong><em>250轮结束后仍未刷新</em></div><div class="metric"><span>无NMS best</span><strong>23.0760 / 18.5461 / 16.1374</strong><em>简单 / 中等 / 困难</em></div><div class="metric"><span>NMS 0.8</span><strong>28.3309 / 22.9839 / 20.3549</strong><em>同一第175轮checkpoint</em></div><div class="metric"><span>第250轮无NMS</span><strong>21.1346 / 16.8463 / 15.2454</strong><em>没有刷新best</em></div><div class="metric"><span>一对一真实IoU上限</span><strong>59.8384 / 52.4120 / 44.8209</strong><em>同一第175轮checkpoint</em></div><div class="metric"><span>运行状态</span><strong>退出码0</strong><em>11:04完成并复验best</em></div></div>
+            <div class="table-wrap"><table><thead><tr><th>同一选框口径</th><th>实验37 E153</th><th>实验38 E175</th><th>变化</th></tr></thead><tbody>
+              <tr><td>实际无NMS AP</td><td>32.1382 / 23.9771 / 21.0618</td><td>23.0760 / 18.5461 / 16.1374</td><td><strong>−9.0622 / −5.4310 / −4.9244</strong></td></tr>
+              <tr><td>实际NMS 0.8 AP</td><td>32.2771 / 24.0498 / 21.3266</td><td>28.3309 / 22.9839 / 20.3549</td><td><strong>−3.9462 / −1.0659 / −0.9717</strong></td></tr>
+              <tr><td>一对一、仍按模型分数</td><td>36.2971 / 29.7835 / 27.0772</td><td>35.2976 / 33.3329 / 29.5830</td><td>中等<strong>+3.5494</strong>，困难<strong>+2.5058</strong></td></tr>
+              <tr><td>一对一、按真实IoU</td><td>57.1871 / 47.2079 / 42.3239</td><td>59.8384 / 52.4120 / 44.8209</td><td>中等<strong>+5.2041</strong>，候选上限明显提高</td></tr>
+            </tbody></table></div>
+            <div class="callout"><h4>为什么“候选变强”却“实际AP变低”并不矛盾</h4><p>真实IoU选框回答“50个query里有没有好框”；实际AP回答“模型分数能不能在全验证集把好框排到坏框前面，并让NMS保留正确者”。实验38前者明显提高，但后者仍有大量顺序错误，所以更好的几何候选没有被稳定输出。</p></div>
+            <div class="callout warning"><h4>NMS相关排序仍不准</h4><p>在12008个预测BEV IoU≥0.8、同组且归属同一GT的排序事件中，正确率只有57.28%；1377个跨真实3D IoU 0.7阈值的事件里有537个顺序错误。实验38已完整训练250轮并正常退出，因此这不是“尚未收敛到最后一轮”的临时判断；后续排序Loss正是针对这类会改变NMS保留框的错误。</p></div>
+            <div class="callout warning"><h4>最终采用边界</h4><p>实验38不作为当前部署AP最优方案直接采用，但保留它产生更强候选池的证据和全query IoU分类代码。下一步若加入NMS相关排序监督，应以实验38为严格对照：既要超过NMS 0.8 Moderate 22.9839，也要改善57.28%的相关排序正确率，同时不能破坏无NMS候选和一对一IoU上限。</p></div>
+          </article>
+        </section>
       </div>
     </div>
 
-    <footer class="footer">MonoDGP 实验总览 v2 · 序号01—32</footer>
+    <footer class="footer">MonoDGP 实验总览 v2 · 序号01—38</footer>
   </main>
 
   <script>

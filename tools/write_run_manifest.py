@@ -104,11 +104,20 @@ def main():
         f"随机种子：{cfg.get('random_seed', 444)}",
         f"批大小：{cfg['dataset']['batch_size']}",
         f"验证起始轮次：{cfg['trainer']['validation_start_epoch']}",
+        '正式验证前轻量AP诊断间隔：' + str(
+            cfg['trainer'].get('early_validation_interval', 0)),
+        '早期AP刷新参与best并计算NMS：' + str(bool(
+            cfg['trainer'].get('early_validation_updates_best', False))),
         'best选择：无NMS Car_3d_moderate_R40；排序分数=' + str(
             cfg['tester'].get('primary_quality_score', '历史默认')),
         f"验证置信度门槛：{cfg['tester']['threshold']}",
         '跨焦距供体目标最小有效覆盖率：' + str(
             cfg['dataset'].get('mixup_min_object_valid_ratio', '未配置')),
+        'MixUp绑定虚拟焦距：' + str(bool(
+            cfg['dataset'].get('mixup_virtual_focal', False))),
+        'MixUp虚拟焦距倍率：' + ','.join(map(
+            str, cfg['dataset'].get(
+                'mixup_virtual_focal_multipliers', ()))),
         'best刷新时BEV NMS阈值：' + ','.join(map(
             str, cfg['tester'].get('best_refresh_bev_nms_thresholds', ()))),
         f"命令：{args.command}",
@@ -147,10 +156,16 @@ def main():
             high_iou_weighting.get('zero_weight_at_iou', '未配置')),
     ])
     quality_cfg = cfg['model'].get('iou_quality_head', {})
+    iou_classification_cfg = cfg['model'].get(
+        'iou_classification', {})
     score_fusions = cfg['tester'].get('quality_score_fusions', ())
     receipt.extend([
         '三维IoU质量头：' + str(bool(
             quality_cfg.get('enabled', False))),
+        '全query分类拟合三维IoU：' + str(bool(
+            iou_classification_cfg.get('enabled', False))),
+        'IoU分类Quality Focal beta：' + str(
+            iou_classification_cfg.get('beta', '未配置')),
         '质量Loss权重：' + str(
             quality_cfg.get('loss_coef', '未配置')),
         '质量监督模式：' + str(
@@ -176,7 +191,8 @@ def main():
             f"{item['name']}(alpha={item.get('alpha', 1.0)},"
             f"beta={item.get('beta', 1.0)},"
             f"gamma={item.get('gamma', 1.0)},"
-            f"historical_topk={bool(item.get('historical_topk', False))})"
+            f"historical_topk={bool(item.get('historical_topk', False))},"
+            f"classification_only={bool(item.get('classification_only', False))})"
             for item in score_fusions),
     ])
     (output_dir / 'run_manifest.txt').write_text(

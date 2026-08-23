@@ -1,0 +1,26 @@
+base_config: monodgp_exp30.yaml
+
+model_name: 'V2-0033_实验30去除三维IoU质量头'
+
+model:
+  # Pure ablation of Experiment 30's independent 3D-IoU quality head.
+  # Classification, matching, box regression and the full-P2 geometry path
+  # remain inherited from Experiment 30 without modification.
+  iou_quality_head:
+    enabled: false
+
+tester:
+  threshold: 0.0
+  topk: 50
+  # Without pred_quality, use MonoDGP's historical inference path: select the
+  # top-50 classification logits, then multiply by depth confidence in decode.
+  primary_quality_score: current_cxd
+  quality_score_fusions:
+    - {name: current_cxd, alpha: 1.0, beta: 0.0, gamma: 1.0, historical_topk: true}
+  quality_ranking_monitoring: false
+
+trainer:
+  swanlab:
+    experiment_name: '实验33_实验30去除三维IoU质量头'
+    description: '严格基于实验30从头训练，只删除独立三维IoU质量头及其Hungarian正样本质量回归Loss；由于模型不再输出pred_quality，推理恢复历史分类分数乘深度置信度的current_cxd路径，并关闭依赖质量头的排序监控。完整P2几何修正、数据与增强、分类Loss、匈牙利匹配、框回归、top-50、0置信度门槛、无NMS Moderate AP选best、best刷新NMS诊断及训练日程全部保持实验30不变。'
+    tags: ['实验33', 'KITTI', '实验30消融', '去除三维IoU质量头']

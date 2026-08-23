@@ -194,6 +194,14 @@ trainer:
   # Epochs 1-119 only train and save the latest checkpoint. Starting after
   # epoch 120, run the full validation/loss/interval/AP pipeline every epoch.
   validation_start_epoch: 120
+  # Before formal validation starts, run lightweight no-NMS AP diagnostics at
+  # epochs 10, 20, ..., 110. By default these checks skip validation losses,
+  # score grids, NMS and best-checkpoint selection; the opt-in below can make
+  # early AP refreshes follow the normal best-plus-NMS protocol.
+  early_validation_interval: 10
+  # Opt-in experiment protocol: allow lightweight early validation to update
+  # the no-NMS Moderate AP best checkpoint and run the registered NMS grid.
+  early_validation_updates_best: False
   #resume_model: True
   #pretrain_model: path/to/ckpt
   save_path: 'outputs/'
