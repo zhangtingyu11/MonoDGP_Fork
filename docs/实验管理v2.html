@@ -769,6 +769,14 @@
           <span class="nav-index">38</span>
           <span class="nav-copy"><strong>全query三维IoU分类</strong><small>完整250轮·排序未转化</small></span>
         </button>
+        <button class="nav-button" data-target="exp39" type="button">
+          <span class="nav-index">39</span>
+          <span class="nav-copy"><strong>NMS冲突对排序</strong><small>完整250轮·未超实验38</small></span>
+        </button>
+        <button class="nav-button" data-target="exp40" type="button">
+          <span class="nav-index">40</span>
+          <span class="nav-copy"><strong>排序Loss权重1.0</strong><small>E197停止·目标错位</small></span>
+        </button>
       </nav>
 
       <div>
@@ -898,6 +906,14 @@
               <div class="truth"><span class="number">30</span><h3>完整P2数据增强几何修正</h3><p>统一仿射后P2、物理Z深度、验证逆变换与物理翻转；无NMS中等best刷24.7963，成为新基线。</p></div>
               <div class="truth"><span class="number">31</span><h3>相机归一化跨焦距MixUp</h3><p>完整训练250轮；误差改善没有被分类与排序分数转化成AP，保留为实验32/33的方法基线。</p></div>
               <div class="truth"><span class="number">32</span><h3>全query同GT硬间隔质量排序</h3><p>全部query做点式IoU回归并对IoU差至少0.1的同GT候选逐对排序；易背景对主导，第88轮后停止。</p></div>
+              <div class="truth"><span class="number">33</span><h3>去除3D IoU质量头</h3><p>基于实验30关闭独立质量头，形成保留原始同P2 MixUp的无质量头基线。</p></div>
+              <div class="truth"><span class="number">34</span><h3>统一目标跨焦跟MixUp</h3><p>供体走完整P2 warp与统一目标处理，结果低于实验33，当前实现不采用。</p></div>
+              <div class="truth"><span class="number">35</span><h3>完全关闭MixUp</h3><p>唯一变量是关闭MixUp，无NMS和NMS都显著下降，支持保留原始同P2 MixUp。</p></div>
+              <div class="truth"><span class="number">36</span><h3>目标保护跨焦跟MixUp</h3><p>跨P2仅走新路径并加边界截车保护；无NMS基本持平，NMS 0.8小幅提高。</p></div>
+              <div class="truth"><span class="number">37</span><h3>MixUp绑定确定性虚拟焦距</h3><p>成功MixUp样本使用0.9/1.0/1.1焦距倍率；无NMS微升，NMS未超过实验36。</p></div>
+              <div class="truth"><span class="number">38</span><h3>全query三维IoU分类</h3><p>全部query的分类目标改为最大真实3D IoU；候选池增强，但分数排序仍未转化为部署AP。</p></div>
+              <div class="truth"><span class="number">39</span><h3>触发NMS的候选对排序</h3><p>对同GT且BEV IoU≥0.8的候选对加权RankNet；完整250轮，NMS AP未超过实验38。</p></div>
+              <div class="truth"><span class="number">40</span><h3>NMS排序Loss权重1.0</h3><p>排序软Loss略降，但硬逆序率未降且回归Loss普遍上升；E197后提前停止。</p></div>
             </div>
           </article>
 
@@ -3458,10 +3474,49 @@
             <div class="callout warning"><h4>最终采用边界</h4><p>实验38不作为当前部署AP最优方案直接采用，但保留它产生更强候选池的证据和全query IoU分类代码。下一步若加入NMS相关排序监督，应以实验38为严格对照：既要超过NMS 0.8 Moderate 22.9839，也要改善57.28%的相关排序正确率，同时不能破坏无NMS候选和一对一IoU上限。</p></div>
           </article>
         </section>
+
+        <section id="exp39" class="content-panel" aria-labelledby="exp39-title">
+          <article class="section-card">
+            <div class="section-head"><div><span class="section-kicker">实验 39 · 08-23—08-24</span><h2 id="exp39-title">实验38触发NMS候选对IoU排序</h2><p class="section-subtitle">一句话：直接给会互相触发BEV NMS 0.8的同GT query对加排序监督，链路可运行，但最终AP没有超过实验38。</p></div><span class="done-badge" style="background:var(--amber-soft);color:#9a5b00">已完成 · 未确认涨点</span></div>
+            <h3>具体怎样构造排序对</h3>
+            <div class="table-wrap"><table><thead><tr><th>环节</th><th>实验39做法</th></tr></thead><tbody>
+              <tr><td>分组</td><td>训练时每个50-query组内独立构对，不跨组比较</td></tr>
+              <tr><td>GT归属</td><td>每个query归给其真实3D IoU最大的GT，只比较归属同GT的query</td></tr>
+              <tr><td>NMS条件</td><td>两个预测3D框的旋转BEV IoU≥0.8，即两者可在NMS中互相抑制</td></tr>
+              <tr><td>正确顺序</td><td>真实3D IoU更高的query应获得更高分类logit</td></tr>
+              <tr><td>单对Loss</td><td><code>|ΔIoU| × softplus(-正确方向的logit差)</code>，IoU差越大权重越高</td></tr>
+              <tr><td>反向范围</td><td>候选对、GT归属、BEV IoU和真实IoU目标均detach；梯度只经分类logit进入分类头和共享特征</td></tr>
+              <tr><td>作用层</td><td>最终Decoder与两个3D辅助Decoder均计算，系数都为0.1</td></tr>
+            </tbody></table></div>
+            <div class="metric-grid"><div class="metric"><span>无NMS best</span><strong>25.4020 / 19.5407 / 16.7479</strong><em>第140轮</em></div><div class="metric"><span>NMS 0.8 best</span><strong>28.9092 / 22.6199 / 19.6116</strong><em>第195轮</em></div><div class="metric"><span>对实验38 NMS中等</span><strong>−0.3640</strong><em>22.6199 vs 22.9839</em></div><div class="metric"><span>运行状态</span><strong>250轮完成</strong><em>退出码0</em></div></div>
+            <div class="callout warning"><h4>为什么不直接采用</h4><p>排序全部冲突对会同时优化大量“两个都不是最终最优框”的次要顺序；而辅助层的中间框关系也不是真正推理NMS的决策对象。实验39的NMS 0.8 Moderate比实验38低0.3640，因此只保留实现和诊断价值。</p></div>
+          </article>
+        </section>
+
+        <section id="exp40" class="content-panel" aria-labelledby="exp40-title">
+          <article class="section-card">
+            <div class="section-head"><div><span class="section-kicker">实验 40 · 08-24</span><h2 id="exp40-title">实验39的NMS排序Loss权重1.0</h2><p class="section-subtitle">一句话：唯一配置变量是把三层排序Loss同时放大10倍；软Loss略降，但硬逆序率未降、回归Loss恶化，于E197后提前停止。</p></div><span class="done-badge" style="background:var(--rose-soft);color:#a33b3b">已停止 · 权重1.0不采用</span></div>
+            <h3>实验口径和停止边界</h3>
+            <p>实验39与40使用相同种子444和相同核心代码；解析配置除名称、记录文字和<code>loss_coef: 0.1 → 1.0</code>外一致。E197训练完整完成，随后在E197验证推理中终止；因此最后完整验证是E196，E197验证不计入结果。</p>
+            <div class="metric-grid"><div class="metric"><span>NMS 0.8 best</span><strong>30.7307 / 23.2123 / 20.2060</strong><em>第128轮</em></div><div class="metric"><span>无NMS best</span><strong>29.3212 / 21.5859 / 18.9665</strong><em>第194轮</em></div><div class="metric"><span>对实验39 NMS中等</span><strong>+0.5925</strong><em>23.2123 vs 22.6199</em></div><div class="metric"><span>后续未刷新</span><strong>68次完整验证</strong><em>E129—E196</em></div></div>
+            <h3>同轮训练Loss复盘（E160—175均值）</h3>
+            <div class="table-wrap"><table><thead><tr><th>指标</th><th>实验39</th><th>实验40</th><th>变化</th></tr></thead><tbody>
+              <tr><td>NMS软排序Loss（原始值）</td><td>0.036249</td><td>0.035895</td><td><strong>−0.97%</strong></td></tr>
+              <tr><td>NMS候选对硬排序正确率</td><td>61.886%</td><td>61.205%</td><td><strong>−0.68个百分点</strong></td></tr>
+              <tr><td>IoU差加权正确率</td><td>67.861%</td><td>67.144%</td><td><strong>−0.72个百分点</strong></td></tr>
+              <tr><td>分类Loss</td><td>0.099789</td><td>0.100399</td><td>+0.61%</td></tr>
+              <tr><td>2D框 / GIoU / 中心Loss</td><td>—</td><td>—</td><td>+2.62% / +2.06% / +3.22%</td></tr>
+              <tr><td>深度 / 尺寸 / 角度Loss</td><td>—</td><td>—</td><td><strong>+14.25%</strong> / +4.67% / +3.18%</td></tr>
+            </tbody></table></div>
+            <div class="callout warning"><h4>反常现象的准确原因</h4><p>权重和梯度接线实际生效：模型确实牺牲其他任务把软排序Loss降低了约1%。但当前<code>|ΔIoU|·softplus</code>最小化的是带严重度和分数margin的连续目标，不是逆序候选对数。因此它可以把严重逆序拉近0而大幅减少软Loss，同时使更多低差距候选对跨过0，造成软Loss下降而硬正确率下降。</p></div>
+            <div class="callout"><h4>监控还有一处需要修正</h4><p>当前验证正确率是“每个batch先求比例，再对batch等权平均”，不是全验证集的正确对总数除以候选对总数。这不改变AP，但会让实验间的约2个百分点差异不够严格，后续实验前必须改成全集计数。</p></div>
+            <div class="callout"><h4>用户已审核的下一版方向</h4><p>只在最终Decoder层中，对每个GT的最高真实3D IoU query与会在BEV NMS 0.8中压掉它的候选做排序；每GT先归一化。监控改为全验证集计数，并新增最优query被NMS保留率和NMS IoU遗憾。该方向尚未实现，不混入实验40。</p></div>
+          </article>
+        </section>
       </div>
     </div>
 
-    <footer class="footer">MonoDGP 实验总览 v2 · 序号01—38</footer>
+    <footer class="footer">MonoDGP 实验总览 v2 · 序号01—40</footer>
   </main>
 
   <script>

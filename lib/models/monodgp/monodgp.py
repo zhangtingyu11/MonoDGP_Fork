@@ -22,6 +22,8 @@ from lib.losses.asymmetric_interval_depth_loss import (
     asymmetric_interval_and_uncertainty_loss)
 from lib.losses.query_quality_ranking_loss import (
     all_query_quality_ranking_loss)
+from lib.losses.nms_aware_iou_ranking_loss import (
+    nms_aware_iou_ranking_loss)
 from .position_encoding import PositionEmbeddingCamRay
 
 
@@ -651,8 +653,23 @@ class SetCriterion(nn.Module):
             iou_classification_cfg.get('enabled', False))
         self.iou_classification_beta = float(
             iou_classification_cfg.get('beta', 2.0))
+        nms_ranking_cfg = iou_classification_cfg.get('nms_ranking', {})
+        self.iou_classification_nms_ranking_enabled = bool(
+            nms_ranking_cfg.get('enabled', False))
+        self.iou_classification_nms_bev_threshold = float(
+            nms_ranking_cfg.get('bev_iou_threshold', 0.8))
+        self.iou_classification_nms_min_iou_delta = float(
+            nms_ranking_cfg.get('min_iou_delta', 1e-6))
         if self.iou_classification_beta < 0:
             raise ValueError('3D-IoU classification beta must be non-negative')
+        if (self.iou_classification_nms_ranking_enabled
+                and not self.iou_classification_enabled):
+            raise ValueError(
+                'NMS-aware ranking requires 3D-IoU classification')
+        if not 0.0 <= self.iou_classification_nms_bev_threshold <= 1.0:
+            raise ValueError('NMS ranking BEV-IoU threshold must be in [0, 1]')
+        if not 0.0 <= self.iou_classification_nms_min_iou_delta < 1.0:
+            raise ValueError('NMS ranking minimum IoU delta must be in [0, 1)')
         if (self.iou_classification_enabled
                 and self.matcher.cost_iou3d == 0):
             raise ValueError(
@@ -885,6 +902,17 @@ class SetCriterion(nn.Module):
             loss_ce = quality_focal_loss(
                 src_logits, target_classes_onehot, num_boxes,
                 beta=self.iou_classification_beta) * src_logits.shape[1]
+            if self.iou_classification_nms_ranking_enabled:
+                weighting_metrics.update(nms_aware_iou_ranking_loss(
+                    src_logits, outputs, targets,
+                    self.matcher.last_iou3d_matrix,
+                    decode_mean_sizes=(
+                        self.matcher.iou3d_decode_mean_sizes),
+                    group_num=(self.group_num if self.training else 1),
+                    bev_iou_threshold=(
+                        self.iou_classification_nms_bev_threshold),
+                    min_iou_delta=(
+                        self.iou_classification_nms_min_iou_delta)))
         else:
             target_classes = torch.full(
                 src_logits.shape[:2], self.num_classes,
@@ -1617,6 +1645,11 @@ def build(cfg):
                 * float(quality_cfg.get('rank_loss_coef', 0.2)))
         else:
             weight_dict['loss_quality'] = quality_loss_coef
+    iou_classification_cfg = cfg.get('iou_classification') or {}
+    nms_ranking_cfg = iou_classification_cfg.get('nms_ranking', {})
+    if bool(nms_ranking_cfg.get('enabled', False)):
+        weight_dict['loss_iou_classification_nms_rank'] = float(
+            nms_ranking_cfg.get('loss_coef', 0.1))
 
     if cfg['aux_loss']:
         aux_weight_dict = {}

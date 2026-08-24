@@ -1,0 +1,16 @@
+base_config: monodgp_exp39.yaml
+
+model_name: 'V2-0040_实验40_NMS排序Loss权重1'
+
+model:
+  iou_classification:
+    nms_ranking:
+      # Experiment 40 is a strict single-variable follow-up to Experiment 39.
+      # Increase only the NMS-aware ranking coefficient from 0.1 to 1.0.
+      loss_coef: 1.0
+
+trainer:
+  swanlab:
+    experiment_name: '实验40_NMS排序Loss权重1'
+    description: '严格基于实验39，仅将触发BEV NMS 0.8候选对的加权RankNet Loss系数从0.1提高到1.0。其余模型、连续3D IoU Quality Focal分类监督、候选对构造、停止梯度位置、MixUp、虚拟焦距、Hungarian、所有回归Loss、推理分数、top-50、置信度阈值0、逐轮验证、无NMS与NMS 0.8双best保存及250轮日程全部保持实验39不变。'
+    tags: ['实验40', 'KITTI', '实验39单变量', 'NMS感知排序', 'Loss权重1.0']

@@ -1,0 +1,36 @@
+base_config: monodgp_exp38.yaml
+
+model_name: 'V2-0039_实验38_触发NMS候选对IoU排序'
+
+model:
+  iou_classification:
+    enabled: true
+    beta: 2.0
+    # Keep Experiment 38 pointwise QFL unchanged. Add RankNet only for pairs
+    # in one 50-query group, assigned to the same nearest GT, whose predicted
+    # boxes overlap enough to suppress each other under BEV NMS 0.8.
+    nms_ranking:
+      enabled: true
+      loss_coef: 0.1
+      bev_iou_threshold: 0.8
+      # No arbitrary 0.7 positive cutoff and no 0.1 gap cutoff. Every unequal
+      # pair participates, while |delta IoU| continuously controls strength.
+      min_iou_delta: 0.000001
+
+tester:
+  # Experiment 39 evaluates NMS 0.8 at every validation and saves its best
+  # independently. Disable the old no-NMS-best-only grid to avoid duplicate
+  # evaluation of the same cached predictions.
+  best_refresh_bev_nms_thresholds: []
+
+trainer:
+  nms_best_selection:
+    enabled: true
+    bev_iou_threshold: 0.8
+  swanlab:
+    # Online API is currently unstable behind the host proxy. Keep all
+    # experiment metrics in the run-local SwanLab directory.
+    mode: 'local'
+    experiment_name: '实验39_实验38触发NMS候选对IoU排序'
+    description: '严格基于实验38，保留最终层与两个3D辅助层全部query的连续3D IoU Quality Focal分类监督及直接使用分类概率推理。仅新增NMS相关加权RankNet：在每个50-query组内，将query归给最大真实3D IoU对应GT，只比较归属同一GT且预测框BEV IoU大于等于0.8、真实3D IoU不完全相等的query对；目标、归属、BEV筛选全部停止梯度，排序梯度只进入分类logit和共享特征。每对Loss为绝对3D IoU差乘softplus负有符号logit差，系数0.1，不使用0.7正样本门槛或0.1 IoU差硬门槛。每次验证从同一次前向同时计算无NMS与BEV NMS 0.8 AP，分别保存checkpoint_best.pth和checkpoint_best_bev_nms_0_80.pth。其余模型、MixUp、虚拟焦距、Hungarian、回归Loss、top-50、阈值0和250轮日程均与实验38一致。'
+    tags: ['实验39', 'KITTI', '实验38增量', 'NMS感知排序', '加权RankNet']

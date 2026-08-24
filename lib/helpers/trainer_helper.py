@@ -381,6 +381,33 @@ def best_refresh_nms_payload(report):
     return payload
 
 
+def nms_best_selection_payload(state, current):
+    """Expose the every-validation NMS arm and its independently saved best."""
+    if not current:
+        return {}
+    threshold = str(state['threshold'])
+    prefix = f'每轮BEV NMS独立选优/阈值{threshold}'
+    payload = {
+        f'{prefix}/当前轮次': int(current['epoch']),
+        f'{prefix}/当前中等难度三维AP_R40': float(
+            current['selection_score']),
+        f'{prefix}/当前保留预测数量': int(current['prediction_count']),
+        f'{prefix}/当前删除预测数量': int(
+            current['removed_prediction_count']),
+        f'{prefix}/历史最优轮次': int(state['epoch']),
+        f'{prefix}/历史最高中等难度三维AP_R40': float(state['score']),
+    }
+    for difficulty, chinese in _AP_DIFFICULTIES:
+        metric = f'Car_3d_{difficulty}_R40'
+        if metric in current['metrics']:
+            payload[f'{prefix}/当前{chinese}难度三维AP_R40'] = float(
+                current['metrics'][metric])
+        if metric in state.get('metrics', {}):
+            payload[f'{prefix}/最优轮同轮{chinese}难度三维AP_R40'] = float(
+                state['metrics'][metric])
+    return payload
+
+
 def quality_score_payload(current_report, best_report):
     payload = {}
     for name, evaluation in current_report.items():
@@ -588,6 +615,13 @@ class Trainer(object):
         self.tracker = tracker
         self.output_dir = os.path.join('./' + cfg['save_path'], model_name)
         self.tester = None
+        nms_best_cfg = cfg.get('nms_best_selection', {})
+        self.nms_best_selection_enabled = bool(
+            nms_best_cfg.get('enabled', False))
+        self.nms_best_selection_threshold = float(
+            nms_best_cfg.get('bev_iou_threshold', 0.8))
+        if not 0.0 <= self.nms_best_selection_threshold <= 1.0:
+            raise ValueError('NMS best-selection threshold must be in [0, 1]')
         self.use_cuda_batch_prefetch = bool(
             cfg.get('use_cuda_batch_prefetch', False))
         if self.use_cuda_batch_prefetch and self.device.type != 'cuda':
@@ -618,6 +652,80 @@ class Trainer(object):
                 logger=self.logger)
             self.lr_scheduler.last_epoch = self.epoch - 1
             self.logger.info("Loading Checkpoint... Best Result:{}, Best Epoch:{}".format(self.best_result, self.best_epoch))
+
+    def _initial_nms_best_state(self):
+        threshold = f'{self.nms_best_selection_threshold:.2f}'
+        default = {
+            'threshold': threshold,
+            'score': 0.0,
+            'epoch': 0,
+            'metrics': {},
+        }
+        if not self.nms_best_selection_enabled:
+            return default
+        path = os.path.join(
+            self.output_dir, 'diagnostics', 'nms_best_selection.json')
+        if not os.path.isfile(path):
+            return default
+        with open(path, 'r', encoding='utf-8') as handle:
+            receipt = json.load(handle)
+        saved = receipt.get('best', {})
+        if str(saved.get('threshold')) != threshold:
+            raise ValueError('saved NMS-best threshold does not match config')
+        return {
+            'threshold': threshold,
+            'score': float(saved.get('selection_score', 0.0)),
+            'epoch': int(saved.get('epoch', 0)),
+            'metrics': saved.get('metrics', {}),
+        }
+
+    def _evaluate_nms_best_selection(self, results, state):
+        if not self.nms_best_selection_enabled:
+            return state, {}
+        if self.tester is None:
+            raise RuntimeError('NMS best selection requires a tester')
+        threshold = self.nms_best_selection_threshold
+        key = f'{threshold:.2f}'
+        report = self.tester.evaluate_bev_nms(results, (threshold,))
+        current_report = report[key]
+        current = {
+            'threshold': key,
+            'epoch': int(self.epoch),
+            **current_report,
+        }
+        if float(current_report['selection_score']) > float(state['score']):
+            state = {
+                'threshold': key,
+                'score': float(current_report['selection_score']),
+                'epoch': int(self.epoch),
+                'metrics': current_report['metrics'],
+            }
+            checkpoint_name = os.path.join(
+                self.output_dir,
+                f'checkpoint_best_bev_nms_{key.replace(".", "_")}')
+            save_checkpoint(
+                get_checkpoint_state(
+                    self.model, self.optimizer, self.epoch,
+                    state['score'], state['epoch']),
+                checkpoint_name)
+        diagnostics_dir = os.path.join(self.output_dir, 'diagnostics')
+        os.makedirs(diagnostics_dir, exist_ok=True)
+        _write_json_atomically(os.path.join(
+            diagnostics_dir, 'nms_best_selection.json'), {
+                'selection_metric': 'Car_3d_moderate_R40',
+                'current': current,
+                'best': {
+                    'threshold': state['threshold'],
+                    'selection_score': state['score'],
+                    'epoch': state['epoch'],
+                    'metrics': state['metrics'],
+                },
+            })
+        self.logger.info(
+            'BEV NMS %.2f current=%.6f epoch=%d; best=%.6f epoch=%d',
+            threshold, float(current_report['selection_score']), self.epoch,
+            float(state['score']), int(state['epoch']))
+        return state, current
         
     def train(self):
         start_epoch = self.epoch
@@ -626,6 +734,7 @@ class Trainer(object):
         best_epoch = self.best_epoch
         best_ap_snapshots = {}
         quality_score_best = {}
+        nms_best_state = self._initial_nms_best_state()
         self.logger.info(
             "Training started: epochs=%d, start_epoch=%d",
             self.cfg['max_epoch'], start_epoch)
@@ -704,6 +813,9 @@ class Trainer(object):
                         primary_only=early_validation)
                     evaluation = self.tester.evaluate(
                         results, return_metrics=True)
+                    nms_best_state, current_nms_selection = (
+                        self._evaluate_nms_best_selection(
+                            results, nms_best_state))
                     if early_validation:
                         early_suffix = (
                             'best selection enabled'
@@ -776,6 +888,8 @@ class Trainer(object):
                             payload.update(best_refresh_nms_payload(
                                 nms_report))
                         if self.tracker is not None:
+                            payload.update(nms_best_selection_payload(
+                                nms_best_state, current_nms_selection))
                             self.tracker.log(
                                 payload,
                                 step=self.epoch * len(self.train_loader))
@@ -865,6 +979,8 @@ class Trainer(object):
                         payload.update(historical_best_ap_payload(
                             best_ap_snapshots))
                         payload.update(best_refresh_nms_payload(nms_report))
+                        payload.update(nms_best_selection_payload(
+                            nms_best_state, current_nms_selection))
                         payload.update(quality_score_payload(
                             quality_score_report, quality_score_best))
                         payload.update(quality_ranking_payload(

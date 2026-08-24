@@ -402,9 +402,8 @@ class Tester(object):
             return_metrics=return_metrics)
         return result
 
-    def evaluate_best_refresh_bev_nms(self, results):
-        """Evaluate the pre-registered NMS grid without another forward pass."""
-        thresholds = self.cfg.get('best_refresh_bev_nms_thresholds', ())
+    def evaluate_bev_nms(self, results, thresholds):
+        """Evaluate requested BEV-NMS thresholds without another forward."""
         variants = classwise_bev_nms_variants(results, thresholds)
         report = {}
         baseline_count = sum(len(items) for items in results.values())
@@ -421,3 +420,9 @@ class Tester(object):
                 'metrics': evaluation['metrics'],
             }
         return report
+
+    def evaluate_best_refresh_bev_nms(self, results):
+        """Evaluate the pre-registered NMS grid without another forward pass."""
+        return self.evaluate_bev_nms(
+            results,
+            self.cfg.get('best_refresh_bev_nms_thresholds', ()))

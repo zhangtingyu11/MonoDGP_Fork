@@ -5,8 +5,35 @@ from __future__ import annotations
 import math
 import os
 import re
+import threading
 
 import torch
+
+
+def _install_thread_safe_swanlab_store():
+    """Serialize SwanLab 0.8.x datastore writes from its worker threads.
+
+    SwanLab writes the physical record header and payload with separate file
+    writes. Console and metric workers can otherwise interleave those calls and
+    leave a CRC-invalid local run file. Keep the compatibility patch local to
+    this process and make it idempotent.
+    """
+    from swanlab.sdk.internal.core_python.store import DataStoreWriter
+
+    if getattr(DataStoreWriter, '_monodgp_thread_safe_write', False):
+        return
+    original_write = DataStoreWriter.write
+
+    def locked_write(writer, data):
+        lock = getattr(writer, '_monodgp_write_lock', None)
+        if lock is None:
+            lock = threading.RLock()
+            writer._monodgp_write_lock = lock
+        with lock:
+            return original_write(writer, data)
+
+    DataStoreWriter.write = locked_write
+    DataStoreWriter._monodgp_thread_safe_write = True
 
 
 GEOMETRY_INTERVAL_CHINESE_NAMES = {
@@ -51,6 +78,8 @@ LOSS_CHINESE_NAMES = {
     'loss_quality': '三维IoU质量回归损失',
     'loss_quality_point': '全query三维IoU点式损失',
     'loss_quality_rank': '同GT候选query排序损失',
+    'loss_iou_classification_nms_rank': (
+        '触发0.8BEV NMS候选对加权排序损失'),
 }
 
 LOSS_DIAGNOSTIC_CHINESE_NAMES = {
@@ -116,6 +145,19 @@ LOSS_DIAGNOSTIC_CHINESE_NAMES = {
         'query最大IoU介于0.5至0.7比例'),
     'monitor_quality_iou_ge_0_7_fraction': (
         'query最大IoU大于等于0.7比例'),
+    'monitor_nms_rank_pair_count': '触发BEV NMS且真实IoU不同的候选对数',
+    'monitor_nms_rank_pair_accuracy': '触发BEV NMS候选对排序正确率',
+    'monitor_nms_rank_weighted_accuracy': (
+        '按真实IoU差加权的NMS候选对排序正确率'),
+    'monitor_nms_rank_inversion_count': '触发BEV NMS候选对逆序数量',
+    'monitor_nms_rank_iou_gap_mean': 'NMS候选对真实三维IoU差均值',
+    'monitor_nms_rank_inverted_iou_gap_mean': (
+        '逆序NMS候选对真实三维IoU差均值'),
+    'monitor_nms_rank_bev_iou_mean': 'NMS候选对预测框BEV IoU均值',
+    'monitor_nms_rank_cross_0_7_pair_count': (
+        '跨真实三维IoU 0.7的NMS候选对数'),
+    'monitor_nms_rank_cross_0_7_wrong_fraction': (
+        '跨真实三维IoU 0.7的NMS候选对逆序比例'),
 }
 
 _IOU3D_MATCHING_DIAGNOSTICS = {
@@ -163,6 +205,15 @@ _ONLINE_FINAL_DIAGNOSTICS = {
     'monitor_quality_iou_0_1_to_0_5_fraction',
     'monitor_quality_iou_0_5_to_0_7_fraction',
     'monitor_quality_iou_ge_0_7_fraction',
+    'monitor_nms_rank_pair_count',
+    'monitor_nms_rank_pair_accuracy',
+    'monitor_nms_rank_weighted_accuracy',
+    'monitor_nms_rank_inversion_count',
+    'monitor_nms_rank_iou_gap_mean',
+    'monitor_nms_rank_inverted_iou_gap_mean',
+    'monitor_nms_rank_bev_iou_mean',
+    'monitor_nms_rank_cross_0_7_pair_count',
+    'monitor_nms_rank_cross_0_7_wrong_fraction',
 }
 
 _ONLINE_GROUP0_DIAGNOSTICS = {
@@ -514,6 +565,7 @@ class SwanLabTracker:
         try:
             import swanlab
 
+            _install_thread_safe_swanlab_store()
             self._swanlab = swanlab
             init_kwargs = {
                 'project': str(cfg.get('project', 'MonoDGP')),

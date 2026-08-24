@@ -140,6 +140,7 @@ def main():
         ROOT_DIR / 'lib/helpers/gradient_monitor.py',
         ROOT_DIR / 'lib/losses/asymmetric_interval_depth_loss.py',
         ROOT_DIR / 'lib/losses/query_quality_ranking_loss.py',
+        ROOT_DIR / 'lib/losses/nms_aware_iou_ranking_loss.py',
         ROOT_DIR / 'lib/models/monodgp/iou3d_match_cost.py',
     )
     receipt.extend(
@@ -158,6 +159,8 @@ def main():
     quality_cfg = cfg['model'].get('iou_quality_head', {})
     iou_classification_cfg = cfg['model'].get(
         'iou_classification', {})
+    nms_ranking_cfg = iou_classification_cfg.get('nms_ranking', {})
+    nms_best_cfg = cfg['trainer'].get('nms_best_selection', {})
     score_fusions = cfg['tester'].get('quality_score_fusions', ())
     receipt.extend([
         '三维IoU质量头：' + str(bool(
@@ -166,6 +169,18 @@ def main():
             iou_classification_cfg.get('enabled', False))),
         'IoU分类Quality Focal beta：' + str(
             iou_classification_cfg.get('beta', '未配置')),
+        '触发NMS候选对排序：' + str(bool(
+            nms_ranking_cfg.get('enabled', False))),
+        'NMS排序Loss系数：' + str(
+            nms_ranking_cfg.get('loss_coef', '未配置')),
+        'NMS排序预测框BEV IoU阈值：' + str(
+            nms_ranking_cfg.get('bev_iou_threshold', '未配置')),
+        'NMS排序最小真实3D IoU差：' + str(
+            nms_ranking_cfg.get('min_iou_delta', '未配置')),
+        '每轮NMS独立选优：' + str(bool(
+            nms_best_cfg.get('enabled', False))),
+        '每轮NMS独立选优阈值：' + str(
+            nms_best_cfg.get('bev_iou_threshold', '未配置')),
         '质量Loss权重：' + str(
             quality_cfg.get('loss_coef', '未配置')),
         '质量监督模式：' + str(
