@@ -660,6 +660,10 @@ class SetCriterion(nn.Module):
             nms_ranking_cfg.get('bev_iou_threshold', 0.8))
         self.iou_classification_nms_min_iou_delta = float(
             nms_ranking_cfg.get('min_iou_delta', 1e-6))
+        self.iou_classification_nms_strategy = str(
+            nms_ranking_cfg.get('strategy', 'all_conflicting_pairs'))
+        self.iou_classification_nms_final_layer_only = bool(
+            nms_ranking_cfg.get('final_layer_only', False))
         if self.iou_classification_beta < 0:
             raise ValueError('3D-IoU classification beta must be non-negative')
         if (self.iou_classification_nms_ranking_enabled
@@ -670,6 +674,16 @@ class SetCriterion(nn.Module):
             raise ValueError('NMS ranking BEV-IoU threshold must be in [0, 1]')
         if not 0.0 <= self.iou_classification_nms_min_iou_delta < 1.0:
             raise ValueError('NMS ranking minimum IoU delta must be in [0, 1)')
+        if self.iou_classification_nms_strategy not in {
+                'all_conflicting_pairs', 'best_query_suppressors'}:
+            raise ValueError(
+                'unsupported NMS ranking strategy: '
+                f'{self.iou_classification_nms_strategy}')
+        if (self.iou_classification_nms_strategy
+                == 'best_query_suppressors'
+                and not self.iou_classification_nms_final_layer_only):
+            raise ValueError(
+                'best-query NMS ranking must be final-layer-only')
         if (self.iou_classification_enabled
                 and self.matcher.cost_iou3d == 0):
             raise ValueError(
@@ -878,7 +892,8 @@ class SetCriterion(nn.Module):
 
     def loss_labels(self, outputs, targets, indices, num_boxes, log=True,
                     matched_cache=None, apply_high_iou_weighting=True,
-                    apply_iou_classification=True):
+                    apply_iou_classification=True,
+                    apply_nms_ranking=True):
         """Classification loss (Binary focal loss)
         targets dicts must contain the key "labels" containing a tensor of dim [nb_target_boxes]
         """
@@ -902,7 +917,8 @@ class SetCriterion(nn.Module):
             loss_ce = quality_focal_loss(
                 src_logits, target_classes_onehot, num_boxes,
                 beta=self.iou_classification_beta) * src_logits.shape[1]
-            if self.iou_classification_nms_ranking_enabled:
+            if (self.iou_classification_nms_ranking_enabled
+                    and apply_nms_ranking):
                 weighting_metrics.update(nms_aware_iou_ranking_loss(
                     src_logits, outputs, targets,
                     self.matcher.last_iou3d_matrix,
@@ -912,7 +928,8 @@ class SetCriterion(nn.Module):
                     bev_iou_threshold=(
                         self.iou_classification_nms_bev_threshold),
                     min_iou_delta=(
-                        self.iou_classification_nms_min_iou_delta)))
+                        self.iou_classification_nms_min_iou_delta),
+                    strategy=self.iou_classification_nms_strategy))
         else:
             target_classes = torch.full(
                 src_logits.shape[:2], self.num_classes,
@@ -1564,7 +1581,11 @@ class SetCriterion(nn.Module):
                     kwargs = {}
                     if loss == 'labels':
                         # Logging is enabled only for the last layer
-                        kwargs = {'log': False}
+                        kwargs = {
+                            'log': False,
+                            'apply_nms_ranking': not (
+                                self.iou_classification_nms_final_layer_only),
+                        }
                     kwargs['matched_cache'] = matched_cache
                     l_dict = self.get_loss(loss, aux_outputs, targets, indices, num_boxes, **kwargs)
                     l_dict = {k + f'_{i}': v for k, v in l_dict.items()}
@@ -1653,9 +1674,17 @@ def build(cfg):
 
     if cfg['aux_loss']:
         aux_weight_dict = {}
+        nms_final_layer_only = bool(
+            nms_ranking_cfg.get('final_layer_only', False))
         for i in range(cfg['dec_layers'] - 1):
-            aux_weight_dict.update({k + f'_{i}': v for k, v in weight_dict.items()})
-        aux_weight_dict.update({k + f'_enc': v for k, v in weight_dict.items()})
+            aux_weight_dict.update({
+                k + f'_{i}': v for k, v in weight_dict.items()
+                if not (nms_final_layer_only
+                        and k == 'loss_iou_classification_nms_rank')})
+        aux_weight_dict.update({
+            k + f'_enc': v for k, v in weight_dict.items()
+            if not (nms_final_layer_only
+                    and k == 'loss_iou_classification_nms_rank')})
         weight_dict.update(aux_weight_dict)
 
     inter_weight_dict = {}

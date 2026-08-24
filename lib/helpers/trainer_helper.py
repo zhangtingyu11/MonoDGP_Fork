@@ -471,6 +471,29 @@ def quality_ranking_payload(summary):
     return payload
 
 
+def nms_best_query_payload(summary):
+    if not summary:
+        return {}
+    labels = {
+        'gt_count': '参与统计GT总数',
+        'best_query_retained_count': '最高IoU query被NMS保留数量',
+        'best_query_retained_fraction': '最高IoU query被NMS保留率',
+        'best_query_suppressed_count': '最高IoU query被NMS压掉数量',
+        'best_query_suppressed_fraction': '最高IoU query被NMS压掉率',
+        'best_query_suppressed_by_worse_count': '被更差query压掉数量',
+        'best_query_suppressed_by_worse_fraction': '被更差query压掉率',
+        'best_iou_mean': 'NMS前每GT最高三维IoU均值',
+        'kept_best_iou_mean': 'NMS后每GT最高三维IoU均值',
+        'nms_iou_regret_mean': 'NMS三维IoU遗憾均值',
+        'suppressed_iou_gap_mean': '压掉最优query的IoU差均值',
+    }
+    return {
+        f'NMS最优query诊断/{label}': summary[key]
+        for key, label in labels.items()
+        if key in summary
+    }
+
+
 def _write_json_atomically(path, payload):
     temporary_path = path + '.tmp'
     with open(temporary_path, 'w', encoding='utf-8') as handle:
@@ -936,6 +959,21 @@ class Trainer(object):
                                 'epoch': int(self.epoch),
                                 'summary': self.tester.last_quality_ranking_summary,
                             })
+                    if self.tester.last_nms_best_query_summary:
+                        diagnostics_dir = os.path.join(
+                            self.output_dir, 'diagnostics')
+                        os.makedirs(diagnostics_dir, exist_ok=True)
+                        _write_json_atomically(os.path.join(
+                            diagnostics_dir,
+                            'nms_best_query_monitor.json'), {
+                                'epoch': int(self.epoch),
+                                'bev_iou_threshold': (
+                                    self.tester
+                                    .nms_best_query_monitoring_threshold),
+                                'summary': (
+                                    self.tester
+                                    .last_nms_best_query_summary),
+                            })
                     update_best_ap_snapshots(
                         best_ap_snapshots, evaluation['metrics'], self.epoch)
                     cur_result = evaluation['selection_score']
@@ -985,6 +1023,8 @@ class Trainer(object):
                             quality_score_report, quality_score_best))
                         payload.update(quality_ranking_payload(
                             self.tester.last_quality_ranking_summary))
+                        payload.update(nms_best_query_payload(
+                            self.tester.last_nms_best_query_summary))
                         payload.update(chinese_grouped_monitoring(
                                 validation_loss_summary,
                                 self.detr_loss.weight_dict,

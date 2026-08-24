@@ -1,0 +1,31 @@
+base_config: monodgp_exp39.yaml
+
+model_name: 'V2-0041_实验41_最终层最优Query_NMS排序'
+
+model:
+  iou_classification:
+    nms_ranking:
+      enabled: true
+      # A real KITTI B1 scale check on Experiment 39's NMS-best checkpoint
+      # measured a 0.0479 raw loss over active batches. User review selected
+      # 2.0 to match Experiment 40's proven material total-loss influence
+      # while still
+      # using only the final layer; regression degradation is an accepted
+      # diagnostic tradeoff, and the value was not selected from validation AP.
+      loss_coef: 2.0
+      bev_iou_threshold: 0.8
+      min_iou_delta: 0.000001
+      strategy: best_query_suppressors
+      final_layer_only: true
+
+tester:
+  nms_best_query_monitoring:
+    enabled: true
+    bev_iou_threshold: 0.8
+    min_iou_delta: 0.000001
+
+trainer:
+  swanlab:
+    experiment_name: '实验41_最终层最优Query_NMS排序'
+    description: '严格基于实验39，保留全query连续3D IoU Quality Focal分类监督，只重定义NMS排序辅助目标。排序Loss仅作用于最终3D Decoder，不进入两个辅助Decoder。每个图像、独立50-query组和GT先找到真实3D IoU最高query，只比较与其预测框BEV IoU严格大于0.8、类别相同且真实IoU更低的候选；仅当前分类logit不高于冲突候选的逆序对参与softplus排序，每对仍按真实3D IoU差加权。先在每GT内平均，再对存在逆序的GT组平均。实验39 NMS-best checkpoint上的真实KITTI B1量级检查测得活跃batch原始Loss约0.0479；用户审核后将系数固定为2.0，优先检验目标能否被明显学到，并明确接受其他回归Loss阶段性变差。该系数不按验证AP搜索，只作用于最终层，预计总干预接近实验40的三层1.0。验证监控按全验证集原始计数聚合，并在50-query同类候选空间独立执行真实贪心BEV NMS 0.8，记录最高IoU query保留率、被更差query压掉次数及NMS IoU遗憾；正式部署结果仍以解码后top-50的NMS 0.8 AP为准。其余模型、数据、MixUp、虚拟焦距、匹配、回归Loss、推理分数、top-50、阈值0、种子和训练日程与实验39一致。'
+    tags: ['实验41', 'KITTI', '实验39增量', '最终层', '最优Query', 'NMS决策对齐']

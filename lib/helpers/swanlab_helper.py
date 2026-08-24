@@ -158,6 +158,9 @@ LOSS_DIAGNOSTIC_CHINESE_NAMES = {
         '跨真实三维IoU 0.7的NMS候选对数'),
     'monitor_nms_rank_cross_0_7_wrong_fraction': (
         '跨真实三维IoU 0.7的NMS候选对逆序比例'),
+    'monitor_nms_rank_gt_unit_count': '参与best-query排序诊断的GT组数',
+    'monitor_nms_rank_optimized_gt_unit_count': (
+        '本批存在压制最优query候选的GT组数'),
 }
 
 _IOU3D_MATCHING_DIAGNOSTICS = {
@@ -214,6 +217,8 @@ _ONLINE_FINAL_DIAGNOSTICS = {
     'monitor_nms_rank_bev_iou_mean',
     'monitor_nms_rank_cross_0_7_pair_count',
     'monitor_nms_rank_cross_0_7_wrong_fraction',
+    'monitor_nms_rank_gt_unit_count',
+    'monitor_nms_rank_optimized_gt_unit_count',
 }
 
 _ONLINE_GROUP0_DIAGNOSTICS = {
@@ -277,7 +282,8 @@ def chinese_grouped_monitoring(raw_losses, weight_dict, scope,
     final_query_keys = {
         'loss_ce', 'loss_bbox', 'loss_giou', 'loss_dim', 'loss_angle',
         'loss_depth', 'loss_center', 'loss_quality',
-        'loss_quality_point', 'loss_quality_rank'}
+        'loss_quality_point', 'loss_quality_rank',
+        'loss_iou_classification_nms_rank'}
     shared_keys = {'loss_depth_map', 'loss_region'}
     final_query_total = 0.0
     full_total = 0.0
@@ -337,6 +343,8 @@ def chinese_grouped_monitoring(raw_losses, weight_dict, scope,
                 diagnostic_group = '深度诊断'
             elif base_key.startswith('monitor_quality_'):
                 diagnostic_group = '三维IoU质量头诊断'
+            elif base_key.startswith('monitor_nms_'):
+                diagnostic_group = 'NMS最优query排序诊断'
             else:
                 diagnostic_group = '高IoU未匹配预测诊断'
             result[f'{scope}{diagnostic_group}/{layer_name}/'
@@ -452,6 +460,52 @@ class ScalarMeanAccumulator:
             means[key] = torch.where(
                 denominator > 0, total / denominator.clamp_min(1),
                 torch.zeros_like(total))
+
+        # NMS ranking receipts expose raw numerators and denominators. Sum
+        # them over the whole epoch/validation set, then derive ratios once;
+        # never give a sparse one-pair batch the same weight as a dense batch.
+        nms_prefix = 'monitor_nms_rank_'
+        nms_total_keys = (
+            'pair_count', 'pair_correct_count', 'weight_sum',
+            'weighted_correct_sum', 'inversion_count', 'iou_gap_sum',
+            'inverted_iou_gap_sum', 'bev_iou_sum',
+            'cross_0_7_pair_count', 'cross_0_7_wrong_count',
+            'gt_unit_count', 'optimized_gt_unit_count')
+        totals = {}
+        for suffix in nms_total_keys:
+            key = nms_prefix + suffix
+            if key in self._sums:
+                totals[suffix] = self._sums[key]
+                means[key] = self._sums[key]
+        if 'pair_count' in totals:
+            pair_count = totals['pair_count']
+            means[nms_prefix + 'pair_accuracy'] = (
+                totals.get('pair_correct_count', pair_count.new_zeros(()))
+                / pair_count.clamp_min(1))
+            means[nms_prefix + 'iou_gap_mean'] = (
+                totals.get('iou_gap_sum', pair_count.new_zeros(()))
+                / pair_count.clamp_min(1))
+            means[nms_prefix + 'bev_iou_mean'] = (
+                totals.get('bev_iou_sum', pair_count.new_zeros(()))
+                / pair_count.clamp_min(1))
+        if 'weight_sum' in totals:
+            means[nms_prefix + 'weighted_accuracy'] = (
+                totals.get(
+                    'weighted_correct_sum',
+                    totals['weight_sum'].new_zeros(()))
+                / totals['weight_sum'].clamp_min(1e-12))
+        if 'inversion_count' in totals:
+            means[nms_prefix + 'inverted_iou_gap_mean'] = (
+                totals.get(
+                    'inverted_iou_gap_sum',
+                    totals['inversion_count'].new_zeros(()))
+                / totals['inversion_count'].clamp_min(1))
+        if 'cross_0_7_pair_count' in totals:
+            means[nms_prefix + 'cross_0_7_wrong_fraction'] = (
+                totals.get(
+                    'cross_0_7_wrong_count',
+                    totals['cross_0_7_pair_count'].new_zeros(()))
+                / totals['cross_0_7_pair_count'].clamp_min(1))
         return scalar_values_to_floats(means)
 
 

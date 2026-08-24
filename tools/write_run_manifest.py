@@ -136,6 +136,7 @@ def main():
         ROOT_DIR / 'lib/helpers/tester_helper.py',
         ROOT_DIR / 'lib/helpers/trainer_helper.py',
         ROOT_DIR / 'lib/helpers/quality_ranking_monitor.py',
+        ROOT_DIR / 'lib/helpers/nms_best_query_monitor.py',
         ROOT_DIR / 'lib/helpers/swanlab_helper.py',
         ROOT_DIR / 'lib/helpers/gradient_monitor.py',
         ROOT_DIR / 'lib/losses/asymmetric_interval_depth_loss.py',
@@ -177,6 +178,10 @@ def main():
             nms_ranking_cfg.get('bev_iou_threshold', '未配置')),
         'NMS排序最小真实3D IoU差：' + str(
             nms_ranking_cfg.get('min_iou_delta', '未配置')),
+        'NMS排序策略：' + str(
+            nms_ranking_cfg.get('strategy', 'all_conflicting_pairs')),
+        'NMS排序仅最终Decoder层：' + str(bool(
+            nms_ranking_cfg.get('final_layer_only', False))),
         '每轮NMS独立选优：' + str(bool(
             nms_best_cfg.get('enabled', False))),
         '每轮NMS独立选优阈值：' + str(

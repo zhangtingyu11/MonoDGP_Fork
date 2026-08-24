@@ -16,3 +16,38 @@ tools/smoke_exp36_b1.py
 tools/smoke_exp37_b16.py
 tools/smoke_exp39_b1.py
 tools/benchmark_exp39_ranking_b16.py
+
+# Local-only Experiment 41 verification tests.
+tests/test_confidence_threshold_diagnostic.py
+tests/test_exp41_checkpoint_diagnostic.py
+tests/test_experiment_41_best_query_nms_ranking.py
+tests/test_hungarian_nms_attribution.py
+tests/test_nms_good_candidate_retention.py
+tests/test_oracle_nms_diagnostic.py
+
+# Local-only Experiment 41 diagnostic helpers and tools.
+lib/helpers/confidence_threshold_diagnostic.py
+lib/helpers/exp41_checkpoint_diagnostic.py
+lib/helpers/hungarian_nms_attribution.py
+lib/helpers/nms_good_candidate_retention.py
+lib/helpers/oracle_nms_diagnostic.py
+tools/diagnose_exp41_b1_learnability.py
+tools/diagnose_exp41_best_checkpoint.py
+tools/diagnose_exp41_confidence_threshold.py
+tools/diagnose_exp41_full_linear_probe.py
+tools/diagnose_exp41_hungarian_nms_attribution.py
+tools/diagnose_exp41_oracle_nms.py
+tools/diagnose_nms_good_candidate_retention.py
+tools/smoke_exp41_b1.py
+tools/summarize_nms_good_candidate_retention_comparison.py
+
+# Local-only Experiment 41 diagnostic runners.
+run_exp38_41_nms_retention_comparison.sh
+run_exp41_b1_learnability.sh
+run_exp41_best_checkpoint_suite.sh
+run_exp41_e151_confidence_threshold_sweep.sh
+run_exp41_e151_oracle_nms_001.sh
+run_exp41_hungarian_nms_attribution.sh
+
+# Local-only SwanLab sync wrapper for the active Experiment 41 tmux session.
+run_experiment_41_swanlab_sync.sh

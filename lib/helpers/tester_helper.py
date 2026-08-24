@@ -12,6 +12,7 @@ from lib.helpers.swanlab_helper import ScalarMeanAccumulator
 from lib.helpers.swanlab_helper import GeometryIntervalAccumulator
 from lib.helpers.bev_nms_helper import classwise_bev_nms_variants
 from lib.helpers.quality_ranking_monitor import QualityRankingAccumulator
+from lib.helpers.nms_best_query_monitor import NMSBestQueryAccumulator
 
 
 class CudaEvalBatchPrefetcher:
@@ -117,6 +118,18 @@ class Tester(object):
         self.last_inference_stats = None
         self.last_score_variant_results = {}
         self.last_quality_ranking_summary = None
+        self.last_nms_best_query_summary = None
+        nms_monitor_cfg = cfg.get('nms_best_query_monitoring', {})
+        self.nms_best_query_monitoring_enabled = bool(
+            nms_monitor_cfg.get('enabled', False))
+        self.nms_best_query_monitoring_threshold = float(
+            nms_monitor_cfg.get('bev_iou_threshold', 0.8))
+        self.nms_best_query_monitoring_min_iou_delta = float(
+            nms_monitor_cfg.get('min_iou_delta', 1e-6))
+        if (self.nms_best_query_monitoring_enabled
+                and self.criterion is None):
+            raise ValueError(
+                'NMS best-query monitoring requires the criterion')
         self.quality_score_specs = tuple(
             {
                 'name': str(spec['name']),
@@ -219,6 +232,16 @@ class Tester(object):
             if (collect_diagnostics
                 and self.cfg.get('quality_ranking_monitoring', False))
             else None)
+        nms_best_query_monitor = (
+            NMSBestQueryAccumulator(
+                self.criterion.matcher.iou3d_decode_mean_sizes,
+                bev_iou_threshold=(
+                    self.nms_best_query_monitoring_threshold),
+                min_iou_delta=(
+                    self.nms_best_query_monitoring_min_iou_delta))
+            if (collect_diagnostics
+                and self.nms_best_query_monitoring_enabled)
+            else None)
         loss_accumulator = ScalarMeanAccumulator()
         geometry_interval_accumulator = GeometryIntervalAccumulator()
         validation_start = time.time()
@@ -290,6 +313,11 @@ class Tester(object):
                             info,
                             self.dataloader.dataset,
                             targets['mask_2d'])
+                    if nms_best_query_monitor is not None:
+                        nms_best_query_monitor.add(
+                            outputs,
+                            self.criterion.last_final_iou3d_matrix,
+                            prepared_targets)
 
                 # get corresponding calibs & transform tensor to numpy
                 calibs = [self.dataloader.dataset.get_calib(index) for index in info['img_id']]
@@ -349,6 +377,9 @@ class Tester(object):
         self.last_score_variant_results = variant_results
         self.last_quality_ranking_summary = (
             ranking_monitor.finalize() if ranking_monitor is not None else None)
+        self.last_nms_best_query_summary = (
+            nms_best_query_monitor.finalize()
+            if nms_best_query_monitor is not None else None)
         self.logger.info(
             'Validation inference completed: batches=%d, images=%d, '
             'seconds=%.3f, images_per_second=%.3f',

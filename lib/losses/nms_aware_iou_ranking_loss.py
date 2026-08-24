@@ -96,7 +96,9 @@ def _triggered_nms_pairs_batched(
         outputs: dict[str, Tensor], targets: list[dict[str, Tensor]],
         assigned_target: Tensor, assigned_labels: Tensor,
         target_counts: Tensor, decode_mean_sizes: Tensor,
-        group_num: int, bev_iou_threshold: float
+        group_num: int, bev_iou_threshold: float,
+        require_same_target: bool = True,
+        strict_threshold: bool = False,
         ) -> tuple[Tensor, Tensor, Tensor, Tensor]:
     """Return all within-image pairs that would mutually trigger BEV NMS."""
     corners, areas, width, length, yaw, geometry_valid = (
@@ -115,9 +117,17 @@ def _triggered_nms_pairs_batched(
     upper = torch.triu(torch.ones(
         (queries_per_group, queries_per_group), dtype=torch.bool,
         device=corners.device), diagonal=1)[None, None, :, :]
+    if require_same_target:
+        same_entity = (
+            grouped_target[..., :, None] == grouped_target[..., None, :])
+    else:
+        grouped_labels = assigned_labels.reshape(
+            batch_size, group_num, queries_per_group)
+        same_entity = (
+            grouped_labels[..., :, None] == grouped_labels[..., None, :])
     valid = (
         upper
-        & (grouped_target[..., :, None] == grouped_target[..., None, :])
+        & same_entity
         & grouped_valid[..., :, None]
         & grouped_valid[..., None, :]
         & (target_counts[:, None, None, None] > 0)
@@ -146,13 +156,51 @@ def _triggered_nms_pairs_batched(
     union = areas[batch, first] + areas[batch, second] - intersection
     bev_iou = intersection / union.clamp_min(
         torch.finfo(corners.dtype).eps)
-    triggered = bev_iou >= bev_iou_threshold
+    triggered = (
+        bev_iou > bev_iou_threshold if strict_threshold
+        else bev_iou >= bev_iou_threshold)
     return (
         batch[triggered], first[triggered], second[triggered],
         bev_iou[triggered])
 
 
-def nms_aware_iou_ranking_loss(
+@torch.no_grad()
+def _assign_queries_to_targets(
+        iou3d_matrix: Tensor, targets: list[dict[str, Tensor]],
+        ) -> tuple[Tensor, Tensor, Tensor, Tensor]:
+    """Return target counts, nearest-target IoU/index and assigned labels."""
+    device = iou3d_matrix.device
+    target_slots = iou3d_matrix.shape[-1]
+    target_counts = torch.as_tensor(
+        [target['labels'].numel() for target in targets],
+        device=device, dtype=torch.long)
+    if target_slots == 0:
+        empty_shape = iou3d_matrix.shape[:2]
+        return (
+            target_counts,
+            iou3d_matrix.new_zeros(empty_shape),
+            torch.zeros(empty_shape, device=device, dtype=torch.long),
+            torch.zeros(empty_shape, device=device, dtype=torch.long))
+    slot = torch.arange(target_slots, device=device)
+    valid_target = slot[None, :] < target_counts[:, None]
+    detached_iou = iou3d_matrix.detach().clamp(0, 1)
+    masked_iou = torch.where(
+        valid_target[:, None, :], detached_iou,
+        torch.full_like(detached_iou, -1.0))
+    max_iou, assigned_target = masked_iou.max(dim=-1)
+    max_iou = torch.where(
+        target_counts[:, None] > 0, max_iou, torch.zeros_like(max_iou))
+    padded_labels = torch.zeros(
+        len(targets), target_slots, device=device, dtype=torch.long)
+    for batch_index, target in enumerate(targets):
+        count = int(target['labels'].numel())
+        padded_labels[batch_index, :count] = target['labels'].reshape(
+            -1).to(device=device, dtype=torch.long)
+    assigned_labels = padded_labels.gather(1, assigned_target)
+    return target_counts, max_iou, assigned_target, assigned_labels
+
+
+def _all_conflicting_pair_ranking_loss(
         src_logits: Tensor, outputs: dict[str, Tensor],
         targets: list[dict[str, Tensor]], iou3d_matrix: Tensor,
         decode_mean_sizes: Tensor, group_num: int,
@@ -197,35 +245,24 @@ def nms_aware_iou_ranking_loss(
         return {
             'loss_iou_classification_nms_rank': zero,
             'monitor_nms_rank_pair_count': zero.detach(),
+            'monitor_nms_rank_pair_correct_count': zero.detach(),
             'monitor_nms_rank_pair_accuracy': zero.detach(),
+            'monitor_nms_rank_weight_sum': zero.detach(),
+            'monitor_nms_rank_weighted_correct_sum': zero.detach(),
             'monitor_nms_rank_weighted_accuracy': zero.detach(),
             'monitor_nms_rank_inversion_count': zero.detach(),
+            'monitor_nms_rank_iou_gap_sum': zero.detach(),
             'monitor_nms_rank_iou_gap_mean': zero.detach(),
+            'monitor_nms_rank_inverted_iou_gap_sum': zero.detach(),
             'monitor_nms_rank_inverted_iou_gap_mean': zero.detach(),
+            'monitor_nms_rank_bev_iou_sum': zero.detach(),
             'monitor_nms_rank_bev_iou_mean': zero.detach(),
             'monitor_nms_rank_cross_0_7_pair_count': zero.detach(),
+            'monitor_nms_rank_cross_0_7_wrong_count': zero.detach(),
             'monitor_nms_rank_cross_0_7_wrong_fraction': zero.detach(),
         }
-    device = src_logits.device
-    target_counts = torch.as_tensor(
-        [target['labels'].numel() for target in targets],
-        device=device, dtype=torch.long)
-    slot = torch.arange(target_slots, device=device)
-    valid_target = slot[None, :] < target_counts[:, None]
-    detached_iou = iou3d_matrix.detach().clamp(0, 1)
-    masked_iou = torch.where(
-        valid_target[:, None, :], detached_iou,
-        torch.full_like(detached_iou, -1.0))
-    max_iou, assigned_target = masked_iou.max(dim=-1)
-    max_iou = torch.where(
-        target_counts[:, None] > 0, max_iou, torch.zeros_like(max_iou))
-    padded_labels = torch.zeros(
-        len(targets), target_slots, device=device, dtype=torch.long)
-    for batch_index, target in enumerate(targets):
-        count = int(target['labels'].numel())
-        padded_labels[batch_index, :count] = target['labels'].reshape(
-            -1).to(device=device, dtype=torch.long)
-    assigned_labels = padded_labels.gather(1, assigned_target)
+    target_counts, max_iou, assigned_target, assigned_labels = (
+        _assign_queries_to_targets(iou3d_matrix, targets))
     batch, first, second, pair_bev_iou = _triggered_nms_pairs_batched(
         outputs, targets, assigned_target, assigned_labels, target_counts,
         decode_mean_sizes=decode_mean_sizes, group_num=group_num,
@@ -270,19 +307,244 @@ def nms_aware_iou_ranking_loss(
     return {
         'loss_iou_classification_nms_rank': loss,
         'monitor_nms_rank_pair_count': pair_count.detach(),
+        'monitor_nms_rank_pair_correct_count': correct_count.detach(),
         'monitor_nms_rank_pair_accuracy': (
             correct_count / safe_pairs).detach(),
+        'monitor_nms_rank_weight_sum': weight_sum.detach(),
+        'monitor_nms_rank_weighted_correct_sum': weighted_correct.detach(),
         'monitor_nms_rank_weighted_accuracy': (
             weighted_correct / weight_sum.clamp_min(1e-12)).detach(),
         'monitor_nms_rank_inversion_count': inverted_count.detach(),
+        'monitor_nms_rank_iou_gap_sum': iou_gap_sum.detach(),
         'monitor_nms_rank_iou_gap_mean': (
             iou_gap_sum / safe_pairs).detach(),
+        'monitor_nms_rank_inverted_iou_gap_sum': inverted_gap_sum.detach(),
         'monitor_nms_rank_inverted_iou_gap_mean': (
             inverted_gap_sum / safe_inverted).detach(),
+        'monitor_nms_rank_bev_iou_sum': bev_iou_sum.detach(),
         'monitor_nms_rank_bev_iou_mean': (
             bev_iou_sum / safe_pairs).detach(),
         'monitor_nms_rank_cross_0_7_pair_count': (
             threshold_crossing_count.detach()),
+        'monitor_nms_rank_cross_0_7_wrong_count': (
+            threshold_crossing_wrong.detach()),
         'monitor_nms_rank_cross_0_7_wrong_fraction': (
             threshold_crossing_wrong / safe_crossing).detach(),
     }
+
+
+def _best_query_suppressor_ranking_loss(
+        src_logits: Tensor, outputs: dict[str, Tensor],
+        targets: list[dict[str, Tensor]], iou3d_matrix: Tensor,
+        decode_mean_sizes: Tensor, group_num: int,
+        bev_iou_threshold: float, min_iou_delta: float,
+        ) -> dict[str, Tensor]:
+    """Penalize only candidates currently able to outrank each GT's best box.
+
+    A training unit is one (image, independent query group, GT) tuple. The
+    highest exact-3D-IoU query for that GT is compared only with same-class
+    predicted boxes whose BEV overlap exceeds the deployment NMS threshold.
+    Loss is computed for currently inverted pairs, averaged first within each
+    GT unit and then across active units. Pair selection and IoU weights are
+    detached; gradients flow only through the class logits.
+    """
+    target_slots = iou3d_matrix.shape[-1]
+    zero = src_logits.sum() * 0.0
+    zero_detached = zero.detach()
+    empty = {
+        'loss_iou_classification_nms_rank': zero,
+        'monitor_nms_rank_pair_count': zero_detached,
+        'monitor_nms_rank_pair_correct_count': zero_detached,
+        'monitor_nms_rank_pair_accuracy': zero_detached,
+        'monitor_nms_rank_weight_sum': zero_detached,
+        'monitor_nms_rank_weighted_correct_sum': zero_detached,
+        'monitor_nms_rank_weighted_accuracy': zero_detached,
+        'monitor_nms_rank_inversion_count': zero_detached,
+        'monitor_nms_rank_iou_gap_sum': zero_detached,
+        'monitor_nms_rank_iou_gap_mean': zero_detached,
+        'monitor_nms_rank_inverted_iou_gap_sum': zero_detached,
+        'monitor_nms_rank_inverted_iou_gap_mean': zero_detached,
+        'monitor_nms_rank_bev_iou_sum': zero_detached,
+        'monitor_nms_rank_bev_iou_mean': zero_detached,
+        'monitor_nms_rank_cross_0_7_pair_count': zero_detached,
+        'monitor_nms_rank_cross_0_7_wrong_count': zero_detached,
+        'monitor_nms_rank_cross_0_7_wrong_fraction': zero_detached,
+        'monitor_nms_rank_gt_unit_count': zero_detached,
+        'monitor_nms_rank_optimized_gt_unit_count': zero_detached,
+    }
+    if target_slots == 0:
+        return empty
+
+    batch_size, query_count = src_logits.shape[:2]
+    queries_per_group = query_count // group_num
+    target_counts, _, assigned_target, assigned_labels = (
+        _assign_queries_to_targets(iou3d_matrix, targets))
+    batch, first, second, pair_bev_iou = _triggered_nms_pairs_batched(
+        outputs, targets, assigned_target, assigned_labels, target_counts,
+        decode_mean_sizes=decode_mean_sizes, group_num=group_num,
+        bev_iou_threshold=bev_iou_threshold,
+        require_same_target=False, strict_threshold=True)
+    if first.numel() == 0:
+        return empty
+
+    device = src_logits.device
+    detached_iou = iou3d_matrix.detach().clamp(0, 1)
+    padded_labels = torch.zeros(
+        batch_size, target_slots, device=device, dtype=torch.long)
+    for batch_index, target in enumerate(targets):
+        count = int(target['labels'].numel())
+        padded_labels[batch_index, :count] = target['labels'].reshape(
+            -1).to(device=device, dtype=torch.long)
+
+    grouped_iou = detached_iou.reshape(
+        batch_size, group_num, queries_per_group, target_slots)
+    grouped_assigned_labels = assigned_labels.reshape(
+        batch_size, group_num, queries_per_group)
+    compatible = (
+        grouped_assigned_labels[..., None]
+        == padded_labels[:, None, None, :])
+    target_slot = torch.arange(target_slots, device=device)
+    valid_target = target_slot[None, None, :] < target_counts[:, None, None]
+    candidate_iou = torch.where(
+        compatible & valid_target[:, :, None, :], grouped_iou,
+        torch.full_like(grouped_iou, -1.0))
+    best_iou, best_local = candidate_iou.max(dim=2)
+    valid_unit = valid_target.expand(-1, group_num, -1) & (best_iou >= 0)
+
+    pair_group = first.div(queries_per_group, rounding_mode='floor')
+    first_local = first.remainder(queries_per_group)
+    second_local = second.remainder(queries_per_group)
+    pair_best_local = best_local[batch, pair_group]
+    first_is_best = first_local[:, None] == pair_best_local
+    second_is_best = second_local[:, None] == pair_best_local
+    touches_best = first_is_best ^ second_is_best
+    candidate = torch.where(
+        first_is_best, second[:, None], first[:, None])
+    pair_target = target_slot[None, :].expand(first.numel(), -1)
+    pair_batch = batch[:, None].expand_as(pair_target)
+    candidate_true_iou = detached_iou[
+        pair_batch, candidate, pair_target]
+    iou_gap = best_iou[batch, pair_group] - candidate_true_iou
+    valid_pair = (
+        touches_best
+        & valid_unit[batch, pair_group]
+        & (iou_gap > min_iou_delta))
+    pair_index, target_index = valid_pair.nonzero(as_tuple=True)
+    if pair_index.numel() == 0:
+        result = dict(empty)
+        result['monitor_nms_rank_gt_unit_count'] = (
+            valid_unit.sum().to(src_logits.dtype).detach())
+        return result
+
+    selected_batch = batch[pair_index]
+    selected_group = pair_group[pair_index]
+    selected_best = (
+        selected_group * queries_per_group
+        + best_local[selected_batch, selected_group, target_index])
+    selected_candidate = candidate[pair_index, target_index]
+    selected_labels = padded_labels[selected_batch, target_index]
+    best_score = src_logits[
+        selected_batch, selected_best, selected_labels]
+    candidate_score = src_logits[
+        selected_batch, selected_candidate, selected_labels]
+    signed_margin = best_score - candidate_score
+    weights = iou_gap[pair_index, target_index]
+    correct = signed_margin > 0
+    inverted = ~correct
+    selected_bev_iou = pair_bev_iou[pair_index]
+    best_true_iou = best_iou[
+        selected_batch, selected_group, target_index]
+    candidate_iou = detached_iou[
+        selected_batch, selected_candidate, target_index]
+    threshold_crossing = (
+        (best_true_iou >= 0.7) & (candidate_iou < 0.7))
+
+    inverted_loss = weights * F.softplus(-signed_margin)
+    inverted_loss = inverted_loss * inverted.to(inverted_loss.dtype)
+    unit_id = (
+        (selected_batch * group_num + selected_group) * target_slots
+        + target_index)
+    unit_slots = batch_size * group_num * target_slots
+    unit_loss_sum = src_logits.new_zeros(unit_slots)
+    unit_inversion_count = src_logits.new_zeros(unit_slots)
+    unit_loss_sum.scatter_add_(0, unit_id, inverted_loss)
+    unit_inversion_count.scatter_add_(
+        0, unit_id, inverted.to(src_logits.dtype))
+    active_unit = unit_inversion_count > 0
+    per_unit_loss = unit_loss_sum / unit_inversion_count.clamp_min(1)
+    active_unit_count = active_unit.sum().to(src_logits.dtype)
+    loss = per_unit_loss.sum() / active_unit_count.clamp_min(1)
+
+    pair_count = src_logits.new_tensor(float(pair_index.numel()))
+    correct_count = correct.sum().to(src_logits.dtype)
+    inversion_count = inverted.sum().to(src_logits.dtype)
+    weight_sum = weights.sum()
+    weighted_correct = weights[correct].sum()
+    iou_gap_sum = weights.sum()
+    inverted_gap_sum = weights[inverted].sum()
+    crossing_count = threshold_crossing.sum().to(src_logits.dtype)
+    crossing_wrong = (
+        threshold_crossing & inverted).sum().to(src_logits.dtype)
+    safe_pairs = pair_count.clamp_min(1)
+    return {
+        'loss_iou_classification_nms_rank': loss,
+        'monitor_nms_rank_pair_count': pair_count.detach(),
+        'monitor_nms_rank_pair_correct_count': correct_count.detach(),
+        'monitor_nms_rank_pair_accuracy': (
+            correct_count / safe_pairs).detach(),
+        'monitor_nms_rank_weight_sum': weight_sum.detach(),
+        'monitor_nms_rank_weighted_correct_sum': weighted_correct.detach(),
+        'monitor_nms_rank_weighted_accuracy': (
+            weighted_correct / weight_sum.clamp_min(1e-12)).detach(),
+        'monitor_nms_rank_inversion_count': inversion_count.detach(),
+        'monitor_nms_rank_iou_gap_sum': iou_gap_sum.detach(),
+        'monitor_nms_rank_iou_gap_mean': (
+            iou_gap_sum / safe_pairs).detach(),
+        'monitor_nms_rank_inverted_iou_gap_sum': inverted_gap_sum.detach(),
+        'monitor_nms_rank_inverted_iou_gap_mean': (
+            inverted_gap_sum / inversion_count.clamp_min(1)).detach(),
+        'monitor_nms_rank_bev_iou_sum': selected_bev_iou.sum().detach(),
+        'monitor_nms_rank_bev_iou_mean': (
+            selected_bev_iou.sum() / safe_pairs).detach(),
+        'monitor_nms_rank_cross_0_7_pair_count': crossing_count.detach(),
+        'monitor_nms_rank_cross_0_7_wrong_count': crossing_wrong.detach(),
+        'monitor_nms_rank_cross_0_7_wrong_fraction': (
+            crossing_wrong / crossing_count.clamp_min(1)).detach(),
+        'monitor_nms_rank_gt_unit_count': (
+            valid_unit.sum().to(src_logits.dtype).detach()),
+        'monitor_nms_rank_optimized_gt_unit_count': (
+            active_unit_count.detach()),
+    }
+
+
+def nms_aware_iou_ranking_loss(
+        src_logits: Tensor, outputs: dict[str, Tensor],
+        targets: list[dict[str, Tensor]], iou3d_matrix: Tensor,
+        decode_mean_sizes: Tensor, group_num: int,
+        bev_iou_threshold: float = 0.8,
+        min_iou_delta: float = 1e-6,
+        strategy: str = 'all_conflicting_pairs') -> dict[str, Tensor]:
+    """Dispatch the reproducible old strategy or best-query NMS objective."""
+    if src_logits.ndim != 3:
+        raise ValueError('classification logits must have shape [B,Q,C]')
+    if iou3d_matrix.shape[:2] != src_logits.shape[:2]:
+        raise ValueError('3D-IoU matrix does not match classification logits')
+    if len(targets) != src_logits.shape[0]:
+        raise ValueError('target batch size does not match logits')
+    if group_num <= 0 or src_logits.shape[1] % group_num:
+        raise ValueError('query count must be divisible by group_num')
+    if not 0.0 <= bev_iou_threshold <= 1.0:
+        raise ValueError('BEV NMS threshold must be in [0, 1]')
+    if min_iou_delta < 0.0 or min_iou_delta >= 1.0:
+        raise ValueError('minimum IoU delta must be in [0, 1)')
+    common = dict(
+        src_logits=src_logits, outputs=outputs, targets=targets,
+        iou3d_matrix=iou3d_matrix,
+        decode_mean_sizes=decode_mean_sizes, group_num=group_num,
+        bev_iou_threshold=bev_iou_threshold,
+        min_iou_delta=min_iou_delta)
+    if strategy == 'all_conflicting_pairs':
+        return _all_conflicting_pair_ranking_loss(**common)
+    if strategy == 'best_query_suppressors':
+        return _best_query_suppressor_ranking_loss(**common)
+    raise ValueError(f'unsupported NMS ranking strategy: {strategy}')
