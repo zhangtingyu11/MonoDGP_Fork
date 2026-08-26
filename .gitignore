@@ -35,6 +35,12 @@ tools/diagnose_exp41_b1_learnability.py
 tools/diagnose_exp41_best_checkpoint.py
 tools/diagnose_exp41_confidence_threshold.py
 tools/diagnose_exp41_full_linear_probe.py
+tools/diagnose_exp41_linear_head_ap.py
+tools/diagnose_exp41_linear_head_nms_order_only.py
+tools/diagnose_exp41_original_head_qfl_ranknet.py
+tools/diagnose_exp41_original_head_loss_sweep.py
+tools/diagnose_exp41_original_head_ranknet_high_lambda.py
+tools/diagnose_exp41_residual_ranking_attribution.py
 tools/diagnose_exp41_hungarian_nms_attribution.py
 tools/diagnose_exp41_oracle_nms.py
 tools/diagnose_nms_good_candidate_retention.py
@@ -51,3 +57,26 @@ run_exp41_hungarian_nms_attribution.sh
 
 # Local-only SwanLab sync wrapper for the active Experiment 41 tmux session.
 run_experiment_41_swanlab_sync.sh
+
+# Local-only Experiment 42 correctness/performance evidence and relay.
+tests/test_experiment_42_hungarian_unmatched_ranknet.py
+tools/benchmark_exp42_train_validation.py
+tools/diagnose_exp42_fixed_anchor_accuracy_ap.py
+tools/diagnose_exp42_nonoverlap_iou_calibration.py
+tools/diagnose_exp42_oracle_matched_confidence_filter.py
+tools/diagnose_exp42_accuracy_x_confidence_filter.py
+
+# Local-only Experiment 43 cache analyses.
+tools/diagnose_exp43_iou_distributions.py
+tools/diagnose_exp43_hungarian_ranking.py
+tools/diagnose_exp43_iou_depth_score.py
+tools/diagnose_exp43_post_nms_good_gt_retention.py
+tools/diagnose_exp43_linear_head_retention_ranknet.py
+tools/diagnose_exp43_linear_head_nms_sweep.py
+tools/diagnose_exp44_cross070_pair_scope_ablation.py
+tools/summarize_exp44_cross070_pair_scope_ablation.py
+run_experiment_42_relay.sh
+run_experiment_42_swanlab_sync.sh
+
+# Local-only Experiment 43 cached oracle diagnostic runner.
+run_experiment_43_oracle_ceiling.sh

@@ -138,6 +138,7 @@ class HungarianMatcher(nn.Module):
             persistent=False)
         self.last_iou3d_receipt = {}
         self.last_iou3d_matrix = None
+        self.last_iou3d_only_indices = None
         self.collect_iou3d_comparison = False
         assert cost_class != 0 or cost_bbox != 0 or cost_giou != 0, "all costs cant be 0"
 
@@ -190,7 +191,8 @@ class HungarianMatcher(nn.Module):
         return iou - (enclosing_area - union) / enclosing_area
 
     def _forward_batched(self, outputs, targets, group_num,
-                         prepared_targets=None):
+                         prepared_targets=None,
+                         collect_iou3d_only_indices=False):
         bs, num_queries = outputs["pred_boxes"].shape[:2]
         if prepared_targets is None:
             prepared_targets = self.prepare_targets(targets)
@@ -232,6 +234,9 @@ class HungarianMatcher(nn.Module):
         exact_pair_count = 0
         collect_comparison = bool(
             use_iou3d and self.collect_iou3d_comparison)
+        collect_iou3d_only_indices = bool(
+            use_iou3d and collect_iou3d_only_indices)
+        self.last_iou3d_only_indices = None
         baseline_cost = cost.clone() if collect_comparison else None
         iou3d_matrix = torch.zeros_like(cost) if use_iou3d else None
         if use_iou3d:
@@ -257,11 +262,14 @@ class HungarianMatcher(nn.Module):
         cost = torch.nan_to_num(cost, nan=0.0, posinf=0.0, neginf=0.0)
         self.last_iou3d_matrix = iou3d_matrix
         cost_numpy = cost.cpu().numpy()
+        iou3d_numpy = None
         if collect_comparison:
             baseline_cost_numpy = torch.nan_to_num(
                 baseline_cost, nan=0.0, posinf=0.0,
                 neginf=0.0).cpu().numpy()
+        if collect_comparison or collect_iou3d_only_indices:
             iou3d_numpy = iou3d_matrix.cpu().numpy()
+        if collect_comparison:
             giou2d_numpy = (-cost_giou).cpu().numpy()
             target_class_score_numpy = torch.gather(
                 out_prob, 2, gather_index).cpu().numpy()
@@ -270,6 +278,7 @@ class HungarianMatcher(nn.Module):
         if queries_per_group * group_num != num_queries:
             raise ValueError("query count is not divisible by group count")
         indices = []
+        iou3d_only_indices = [] if collect_iou3d_only_indices else None
         comparison_count = 0
         changed_count = 0
         iou3d_gain_sum = 0.0
@@ -283,6 +292,8 @@ class HungarianMatcher(nn.Module):
                 prepared_targets["sizes"]):
             source_parts = []
             target_parts = []
+            iou3d_source_parts = []
+            iou3d_target_parts = []
             for group_index in range(group_num):
                 begin = group_index * queries_per_group
                 end = begin + queries_per_group
@@ -290,6 +301,12 @@ class HungarianMatcher(nn.Module):
                     cost_numpy[batch_index, begin:end, :target_count])
                 source_parts.append(source + begin)
                 target_parts.append(target)
+                if collect_iou3d_only_indices:
+                    iou3d_source, iou3d_target = linear_sum_assignment(
+                        -iou3d_numpy[
+                            batch_index, begin:end, :target_count])
+                    iou3d_source_parts.append(iou3d_source + begin)
+                    iou3d_target_parts.append(iou3d_target)
                 if collect_comparison and target_count:
                     baseline_source, baseline_target = linear_sum_assignment(
                         baseline_cost_numpy[
@@ -341,6 +358,13 @@ class HungarianMatcher(nn.Module):
             target = np.concatenate(target_parts)
             indices.append((torch.as_tensor(source, dtype=torch.int64),
                             torch.as_tensor(target, dtype=torch.int64)))
+            if collect_iou3d_only_indices:
+                iou3d_source = np.concatenate(iou3d_source_parts)
+                iou3d_target = np.concatenate(iou3d_target_parts)
+                iou3d_only_indices.append((
+                    torch.as_tensor(iou3d_source, dtype=torch.int64),
+                    torch.as_tensor(iou3d_target, dtype=torch.int64)))
+        self.last_iou3d_only_indices = iou3d_only_indices
         self.last_iou3d_receipt = {
             'enabled_for_layer': use_iou3d,
             'pair_count': pair_count,
@@ -360,7 +384,8 @@ class HungarianMatcher(nn.Module):
 
     @torch.no_grad()
     def forward(self, outputs, targets, group_num=11,
-                prepared_targets=None):
+                prepared_targets=None,
+                collect_iou3d_only_indices=False):
         """ Performs the matching
         Params:
             outputs: This is a dict that contains at least these entries:
@@ -379,7 +404,14 @@ class HungarianMatcher(nn.Module):
         """
         if self.use_batched_same_image_cost or self.cost_iou3d != 0:
             return self._forward_batched(
-                outputs, targets, group_num, prepared_targets)
+                outputs, targets, group_num, prepared_targets,
+                collect_iou3d_only_indices=collect_iou3d_only_indices)
+
+        if collect_iou3d_only_indices:
+            raise RuntimeError(
+                'pure 3D-IoU Hungarian matching requires the batched '
+                'exact-3D-IoU matcher')
+        self.last_iou3d_only_indices = None
 
         bs, num_queries = outputs["pred_boxes"].shape[:2]
 

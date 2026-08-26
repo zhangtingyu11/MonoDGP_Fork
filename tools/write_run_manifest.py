@@ -108,7 +108,14 @@ def main():
             cfg['trainer'].get('early_validation_interval', 0)),
         '早期AP刷新参与best并计算NMS：' + str(bool(
             cfg['trainer'].get('early_validation_updates_best', False))),
-        'best选择：无NMS Car_3d_moderate_R40；排序分数=' + str(
+        '主要best选择：' + (
+            'BEV NMS '
+            f"{cfg['trainer'].get('nms_best_selection', {}).get('bev_iou_threshold')} "
+            'Car_3d_moderate_R40'
+            if cfg['trainer'].get('nms_best_selection', {}).get(
+                'enabled', False)
+            else '无NMS Car_3d_moderate_R40')
+        + '；排序分数=' + str(
             cfg['tester'].get('primary_quality_score', '历史默认')),
         f"验证置信度门槛：{cfg['tester']['threshold']}",
         '跨焦距供体目标最小有效覆盖率：' + str(
@@ -186,6 +193,8 @@ def main():
             nms_best_cfg.get('enabled', False))),
         '每轮NMS独立选优阈值：' + str(
             nms_best_cfg.get('bev_iou_threshold', '未配置')),
+        '每轮NMS对照阈值：' + ','.join(map(
+            str, nms_best_cfg.get('report_bev_iou_thresholds', ()))),
         '质量Loss权重：' + str(
             quality_cfg.get('loss_coef', '未配置')),
         '质量监督模式：' + str(

@@ -1,0 +1,34 @@
+base_config: monodgp_exp39.yaml
+
+model_name: 'V2-0042_实验42_匈牙利匹配未匹配Query_NMS001排序'
+
+model:
+  iou_classification:
+    nms_ranking:
+      enabled: true
+      # Unlike Experiment 41's sparse, IoU-gap-weighted inverted-pair loss,
+      # standard RankNet starts near softplus(0)=0.693 on every valid pair.
+      # A coefficient of 1.0 therefore gives a deliberately material learning
+      # signal without multiplying that already larger raw scale again.
+      loss_coef: 1.0
+      bev_iou_threshold: 0.01
+      min_iou_delta: 0.0
+      strategy: hungarian_unmatched_overlap
+      final_layer_only: true
+
+tester:
+  # NMS 0.8 is now reported every validation below, so do not evaluate the
+  # same cached predictions a second time when the no-NMS checkpoint refreshes.
+  best_refresh_bev_nms_thresholds: []
+
+trainer:
+  nms_best_selection:
+    enabled: true
+    bev_iou_threshold: 0.01
+    # Evaluate this control from the same cached validation predictions.  It
+    # never participates in checkpoint selection.
+    report_bev_iou_thresholds: [0.8]
+  swanlab:
+    experiment_name: '实验42_匈牙利匹配未匹配Query_NMS001排序'
+    description: '严格基于实验39，保留全query连续3D IoU Quality Focal分类监督，只替换最终3D Decoder层的NMS排序辅助目标。每张图像及每个独立50-query组复用matcher已经计算的精确3D IoU矩阵，以1-IoU3D作为唯一代价执行一对一匈牙利匹配；每个匹配Query只与同组所有未匹配Query比较，并且仅在两者预测旋转BEV IoU严格大于0.01时计算标准RankNet softplus(未匹配Query类别logit-匹配Query类别logit)。其他匹配Query永不作为负样本，不按IoU差加权，不只选择当前逆序对。先对每个图像-组-GT内候选求均值，再对存在有效候选的匹配GT组求均值，Loss系数1.0且只作用于最终层。训练与验证监控原始排序Loss、配对正确率、匹配GT组数、有效配对数、有效GT比例、每GT候选数、logit差和匹配Query未领先比例；每次验证以BEV NMS 0.01的Car 3D Moderate AP_R40独立选优，同时保留无NMS及NMS 0.8对照。正式训练前用真实KITTI BS1比较完整训练步骤，用正式BS16比较完整3769图验证流程，并记录吞吐与峰值显存；用户审核后接受不超过5%的小幅新增开销才允许自动启动。其余模型、数据、MixUp、虚拟焦距、回归Loss、推理分数、top-50、阈值0、种子和250轮日程与实验39一致。'
+    tags: ['实验42', 'KITTI', '实验39增量', '纯3D-IoU匈牙利', '匹配对未匹配', '标准RankNet', 'NMS0.01']

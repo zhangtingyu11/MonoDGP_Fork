@@ -405,6 +405,19 @@ def nms_best_selection_payload(state, current):
         if metric in state.get('metrics', {}):
             payload[f'{prefix}/最优轮同轮{chinese}难度三维AP_R40'] = float(
                 state['metrics'][metric])
+    for control_threshold, control in current.get(
+            'control_reports', {}).items():
+        control_prefix = f'每轮BEV NMS对照/阈值{control_threshold}'
+        payload[f'{control_prefix}/当前轮次'] = int(current['epoch'])
+        payload[f'{control_prefix}/当前保留预测数量'] = int(
+            control['prediction_count'])
+        payload[f'{control_prefix}/当前删除预测数量'] = int(
+            control['removed_prediction_count'])
+        for difficulty, chinese in _AP_DIFFICULTIES:
+            metric = f'Car_3d_{difficulty}_R40'
+            if metric in control['metrics']:
+                payload[f'{control_prefix}/{chinese}难度三维AP_R40'] = (
+                    float(control['metrics'][metric]))
     return payload
 
 
@@ -645,6 +658,12 @@ class Trainer(object):
             nms_best_cfg.get('bev_iou_threshold', 0.8))
         if not 0.0 <= self.nms_best_selection_threshold <= 1.0:
             raise ValueError('NMS best-selection threshold must be in [0, 1]')
+        self.nms_report_thresholds = tuple(dict.fromkeys(
+            float(value) for value in nms_best_cfg.get(
+                'report_bev_iou_thresholds', ())))
+        if any(not 0.0 <= value <= 1.0
+               for value in self.nms_report_thresholds):
+            raise ValueError('NMS report thresholds must be in [0, 1]')
         self.use_cuda_batch_prefetch = bool(
             cfg.get('use_cuda_batch_prefetch', False))
         if self.use_cuda_batch_prefetch and self.device.type != 'cuda':
@@ -709,12 +728,19 @@ class Trainer(object):
             raise RuntimeError('NMS best selection requires a tester')
         threshold = self.nms_best_selection_threshold
         key = f'{threshold:.2f}'
-        report = self.tester.evaluate_bev_nms(results, (threshold,))
+        thresholds = tuple(dict.fromkeys((
+            threshold, *self.nms_report_thresholds)))
+        report = self.tester.evaluate_bev_nms(results, thresholds)
         current_report = report[key]
         current = {
             'threshold': key,
             'epoch': int(self.epoch),
             **current_report,
+            'control_reports': {
+                report_key: value
+                for report_key, value in report.items()
+                if report_key != key
+            },
         }
         if float(current_report['selection_score']) > float(state['score']):
             state = {
@@ -748,6 +774,10 @@ class Trainer(object):
             'BEV NMS %.2f current=%.6f epoch=%d; best=%.6f epoch=%d',
             threshold, float(current_report['selection_score']), self.epoch,
             float(state['score']), int(state['epoch']))
+        for control_key, control in current['control_reports'].items():
+            self.logger.info(
+                'BEV NMS %s control current=%.6f epoch=%d',
+                control_key, float(control['selection_score']), self.epoch)
         return state, current
         
     def train(self):

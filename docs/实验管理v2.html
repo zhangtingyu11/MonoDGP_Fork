@@ -202,6 +202,8 @@
       align-items: start;
     }
 
+    .workspace > div, .content-panel, .section-card { min-width: 0; }
+
     .sidebar {
       position: sticky;
       top: 18px;
@@ -440,6 +442,79 @@
     .legend-item { padding: 14px; border-radius: 13px; background: #f6f8fb; font-size: 12px; color: var(--muted); }
     .legend-item strong { display: block; margin-bottom: 4px; color: var(--ink); }
 
+    .oracle-chart-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+      margin: 16px 0 18px;
+    }
+
+    .oracle-chart-card {
+      min-width: 0;
+      padding: 17px 15px 12px;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: #fbfcfe;
+    }
+
+    .oracle-chart-card h4 { margin: 0 4px; }
+    .oracle-chart-card p { margin: 4px 4px 0; color: var(--muted); font-size: 12px; }
+    .oracle-chart { min-height: 345px; margin-top: 10px; }
+    .oracle-chart svg { display: block; width: 100%; height: auto; overflow: visible; }
+    .oracle-chart .domain, .oracle-chart .tick line { stroke: #cfd7e4; }
+    .oracle-chart .tick text { fill: #677084; font-size: 11px; }
+    .oracle-chart .grid line { stroke: #e7ebf1; stroke-dasharray: 3 4; }
+    .oracle-chart .grid .domain { display: none; }
+    .oracle-chart .axis-label { fill: #536176; font-size: 11px; font-weight: 750; }
+    .oracle-chart .focus-guide { stroke: #9aa8ba; stroke-dasharray: 3 3; }
+
+    .oracle-legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px 18px;
+      margin: 14px 0 4px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 750;
+    }
+
+    .oracle-legend span { display: inline-flex; align-items: center; gap: 7px; }
+    .oracle-legend i { width: 24px; height: 3px; border-radius: 999px; background: var(--blue); }
+    .oracle-legend .current i { height: 0; border-top: 3px dashed #7b8799; background: transparent; }
+    .oracle-legend .retained i { height: 0; border-top: 3px dashed var(--green); background: transparent; }
+    .oracle-legend .exp30 i { background: #e27832; }
+    .oracle-legend .score-exp42-original i { height: 0; border-top: 3px dashed #7b8799; background: transparent; }
+    .oracle-legend .score-exp42-depth i { background: #3478f6; }
+    .oracle-legend .score-exp30-original i { height: 0; border-top: 3px dashed #e27832; background: transparent; }
+    .oracle-legend .score-exp30-depth i { background: #16835b; }
+    .oracle-legend .nms-source i { height: 0; border-top: 3px dashed #7b8799; background: transparent; }
+    .oracle-legend .nms-qfl i { background: #e27832; }
+    .oracle-legend .nms-allpair i { background: #8b5cf6; }
+    .oracle-legend .nms-cross i { background: #16835b; }
+
+    .oracle-tooltip {
+      position: fixed;
+      z-index: 20;
+      width: max-content;
+      max-width: min(290px, calc(100vw - 24px));
+      padding: 10px 12px;
+      border: 1px solid #cad4e2;
+      border-radius: 11px;
+      background: rgba(23, 32, 51, .96);
+      color: #fff;
+      box-shadow: 0 12px 30px rgba(23, 32, 51, .2);
+      font-size: 12px;
+      line-height: 1.55;
+      pointer-events: none;
+      opacity: 0;
+      transform: translateY(4px);
+      transition: opacity .12s ease, transform .12s ease;
+    }
+
+    .oracle-tooltip.visible { opacity: 1; transform: translateY(0); }
+    .oracle-tooltip strong { display: block; margin-bottom: 3px; }
+    .oracle-tooltip div { font-variant-numeric: tabular-nums; }
+
     details {
       margin-top: 16px;
       border: 1px solid var(--line);
@@ -540,9 +615,17 @@
     @media (max-width: 980px) {
       .top-grid { grid-template-columns: repeat(2, 1fr); }
       .workspace { grid-template-columns: 1fr; }
-      .sidebar { position: static; display: grid; grid-template-columns: repeat(3, 1fr); }
+      .sidebar {
+        position: static;
+        display: flex;
+        gap: 4px;
+        overflow-x: auto;
+        scroll-snap-type: x proximity;
+      }
       .nav-title { display: none; }
+      .nav-button { flex: 0 0 min(250px, 78vw); margin: 0; scroll-snap-align: start; }
       .truth-grid, .stage-grid { grid-template-columns: 1fr; }
+      .oracle-chart-grid { grid-template-columns: 1fr; }
       .compare-row { grid-template-columns: 1fr; gap: 8px; }
       .delta { text-align: left; }
     }
@@ -553,7 +636,6 @@
       .top-grid { margin: -32px 10px 0; grid-template-columns: 1fr 1fr; gap: 9px; }
       .summary-card { min-height: 116px; padding: 16px; }
       .summary-card strong { font-size: 21px; }
-      .sidebar { grid-template-columns: 1fr; }
       .nav-button { grid-template-columns: 34px 1fr; }
       .nav-index { width: 34px; height: 34px; }
       .section-card { padding: 20px 17px; }
@@ -562,6 +644,8 @@
       .condition-grid { grid-template-columns: 1fr; }
       .condition-common { grid-template-columns: 1fr; gap: 3px; }
       .bar-line { grid-template-columns: 38px 1fr 65px; }
+      .oracle-chart-card { padding: 15px 10px 10px; }
+      .oracle-chart { min-height: 315px; }
     }
 
     @media (prefers-reduced-motion: reduce) {
@@ -577,22 +661,22 @@
       <h1>实验总览 v2</h1>
       <p>实验总账的可视化索引。每项实验单独记录目的、对比条件、执行过程和客观结果，方便后续持续追加。</p>
       <div class="hero-meta">
-        <span class="pill"><span class="status-dot"></span>32 项实验已记录</span>
+        <span class="pill"><span class="status-dot"></span>43 项实验已记录</span>
         <span class="pill">数据来源：实验总账v2</span>
-        <span class="pill">更新日期：2026-08-19</span>
+        <span class="pill">更新日期：2026-08-26</span>
       </div>
     </header>
 
     <section class="top-grid" aria-label="全局摘要">
       <article class="summary-card">
         <span class="label">正式实验</span>
-        <strong>32 项</strong>
+        <strong>43 项</strong>
         <small>从 v2 重新编号</small>
       </article>
       <article class="summary-card">
         <span class="label">最新状态</span>
-        <strong>32 已停止</strong>
-        <small>31作为后续基线；32中途停止</small>
+        <strong>43 已收尾</strong>
+        <small>42完整训练；43完成冻结checkpoint诊断与消融</small>
       </article>
       <article class="summary-card">
         <span class="label">实验类型</span>
@@ -601,7 +685,7 @@
       </article>
       <article class="summary-card">
         <span class="label">当前编号</span>
-        <strong>01—32</strong>
+        <strong>01—43</strong>
         <small>后续实验继续追加</small>
       </article>
     </section>
@@ -779,7 +863,15 @@
         </button>
         <button class="nav-button" data-target="exp41" type="button">
           <span class="nav-index">41</span>
-          <span class="nav-copy"><strong>最终层最优Query排序</strong><small>正式训练中·E151 best</small></span>
+          <span class="nav-copy"><strong>最终层最优Query排序</strong><small>250轮完成·E151最终best</small></span>
+        </button>
+        <button class="nav-button" data-target="exp42" type="button">
+          <span class="nav-index">42</span>
+          <span class="nav-copy"><strong>匈牙利匹配对未匹配排序</strong><small>250轮完成·E191 best</small></span>
+        </button>
+        <button class="nav-button" data-target="exp43" type="button">
+          <span class="nav-index">43</span>
+          <span class="nav-copy"><strong>几何、评分与冻结线性头</strong><small>跨0.7收益主要来自删除低—低配对</small></span>
         </button>
       </nav>
 
@@ -918,7 +1010,9 @@
               <div class="truth"><span class="number">38</span><h3>全query三维IoU分类</h3><p>全部query的分类目标改为最大真实3D IoU；候选池增强，但分数排序仍未转化为部署AP。</p></div>
               <div class="truth"><span class="number">39</span><h3>触发NMS的候选对排序</h3><p>对同GT且BEV IoU≥0.8的候选对加权RankNet；完整250轮，NMS AP未超过实验38。</p></div>
               <div class="truth"><span class="number">40</span><h3>NMS排序Loss权重1.0</h3><p>排序软Loss略降，但硬逆序率未降且回归Loss普遍上升；E197后提前停止。</p></div>
-              <div class="truth"><span class="number">41</span><h3>最终层最优Query的NMS决策排序</h3><p>只纠正真正可能压掉每GT最优query的最终层候选；训练进行中，E151 NMS 0.8 Moderate为22.9292；全query真实IoU oracle排序配合NMS 0.01的描述性上限为49.9247。</p></div>
+              <div class="truth"><span class="number">41</span><h3>最终层最优Query的NMS决策排序</h3><p>只纠正真正可能压掉每GT最优query的最终层候选；250轮已完成，E151最终保持NMS 0.8 Moderate best 22.9292；全query真实IoU oracle排序配合NMS 0.01的描述性上限为49.9247。</p></div>
+              <div class="truth"><span class="number">42</span><h3>纯3D IoU匈牙利匹配Query对未匹配Query排序</h3><p>每组先做一对一纯3D IoU匹配，只对与匹配框BEV IoU严格大于0.01的未匹配query计算标准RankNet；250轮已完成，NMS 0.01选优的最终best为E191。</p></div>
+              <div class="truth"><span class="number">43</span><h3>几何上限、评分与冻结线性头</h3><p>冻结实验42 E191与实验30 E222完成GT oracle、IoU分布和评分诊断；跨0.7方案在全NMS阈值上优于控制。后续四臂梯度等强消融进一步定位：删除低—低配对的Moderate AP主效应为<code>+0.1528</code>，删除高—高仅<code>+0.0009</code>。</p></div>
             </div>
           </article>
 
@@ -3521,7 +3615,7 @@
 
         <section id="exp41" class="content-panel" aria-labelledby="exp41-title">
           <article class="section-card">
-            <div class="section-head"><div><span class="section-kicker">实验 41 · 08-24</span><h2 id="exp41-title">最终层最优Query的NMS决策排序</h2><p class="section-subtitle">一句话：不再追求全部候选的完整排序，只保护每个GT真实IoU最高的query不被NMS保留的更差候选压掉。</p></div><span class="done-badge" style="background:var(--blue-soft);color:var(--blue)">正式训练中 · E178完整 · E151 best</span></div>
+            <div class="section-head"><div><span class="section-kicker">实验 41 · 08-24</span><h2 id="exp41-title">最终层最优Query的NMS决策排序</h2><p class="section-subtitle">一句话：不再追求全部候选的完整排序，只保护每个GT真实IoU最高的query不被NMS保留的更差候选压掉。</p></div><span class="done-badge">250轮已完成 · E151 best</span></div>
             <h3>与实验39/40的关键区别</h3>
             <div class="table-wrap"><table><thead><tr><th>环节</th><th>实验41</th><th>解决的问题</th></tr></thead><tbody>
               <tr><td>作用层</td><td>仅最终3D Decoder</td><td>辅助层中间框不再干扰真实推理决策</td></tr>
@@ -3584,7 +3678,7 @@
               <tr><td>实验38 → 41</td><td>3204</td><td>120 → 98</td><td>−0.687个百分点</td><td>112 / 90</td></tr>
             </tbody></table></div>
             <div class="callout warning"><h4>结论：实验40有正信号，实验41没有进一步胜出</h4><p>实验39的三层全冲突对、系数0.1没有减少错删，反而比无排序Loss的实验38更差。实验40把系数提高到1.0后，相对实验39明显改善，且NMS Moderate AP也升到四者最高的23.2123，说明监督并非完全学不到。实验41相对实验39和实验38改善，但与实验40在共同合格GT上只净少4次错删，条件率只差0.126个百分点；同时实验41无NMS Moderate仅15.1431，远低于实验40的20.2585。因此不能说实验41的新目标优于实验40，它的候选/全局分数表现仍有更大退化。</p></div>
-            <div class="callout warning"><h4>比较边界</h4><p>四者是不同训练轨迹和不同几何候选的冻结best；实验38由无NMS选best，实验39—41由NMS 0.8选best，实验41还只是训练未完成时冻结的E151，validation也参与了checkpoint选择。共同合格GT配对只控制“双方都有合格候选”，没有控制具体框身份，因此这是描述性验证证据，不是无混杂的因果消融。</p></div>
+            <div class="callout warning"><h4>比较边界</h4><p>四者是不同训练轨迹和不同几何候选的冻结best；实验38由无NMS选best，实验39—41由NMS 0.8选best。实验41后来已完整训练到E250，E151仍是最终best；validation参与了checkpoint选择。共同合格GT配对只控制“双方都有合格候选”，没有控制具体框身份，因此这是描述性验证证据，不是无混杂的因果消融。</p></div>
             <div class="callout"><h4>执行记录</h4><p>正式对比由tmux会话monodgp_exp38_41_nms_retention_20260824顺序持有；32图GPU smoke通过，四个完整推理及根脚本退出码全部为0，历史AP硬对照全部通过，Material Passport为VERIFIED。首次汇总JSON漏列已计算的实验40→41直接配对；确认只是汇总枚举遗漏后，仅修正汇总器并重建CPU/JSON摘要，没有重跑四次冻结推理，也没有改变checkpoint、数据、NMS或评测协议。完整manifest、SHA256、逐GT记录和日志已归档。</p></div>
             <h3>E151全query真实IoU排序 × NMS 0.01上限</h3>
             <div class="metric-grid"><div class="metric"><span>当前NMS 0.8 Moderate</span><strong>22.9292</strong><em>E151部署分数对照</em></div><div class="metric"><span>oracle + NMS 0.01</span><strong>49.9247</strong><em>Moderate 3D AP_R40</em></div><div class="metric"><span>绝对上涨</span><strong>+26.9955</strong><em>不可部署的描述性上限</em></div><div class="metric"><span>只改当前NMS为0.01</span><strong>21.0674</strong><em>反而下降1.8617</em></div></div>
@@ -3597,21 +3691,414 @@
               <tr><td>全query真实3D IoU</td><td>0.8</td><td>55.0005</td><td>46.7978</td><td>42.2230</td><td>+23.8686</td></tr>
               <tr><td><strong>全query真实3D IoU</strong></td><td><strong>0.01</strong></td><td><strong>59.8821</strong></td><td><strong>49.9247</strong></td><td><strong>44.8761</strong></td><td><strong>+26.9955</strong></td></tr>
               <tr><td>匈牙利一对一真实IoU</td><td>无NMS / 0.01</td><td>59.8821</td><td>49.9247</td><td>44.8761</td><td>+26.9955</td></tr>
+              <tr><td>匈牙利锚点优先、未匹配保留</td><td>无NMS</td><td>57.9985</td><td>48.1844</td><td>43.2268</td><td>+25.2553</td></tr>
+              <tr><td><strong>匈牙利锚点优先、未匹配保留</strong></td><td><strong>0.01 / 0.8</strong></td><td><strong>59.8821</strong></td><td><strong>49.9247</strong></td><td><strong>44.8761</strong></td><td><strong>+26.9955</strong></td></tr>
             </tbody></table></div>
             <div class="callout"><h4>直接答案</h4><p>Easy从29.7383升到59.8821，增加30.1439；Moderate从22.9292升到49.9247，增加26.9955；Hard从19.9191升到44.8761，增加24.9570。全query oracle加NMS 0.01后与一对一oracle的三档3D AP完全相同，说明理想分数配合极低NMS已经把会影响3D AP的重复框消除到这份冻结候选的一对一上限。</p></div>
+            <div class="callout"><h4>按质疑重做：未匹配框没有被预先删除</h4><p>先用1−精确3D IoU做全局一对一Hungarian，11178个匹配query全部进入top-50；其余query仍参与top-50、NMS和官方AP。匹配query/class使用1+assigned IoU，只做整数平移以完整保留两位小数下的IoU排序；未匹配尾部分别使用同类最大真实IoU和当前分类分数作为敏感性对照。两种尾部在NMS 0.01后都得到59.8821/49.9247/44.8761，与直接删除未匹配框的一对一流完全相同。</p></div>
+            <div class="callout warning"><h4>AP相同，不代表未匹配框都被NMS删掉</h4><p>完整50-query池有177272个未匹配query，只有33387个（18.8338%）与任一Hungarian匹配框的预测BEV IoU严格大于0.01；其余81.1662%不能被匹配框直接压掉。展平top-50中有172289个未匹配query/class预测，NMS 0.01后仍存活108516个（62.9849%）。其中31387个由匹配框压掉，31008个由其他未匹配框压掉。最终AP没有下降，是因为这些大量存活FP被oracle排在Hungarian锚点之后，而不是因为它们不存在；部署时仍需分类置信度和阈值处理。</p></div>
             <div class="callout warning"><h4>不是“NMS 0.01能涨27 AP”</h4><p>当前分数只改NMS 0.8→0.01时，Moderate反而从22.9292降到21.0674，Hard也降到18.6667。只有把GT真实IoU泄漏进top-50、NMS和全局AP顺序后，0.01才比同一oracle的NMS 0.8再高3.1269 Moderate。核心上限来自完美质量排序与去重的组合，不能把26.9955归功于阈值。</p></div>
             <div class="callout"><h4>极低阈值是否误压不同GT</h4><p>匈牙利一对一流从11178个框经NMS 0.01降到10936个，但Easy/Moderate/Hard 3D AP_R40与无NMS精确相同；被删的242个框没有改变0.7 IoU下的3D AP。这只说明在E151这批GT oracle框上没有观察到可计分TP损失，不代表真实分数使用0.01安全。</p></div>
             <div class="callout warning"><h4>oracle边界</h4><p>该诊断直接使用完整validation GT，同时改变top-50候选、NMS顺序与跨图AP顺序，不可部署，也不是可学习头已经达到的成绩；E151还由同一validation选出。它只回答当前冻结几何候选在“质量排序近乎完美且极强去重”假设下最多能释放多少AP。</p></div>
             <div class="callout"><h4>执行记录</h4><p>正式运行由tmux会话monodgp_exp41_e151_oracle_nms001_20260825持有，退出码0；完整3769张validation、BS16，推理耗时189.90秒，CUDA峰值allocated/reserved为2.52/2.94 GiB。当前无NMS、当前NMS 0.8和一对一oracle无NMS三组历史AP均零误差复现，硬对照全部通过，Material Passport为VERIFIED；10项测试和32图GPU smoke通过。完整manifest、命令、AP与预测数已归档。</p></div>
+            <div class="callout warning"><h4>补做实验的正确性重跑记录</h4><p>首次完整run1把匹配分数写成0.5+0.5×IoU，历史两位小数输出因此压缩了IoU排序分辨率并制造额外并列，主AP不采用。随后只修正为1+IoU，checkpoint、数据、Hungarian、top-50、NMS和评测均不变；full_b16_rerun1退出码0，11178/11178锚点进入top-50，归因NMS与正式NMS逐框零差异，旧AP硬控制全部零误差复现，源码SHA256写入manifest。最终结果位于diagnostics/e151_hungarian_unmatched_nms_ceiling/full_b16_rerun1/result.json。</p></div>
             <div class="callout warning"><h4>解释边界</h4><p>一对一oracle使用GT，不可部署；“没有合格候选”仅指最终50个冻结query中不存在3D IoU≥0.7的框。全正交叠池上的仅逆序对控制组对初始化与选步较敏感，但它不是实验41原始BEV IoU&gt;0.8候选池的严格复现。四项诊断由独立tmux顺序运行，两项退出码均为0；checkpoint SHA256、环境、精确命令和完整JSON均已归档。正式训练仍按原协议继续，首次E9执行链路失败及修复记录保留不删。</p></div>
+          </article>
+        </section>
+        <section id="exp42" class="content-panel" aria-labelledby="exp42-title">
+          <article class="section-card">
+            <div class="section-head"><div><span class="section-kicker">实验 42 · 08-25</span><h2 id="exp42-title">纯3D IoU匈牙利匹配Query对未匹配Query排序</h2><p class="section-subtitle">一句话：先用一对一匹配定义每个GT应保护的query，再让所有与它发生NMS 0.01交集的未匹配query排在它后面。</p></div><span class="done-badge">250轮已完成 · E191 best</span></div>
+            <h3>已审核并冻结的方法定义</h3>
+            <div class="table-wrap"><table><thead><tr><th>环节</th><th>实验42定义</th><th>边界</th></tr></thead><tbody>
+              <tr><td>匹配</td><td>每张图、每个独立50-query组，以<code>1−精确3D IoU</code>为唯一代价做一对一匈牙利匹配</td><td>复用matcher已有3D IoU矩阵，不改变原检测Loss使用的复合匹配</td></tr>
+              <tr><td>负候选</td><td>只取同组未匹配query；其他匹配query绝不作为负样本</td><td>避免把另一个GT的有效匹配框当重复框压低</td></tr>
+              <tr><td>几何门槛</td><td>匹配框与未匹配框的预测旋转BEV IoU严格大于0.01</td><td>直接对齐本实验部署NMS 0.01；等于0.01不进入Loss</td></tr>
+              <tr><td>单对Loss</td><td><code>softplus(score_unmatched − score_matched)</code></td><td>标准RankNet；不按IoU差加权，也不只训练当前逆序对</td></tr>
+              <tr><td>归一化</td><td>先在每个图像-组-GT内按未匹配候选数平均，再对存在候选的匹配GT组平均</td><td>候选多的拥挤目标不会仅凭配对数主导batch</td></tr>
+              <tr><td>作用层与系数</td><td>只作用最终3D Decoder，系数1.0</td><td>标准RankNet零margin原始值约0.693，系数1.0已经是明确的强监督</td></tr>
+            </tbody></table></div>
+            <h3>看什么监控</h3>
+            <div class="table-wrap"><table><thead><tr><th>阶段</th><th>指标</th><th>含义</th></tr></thead><tbody>
+              <tr><td>训练与验证</td><td>原始RankNet Loss / 加权占总Loss比例</td><td>监督本身是否下降，以及它实际占完整优化目标多少</td></tr>
+              <tr><td>训练与验证</td><td>配对正确率 / 平均logit差</td><td>匹配query是否真正排在相交未匹配query前，而不只看软Loss</td></tr>
+              <tr><td>训练与验证</td><td>匹配GT组数 / 有效GT比例 / 配对数 / 每GT候选数</td><td>确认Loss覆盖范围没有意外变空或被少数拥挤样本支配</td></tr>
+              <tr><td>训练与验证</td><td>匹配query未领先的参与排序GT比例</td><td>一个GT只要仍有任一相交未匹配query分数不低，就计为未完全排好</td></tr>
+              <tr><td>每次正式验证</td><td>NMS 0.01 Car 3D Moderate AP_R40</td><td>主要best选择指标；独立保存<code>checkpoint_best_bev_nms_0_01.pth</code></td></tr>
+              <tr><td>每次正式验证</td><td>无NMS与NMS 0.8 AP</td><td>分别检查候选/全局排序退化和与实验38—41历史口径的可比性</td></tr>
+            </tbody></table></div>
+            <h3>效率实现和启动门槛</h3>
+            <div class="callout"><h4>已做的结构优化</h4><p>纯IoU匈牙利不重算3D IoU，只在原matcher已同步到CPU后追加每组一次小矩阵求解。BEV候选也不构造50×50全配对，只展开“匹配项×本组未匹配项”，先做AABB粗筛，再对可能相交的少量候选执行精确旋转多边形交集。NMS 0.8对照与NMS 0.01从同一次缓存预测评估，取消best刷新时的重复0.8评估。</p></div>
+            <div class="callout"><h4>GPU执行证据与停止点</h4><p>16项新旧策略合同测试通过。真实KITTI BS1完整前向、Loss与反向的稳定ABBA回执为基线98.3445 ms、候选101.9764 ms，新增3.69%；吞吐由10.168降至9.806图/秒，峰值allocated只多7680 bytes、reserved不变，梯度全部有限。随后按BS16运行完整3769图验证：已完成的推理臂为baseline 152.457秒、candidate 214.335/142.053秒；它们与实验41共享GPU并跨越不同训练/验证阶段，阶段噪声明显，但三臂无NMS、NMS 0.01、NMS 0.8 AP全部逐项相同。用户在第四臂中止剩余计时，明确接受当前小幅训练开销，并取消性能ABBA作为启动门槛；因此不存在完成的验证慢速比例，也不把未完成计时包装为通过。</p></div>
+            <div class="callout"><h4>直接自动接力已成功</h4><p>实验41于2026-08-25 05:25:08完成250轮训练并以退出码0结束；同一接力会话<code>monodgp_exp42_hungarian_ranknet_20260825</code>在05:25:10启动实验42，间隔约2秒，期间没有运行ABBA或额外诊断。正式训练进程为PID 3662199，输出目录为<code>outputs/V2-0042_实验42_匈牙利匹配未匹配Query_NMS001排序</code>。接力状态文件中的<code>formal_training_starting</code>表示已经交给正式训练，原脚本只会在训练退出后再次改写，并不是“仍在等待启动”。</p></div>
+            <div class="callout"><h4>最终训练状态</h4><p>实验42于2026-08-25 20:19完成250轮并正常退出，SwanLab运行<code>2tw5dg7z</code>已结束。按预注册的NMS 0.01 Moderate AP_R40选优，E191最终best为<code>20.1211</code>；同一E191在NMS 0.8下为<code>22.9176</code>。E250对应两项为<code>19.7306 / 22.8113</code>，没有刷新best。</p></div>
+            <div class="callout"><h4>当前运行与云端跟踪</h4><p>训练日志持续推进；截至2026-08-25 07:56，SwanLab云端已显示E61/250且状态为RUNNING。早期轻量诊断的无NMS Moderate 3D AP_R40从E10的1.9119依次升至E20 6.1805、E30 9.7333、E40 11.7678、E50 12.7330；NMS 0.01 Moderate从2.2252升至11.9590，当前早期best为E50。完整正式验证从E120开始，因此这些数值只说明启动和早期学习链路正常，不能提前判定最终方案优劣。训练进程仍按冻结配置写本地swanlog；独立tmux会话<code>monodgp_exp42_swanlab_cloud_20260825</code>将既有记录与新增记录持续镜像到云端，不重启训练、不修改模型或优化轨迹。云端运行ID为<a href="https://swanlab.cn/@Grapymage/MonoDGP/runs/2tw5dg7z" target="_blank" rel="noreferrer"><code>2tw5dg7z</code></a>，训练真正结束后同步器才会提交最终完成状态。</p></div>
+            <h3>E139固定局部排序的完整因果曲线</h3>
+            <div class="callout warning"><h4>先纠正“全部排序正确”的歧义</h4><p>本诊断冻结实验42 E139的框、原始展平top-50、所有匹配query分数和官方AP置信度/跨图顺序，只给未匹配query增加统一负logit偏移，并且仅把偏移后的分数用于NMS遍历。旧实验41的46.7978/49.9247则把每个query/class分数直接替换成同类GT最大真实3D IoU，同时改变top-50、NMS和跨图AP顺序；两者不是同一个oracle。“全部排序正确”若不展开定义会造成误导。</p></div>
+            <div class="table-wrap"><table><thead><tr><th>配对正确率</th><th>匹配Query高于全部竞争者</th><th>NMS 0.01 AP_R40 E/M/H</th><th>Moderate增量</th><th>NMS 0.8 AP_R40 E/M/H</th><th>Moderate增量</th></tr></thead><tbody>
+              <tr><td>65.9539% 原始</td><td>47.5810%</td><td>26.4500 / 19.8790 / 16.8305</td><td>—</td><td>29.3672 / 22.9785 / 19.9625</td><td>—</td></tr>
+              <tr><td>70.0008%</td><td>52.4788%</td><td>27.1336 / 19.9159 / 17.5594</td><td>+0.0369</td><td>29.3661 / 23.0110 / 20.0017</td><td>+0.0325</td></tr>
+              <tr><td>75.0007%</td><td>58.9626%</td><td>27.1962 / 20.6313 / 17.7350</td><td>+0.7523</td><td>29.3568 / 23.2126 / 20.0175</td><td>+0.2341</td></tr>
+              <tr><td>80.0005%</td><td>65.1471%</td><td>27.2215 / 20.8064 / 18.5124</td><td>+0.9274</td><td>29.3455 / 23.2494 / 20.0022</td><td>+0.2709</td></tr>
+              <tr><td>85.0004%</td><td>71.3217%</td><td>27.2257 / 21.5656 / 18.8086</td><td>+1.6866</td><td>29.3229 / 23.1761 / 19.9611</td><td>+0.1976</td></tr>
+              <tr><td>90.0003%</td><td>78.0648%</td><td>27.7223 / 22.3523 / 19.8291</td><td>+2.4733</td><td>29.0652 / 22.8951 / 19.8988</td><td>−0.0833</td></tr>
+              <tr><td>95.0001%</td><td>86.7132%</td><td>28.0205 / 23.5636 / 21.2301</td><td>+3.6846</td><td>28.3013 / 22.4692 / 19.6687</td><td>−0.5092</td></tr>
+              <tr><td>100.0000%</td><td>100.0000%</td><td><strong>33.6866 / 29.3320 / 26.1222</strong></td><td><strong>+9.4530</strong></td><td>27.4115 / 22.3126 / 19.4348</td><td>−0.6659</td></tr>
+            </tbody></table></div>
+            <div class="callout"><h4>NMS后发生了什么</h4><p>NMS 0.01下，100%局部配对正确把匹配query存活率从54.500%升至97.692%，把已有3D IoU≥0.7匹配框的GT保留率从66.002%升至99.799%，救回1678个GT，Moderate AP增加9.4530。NMS 0.8原本已保留96.898%的这类GT，100%时升到99.980%、只救回153个GT，Moderate反而下降0.6659。这表明实验42局部配对准确率与NMS 0.01总体正相关，但不是NMS 0.8或全局AP的单调代理；即使NMS几乎不再删掉匹配锚点，原分类置信度仍让高分FP与TP发生错误的跨图AP排序。</p></div>
+            <div class="callout"><h4>执行与硬控制</h4><p>正式诊断由tmux会话<code>monodgp_exp42_accuracy_70_100_full_b16_20260825</code>持有并以退出码0完成；完整3769张validation、37881个配对，目标正确率全部达到最近离散值，100%为37881/37881。E139 NMS 0.01历史AP零误差复现，外部排序NMS与内置NMS在0.01和0.8均逐图零差异，框、top-50、匹配分数、AP置信度和无NMS预测冻结检查全部通过。完整前向129.27秒，CUDA峰值allocated/reserved为2.52/2.79 GiB；结果归档于<code>diagnostics/e139_post_nms_001_080_full_b16_protocol3_70_100/result.json</code>。</p></div>
+          </article>
+        </section>
+        <section id="exp43" class="content-panel" aria-labelledby="exp43-title">
+          <article class="section-card">
+            <div class="section-head">
+              <div>
+                <span class="section-kicker">实验 43 · 08-25</span>
+                <h2 id="exp43-title">几何上限、评分诊断与冻结线性头对照</h2>
+                <p class="section-subtitle">冻结实验42 E191与实验30 E222完成GT oracle与可部署重评分；随后冻结E191全部表示和预测框，完成重叠RankNet、NMS失败RankNet、全匹配—未匹配零间隔Hinge，以及只保留真实IoU跨0.7配对的同Loss线性头控制实验。</p>
+              </div>
+              <span class="done-badge">已收尾 · 正式结果均 VERIFIED</span>
+            </div>
+
+            <div class="metric-grid">
+              <div class="metric"><span>实验42 E191 · NMS 0.01 oracle</span><strong>52.2683</strong><em>比当前0.01高32.1472 Moderate AP</em></div>
+              <div class="metric"><span>实验30 E222 · NMS 0.01 oracle</span><strong>49.7798</strong><em>比当前0.01高26.3501 Moderate AP</em></div>
+              <div class="metric"><span>同口径候选几何上限</span><strong>Exp42 +2.4885</strong><em>但当前NMS 0.8反而低2.2314</em></div>
+              <div class="metric"><span>冻结线性头NMS失败配对方案 · E14同轮</span><strong>+0.8454 AP</strong><em>保留数与baseline相同；50轮平均+1.42个</em></div>
+              <div class="metric"><span>全配对零间隔Hinge · best E7</span><strong>23.1202</strong><em>仅比QFL-only best高0.0268；验证逆序反而更多</em></div>
+              <div class="metric"><span>跨0.7零间隔Hinge · AP-best E10</span><strong>23.4798</strong><em>比QFL-only best高0.3864；目标pair正确率best仅+0.0194个百分点</em></div>
+              <div class="metric"><span>跨0.7方案 · 三方案同轮胜率</span><strong>正确率 49/50</strong><em>整组全正确50/50；Moderate AP 48/50</em></div>
+              <div class="metric"><span>冻结线性头NMS阈值扫描</span><strong>7 / 7 均为0.8最佳</strong><em>按Moderate AP；0.01、0.1—0.9共70点</em></div>
+            </div>
+
+            <h3>三个分数口径必须分开读</h3>
+            <div class="table-wrap"><table><thead><tr><th>曲线</th><th>保留哪些query</th><th>AP/NMS使用的分数</th><th>回答的问题</th></tr></thead><tbody>
+              <tr><td>当前真实分数</td><td>展平top-50全部候选</td><td>各checkpoint原本的部署分数</td><td>当前可实现AP随NMS阈值怎样变化</td></tr>
+              <tr><td>仅匹配框</td><td>以<code>1−精确3D IoU</code>做一对一Hungarian，未匹配query全部删除</td><td>匹配框对其分配GT的真实3D IoU</td><td>当前候选几何在一对一最优选择和完美质量排序下的上限</td></tr>
+              <tr><td>全量query同尺度IoU</td><td>匹配与未匹配query全部保留</td><td>每个query对同类别GT的最大真实3D IoU</td><td>重复框和未匹配框在同尺度完美质量分数下是否仍会损伤AP</td></tr>
+              <tr><td>锚点强制优先控制</td><td>匹配与未匹配query全部保留</td><td>匹配框<code>1+assigned IoU</code>；其余至多<code>0.99×max IoU</code></td><td>先完美区分正负、再保留全部尾部的更强上限；不是可部署分数</td></tr>
+            </tbody></table></div>
+
+            <div class="oracle-legend" aria-label="曲线图例">
+              <span class="current"><i></i>当前真实分数</span>
+              <span><i></i>仅保留匈牙利匹配框</span>
+              <span class="retained"><i></i>全量query同尺度真实IoU</span>
+            </div>
+            <div class="oracle-chart-grid">
+              <article class="oracle-chart-card">
+                <h4>实验42 · E191</h4>
+                <p>NMS 0.01 best快照；当前分数为分类头分数。</p>
+                <div id="exp43-chart-exp42" class="oracle-chart" aria-label="实验42 E191不同NMS阈值下的Moderate 3D AP曲线"></div>
+              </article>
+              <article class="oracle-chart-card">
+                <h4>实验30 · E222</h4>
+                <p>历史Moderate 25+ checkpoint；当前分数为c×q×d。</p>
+                <div id="exp43-chart-exp30" class="oracle-chart" aria-label="实验30 E222不同NMS阈值下的Moderate 3D AP曲线"></div>
+              </article>
+            </div>
+
+            <h3>预测框与GT的最大3D IoU分布</h3>
+            <p class="section-subtitle">完整3769张validation、每图全部50个Query、固定0.05宽度分箱；不使用分类分数，也不执行NMS。左图以GT为分母，直接观察每个GT能否得到好框；右图以Query为分母，包含567张无Car GT图像中的Query，这些Query的最大IoU记为0。</p>
+            <div class="metric-grid">
+              <div class="metric"><span>每GT最高IoU ≥ 0.7</span><strong>43.469% vs 43.031%</strong><em>Exp42比Exp30多49个GT，+0.438个百分点</em></div>
+              <div class="metric"><span>每GT最高IoU ≥ 0.5</span><strong>70.317% vs 71.292%</strong><em>Exp42反而低0.975个百分点</em></div>
+              <div class="metric"><span>全Query最高IoU ≥ 0.7</span><strong>4.371% vs 3.928%</strong><em>8238 vs 7402，Exp42多836个Query</em></div>
+              <div class="metric"><span>未匹配Query最高IoU ≥ 0.7</span><strong>1.904% vs 1.460%</strong><em>3375 vs 2588，Exp42多787个</em></div>
+            </div>
+            <div class="oracle-legend" aria-label="3D IoU直方图图例">
+              <span class="exp42"><i></i>实验42 E191</span>
+              <span class="exp30"><i></i>实验30 E222</span>
+            </div>
+            <div class="oracle-chart-grid">
+              <article class="oracle-chart-card">
+                <h4>GT → 最佳Query</h4>
+                <p>每个Car GT在50个Query中的最大真实3D IoU；同一Query允许成为多个GT的独立最佳框。</p>
+                <div id="exp43-hist-gt" class="oracle-chart" aria-label="实验42与实验30每个GT最大3D IoU分布直方图"></div>
+              </article>
+              <article class="oracle-chart-card">
+                <h4>Query → 最近GT</h4>
+                <p>每个Query对图内Car GT的最大真实3D IoU；第一桶包含IoU为0的Query。</p>
+                <div id="exp43-hist-query" class="oracle-chart" aria-label="实验42与实验30每个Query最大3D IoU分布直方图"></div>
+              </article>
+            </div>
+
+            <div class="table-wrap"><table><thead><tr><th>统计口径</th><th>实验42 E191</th><th>实验30 E222</th><th>Exp42−Exp30</th></tr></thead><tbody>
+              <tr><td>每GT最高IoU · 均值 / 中位数</td><td><code>0.5899 / 0.6641</code></td><td><code>0.5919 / 0.6645</code></td><td><code>−0.0021 / −0.0004</code></td></tr>
+              <tr><td>每GT最高IoU · ≥0.5 / ≥0.7</td><td><code>70.317% / 43.469%</code></td><td><code>71.292% / 43.031%</code></td><td><code>−0.975 / +0.438</code>个百分点</td></tr>
+              <tr><td>Hungarian assigned IoU · 均值 / ≥0.7</td><td><code>0.5899 / 43.469%</code></td><td><code>0.5919 / 43.031%</code></td><td><code>−0.0021 / +0.438</code>个百分点</td></tr>
+              <tr><td>全Query最高IoU · 均值 / 等于0</td><td><code>0.1010 / 75.862%</code></td><td><code>0.0949 / 76.884%</code></td><td><code>+0.0061 / −1.022</code>个百分点</td></tr>
+              <tr><td>全Query最高IoU · ≥0.5 / ≥0.7</td><td><code>9.814% / 4.371%</code></td><td><code>9.150% / 3.928%</code></td><td><code>+0.663 / +0.444</code>个百分点</td></tr>
+              <tr><td>未匹配Query最高IoU · ≥0.5 / ≥0.7</td><td><code>5.983% / 1.904%</code></td><td><code>5.222% / 1.460%</code></td><td><code>+0.761 / +0.444</code>个百分点</td></tr>
+            </tbody></table></div>
+            <div class="callout"><h4>结论：Exp42不是整体右移，而是0.7以上尾部略好、重复好框更多</h4><p>逐GT配对比较中，实验42优于实验30占<code>47.969%</code>，更差占<code>50.098%</code>，相等占<code>1.932%</code>；平均差为<code>−0.00206</code>。所以不能说Exp42整体框更准。它在IoU≥0.5时还少0.975个百分点，但在KITTI Car 3D AP使用的0.7门槛上多49个GT、增加0.438个百分点，高IoU尾部略占优势。</p></div>
+            <div class="callout warning"><h4>Exp42新增的高IoU Query主要是未匹配重复框</h4><p>全量Query中，实验42比实验30多<code>836</code>个IoU≥0.7的Query；其中未匹配Query就多<code>787</code>个，占增量的<code>94.1%</code>。也就是说，实验42确实产生了更多高质量候选，但绝大多数不是新增的“每GT唯一最佳框”，而是围绕已有GT的额外高质量候选。这既能在oracle排序与强NMS下提供选择余量，也会在真实分数排序不准时增加竞争。</p></div>
+            <div class="callout"><h4>一对一约束没有明显改变这张几何分布</h4><p>每GT独立取最高IoU与最大总IoU Hungarian assignment的均值只相差约<code>0.00003</code>，两者的<code>≥0.5/≥0.7</code>比例完全相同。这说明在这两份缓存上，“两个GT抢同一个Query”对总体几何分布几乎没有影响；后续仍以Hungarian口径计算一对一AP，以保证Query唯一。</p></div>
+
+            <h3>Hungarian匹配Query对未匹配Query的排序正确率</h3>
+            <p class="section-subtitle">对每个Car GT的纯3D IoU Hungarian匹配Query，使用当前部署排序分数与同图所有未匹配Query逐一比较；Exp42使用classification，Exp30使用c×q×d。严格大于才算正确，分数相等按错误处理；这里没有执行top-50或NMS。“全部未匹配”只是穷举分数比较，只有再满足预测BEV IoU阈值的子集才是对应NMS阈值下的直接竞争者。</p>
+            <div class="callout warning"><h4>最重要的口径：499682对绝大多数不是NMS 0.01竞争对</h4><p>“全部未匹配Query”把每个Hungarian匹配Query与同图所有未匹配Query都配成一对，不要求两个预测框发生BEV重叠。Exp42的<code>499682</code>个全量配对中，只有<code>36546（7.314%）</code>满足BEV IoU&gt;0.01；其余<code>463136（92.686%）</code>为BEV IoU≤0.01，不会在NMS 0.01下直接压制该匹配框。Exp30相应比例为<code>34423（6.889%）</code>与<code>465259（93.111%）</code>。因此<code>3442/11178</code>不是NMS全胜率，只是“对全部未匹配Query比较零错误”的非NMS诊断。</p></div>
+            <div class="callout"><h4>“活跃锚点全胜率”的精确定义</h4><p>先按一行指定的范围为每个匹配Query建立候选集合；集合非空才叫“活跃锚点”并进入分母。只有当匹配Query分数严格高于集合里的每一个未匹配Query时，它才进入分子；只输一对也不算全胜。无候选的匹配Query从活跃全胜率分母排除，另在下方“全体锚点安全率”中计为天然安全。</p></div>
+            <div class="metric-grid">
+              <div class="metric"><span>BEV IoU&gt;0.01配对准确率</span><strong>68.068% vs 62.909%</strong><em>Exp42高5.159个百分点</em></div>
+              <div class="metric"><span>BEV IoU&gt;0.01活跃锚点全胜率</span><strong>51.217% vs 46.145%</strong><em>Exp42高5.072个百分点</em></div>
+              <div class="metric"><span>全部未匹配零错误率 · 非NMS指标</span><strong>30.793% vs 33.405%</strong><em>3442/11178 vs 3734/11178</em></div>
+              <div class="metric"><span>BEV IoU&gt;0.8未匹配竞争安全率</span><strong>87.690% vs 88.397%</strong><em>计入无竞争锚点后Exp42低0.707个百分点</em></div>
+            </div>
+
+            <div class="table-wrap"><table><thead><tr><th>比较集合</th><th>配对数 Exp42 / Exp30</th><th>配对正确率 Exp42 / Exp30</th><th>Exp42增量</th><th>每锚点平均正确率 Exp42 / Exp30</th><th>活跃锚点零错误率（全胜率）Exp42 / Exp30</th></tr></thead><tbody>
+              <tr><td>全部未匹配Query<br><small>含BEV IoU≤0.01，非NMS指标</small></td><td><code>499682 / 499682</code></td><td><code>85.675% / 85.011%</code></td><td><strong>+0.664</strong>个百分点</td><td><code>85.382% / 84.721%</code></td><td><code>30.793% / 33.405%</code></td></tr>
+              <tr><td>NMS 0.01直接竞争者<br><small>预测BEV IoU &gt; 0.01</small></td><td><code>36546 / 34423</code></td><td><code>68.068% / 62.909%</code></td><td><strong>+5.159</strong>个百分点</td><td><code>69.057% / 65.499%</code></td><td><code>51.217% / 46.145%</code></td></tr>
+              <tr><td>NMS 0.8直接竞争者<br><small>预测BEV IoU &gt; 0.8</small></td><td><code>4651 / 4033</code></td><td><code>61.256% / 57.848%</code></td><td><strong>+3.408</strong>个百分点</td><td><code>61.774% / 58.250%</code></td><td><code>55.756% / 52.351%</code></td></tr>
+            </tbody></table></div>
+
+            <h4>全胜率的分子和分母</h4>
+            <div class="table-wrap"><table><thead><tr><th>比较集合</th><th>全胜分子 Exp42 / Exp30</th><th>活跃分母 Exp42 / Exp30</th><th>计算结果 Exp42 / Exp30</th><th>能否作为NMS指标</th></tr></thead><tbody>
+              <tr><td>全部未匹配Query</td><td><code>3442 / 3734</code></td><td><code>11178 / 11178</code></td><td><code>3442÷11178=30.793%</code><br><code>3734÷11178=33.405%</code></td><td><strong>不能</strong>；包含约93%非0.01竞争对</td></tr>
+              <tr><td>BEV IoU &gt; 0.01</td><td><code>5073 / 4291</code></td><td><code>9905 / 9299</code></td><td><code>5073÷9905=51.217%</code><br><code>4291÷9299=46.145%</code></td><td>仅为NMS 0.01局部排序诊断，尚未执行完整NMS</td></tr>
+              <tr><td>BEV IoU &gt; 0.8</td><td><code>1734 / 1425</code></td><td><code>3110 / 2722</code></td><td><code>1734÷3110=55.756%</code><br><code>1425÷2722=52.351%</code></td><td>仅为NMS 0.8局部排序诊断，尚未执行完整NMS</td></tr>
+            </tbody></table></div>
+
+            <h4>为什么“配对更准”仍不等于“每个匹配Query都安全”</h4>
+            <div class="table-wrap"><table><thead><tr><th>范围</th><th>存在该类竞争者的匹配Query Exp42 / Exp30</th><th>活跃比例 Exp42 / Exp30</th><th>无竞争或全部压住 Exp42 / Exp30</th><th>0.7门槛跨越配对正确率 Exp42 / Exp30</th></tr></thead><tbody>
+              <tr><td>BEV IoU &gt; 0.01</td><td><code>9905 / 9299</code></td><td><code>88.612% / 83.190%</code></td><td><code>56.772% / 55.198%</code></td><td><code>74.695% / 73.328%</code></td></tr>
+              <tr><td>BEV IoU &gt; 0.8</td><td><code>3110 / 2722</code></td><td><code>27.823% / 24.351%</code></td><td><code>87.690% / 88.397%</code></td><td><code>69.444% / 64.590%</code></td></tr>
+            </tbody></table></div>
+            <div class="callout"><h4>Exp42在训练定义内统计更高，但不能写成NMS或AP更好</h4><p>严格对应实验42训练规则的BEV IoU&gt;0.01池中，Exp42配对正确率与活跃全胜率分别比Exp30高<code>5.159/5.072</code>个百分点；但真正跨越0.7 AP门槛的配对正确率只高<code>1.367</code>个百分点，而且NMS 0.01 Moderate AP反而是<code>20.1211 vs 23.4297</code>。所以这些局部统计证明定义内错误更少，不足以证明实际NMS保留或全局AP更好。</p></div>
+            <div class="callout warning"><h4>3442与3734为何反向：非NMS全量错误分布不同</h4><p>这两个分子来自“全部未匹配Query”穷举比较，不是NMS竞争池。Exp42的<code>71580</code>个错误分散在<code>11178−3442=7736</code>个匹配Query上，平均每个失败锚点约<code>9.25</code>个错误；Exp30的<code>74898</code>个错误集中在<code>11178−3734=7444</code>个匹配Query上，平均约<code>10.06</code>个。Exp42总错误更少但沾到错误的锚点更多，因此零错误锚点更少；该现象不能用来判断NMS优劣。</p></div>
+            <div class="callout warning"><h4>Exp42竞争图也更密，抵消了部分排序收益</h4><p>BEV IoU&gt;0.01时，Exp42有<code>9905</code>个匹配Query存在未匹配竞争者，比Exp30多606个；到0.8仍多388个。因而只看活跃竞争者时Exp42排序更好，但把“没有竞争者”也视为安全后，0.8下Exp42为<code>87.690%</code>，反而略低于Exp30的<code>88.397%</code>。这只统计匹配Query对未匹配Query的顺序，不包含匹配框互压、top-50和跨图AP排序，不能直接等同于NMS后召回或AP。</p></div>
+            <div class="callout"><h4>排序标签本身没有被更优未匹配框反转</h4><p>499682个全量配对中，没有任何未匹配Query对该GT的真实3D IoU高于Hungarian匹配Query；约3.6%为同IoU平局，分数平局为0。因此上述错误主要是当前分数没有把Hungarian锚点排在较差或同质量的未匹配Query之前，而不是匹配算法把明显更好的未匹配框错误标成负样本。</p></div>
+
+            <h3>真实贪心NMS后的三个核心指标</h3>
+            <p class="section-subtitle">这里不再把局部分数比较当作NMS结果：每图保留全部50个Car Query，Exp42用classification、Exp30用c×q×d执行仓库原生旋转BEV贪心NMS。对每个GT，NMS前只要存在至少一个真实3D IoU≥0.7的Query就进入“合格GT”分母；NMS后仍有至少一个此类Query才算保留。该GT独立口径不施加一对一匹配，因此是局部NMS召回指标，不是官方AP召回。</p>
+            <div class="metric-grid">
+              <div class="metric"><span>NMS 0.01 · 合格GT保留率</span><strong>68.059% vs 71.123%</strong><em>Exp42低3.063个百分点</em></div>
+              <div class="metric"><span>NMS 0.01 · 被坏框删光</span><strong>1552 vs 1389 GT</strong><em>Exp42多163个</em></div>
+              <div class="metric"><span>NMS 0.8 · 合格GT保留率</span><strong>96.995% vs 97.214%</strong><em>Exp42低0.219个百分点</em></div>
+              <div class="metric"><span>NMS 0.8 · 被坏框删光</span><strong>146 vs 134 GT</strong><em>Exp42多12个</em></div>
+            </div>
+
+            <div class="table-wrap"><table><thead><tr><th>NMS阈值</th><th>指标</th><th>实验42 E191</th><th>实验30 E222</th><th>Exp42−Exp30</th></tr></thead><tbody>
+              <tr><td rowspan="3"><strong>0.01</strong></td><td>NMS后合格GT保留率<br><small>保留数 ÷ NMS前合格GT</small></td><td><code>3307 / 4859 = 68.059%</code></td><td><code>3421 / 4810 = 71.123%</code></td><td><strong>−3.063个百分点</strong><br>保留数−114</td></tr>
+              <tr><td>合格框被坏框全部压掉的GT</td><td><code>1552</code><br><small>占合格GT 31.941%</small></td><td><code>1389</code><br><small>占合格GT 28.877%</small></td><td><strong>+163 GT</strong></td></tr>
+              <tr><td>BEV重叠未匹配竞争池的全胜Query<br><small>固定Hungarian锚点；尚未执行NMS</small></td><td><code>5073 / 9905 = 51.217%</code></td><td><code>4291 / 9299 = 46.145%</code></td><td><strong>+782 Query / +5.072个百分点</strong></td></tr>
+              <tr><td rowspan="3"><strong>0.8</strong></td><td>NMS后合格GT保留率<br><small>保留数 ÷ NMS前合格GT</small></td><td><code>4713 / 4859 = 96.995%</code></td><td><code>4676 / 4810 = 97.214%</code></td><td><strong>−0.219个百分点</strong><br>保留数+37，因Exp42分母多49</td></tr>
+              <tr><td>合格框被坏框全部压掉的GT</td><td><code>146</code><br><small>占合格GT 3.005%</small></td><td><code>134</code><br><small>占合格GT 2.786%</small></td><td><strong>+12 GT</strong></td></tr>
+              <tr><td>BEV重叠未匹配竞争池的全胜Query<br><small>固定Hungarian锚点；尚未执行NMS</small></td><td><code>1734 / 3110 = 55.756%</code></td><td><code>1425 / 2722 = 52.351%</code></td><td><strong>+309 Query / +3.404个百分点</strong></td></tr>
+            </tbody></table></div>
+            <div class="callout warning"><h4>直接结论：全胜Query数不是首要指标，真实NMS保留率才是</h4><p>Exp42在两个重叠池里的全胜Query数和全胜率都更高，但真实NMS后合格GT保留率在0.01和0.8都更低，尤其0.01额外丢失163个GT。原因是全胜统计只从固定Hungarian匹配Query出发、只比较与它重叠的未匹配Query，而且也包含自身3D IoU&lt;0.7、对AP门槛无帮助的锚点；它没有执行完整贪心NMS，也没有表达一个GT拥有多个合格Query时“只需活一个”的真实条件。因此监控优先级应为：真实NMS后合格GT保留率 ＞ 被坏框删光GT数 ＞ 活跃锚点全胜Query数。</p></div>
+            <div class="callout"><h4>“坏框压掉”已逐边核验，不是由定义推测</h4><p>NMS 0.01下，Exp42/Exp30被删光GT对应<code>2713/2303</code>个合格Query；NMS 0.8对应<code>178/162</code>个。每个被删合格Query都找到实际贪心NMS中的直接保留压制者，所有压制者对同一GT的3D IoU均&lt;0.7，缺失压制者与口径违规均为0。两模型在0.01/0.8的NMS后总框数分别精确复现既有官方AP流的<code>90687/171414</code>与<code>88091/173253</code>。</p></div>
+
+            <h3>预测IoU × 深度精度的可部署重评分</h3>
+            <p class="section-subtitle">任务严格按Car-only重放：每张图固定保留50个Query框，共188450个Car预测，再让新分数同时决定图内BEV NMS顺序和跨图官方AP顺序。实验42对比<code>IoU分类分数</code>与<code>IoU分类分数×depth precision</code>；实验30对比原始<code>c×q×d</code>与去掉分类项后的<code>q×d</code>。框、checkpoint、validation与两位小数输出量化均冻结，不使用GT构造分数。</p>
+            <div class="metric-grid">
+              <div class="metric"><span>Exp42 · NMS 0.01</span><strong>+1.1322 AP</strong><em>20.1211 → 21.2533 Moderate</em></div>
+              <div class="metric"><span>Exp42 · 各自最佳NMS</span><strong>+0.5812 AP</strong><em>22.9176@0.8 → 23.4988@0.7</em></div>
+              <div class="metric"><span>Exp30 · 各自最佳NMS</span><strong>−3.7066 AP</strong><em>25.1427@0.8 → 21.4361@0.7</em></div>
+              <div class="metric"><span>Exp42 · 0.01竞争对正确率</span><strong>−5.648个百分点</strong><em>68.068% → 62.420%</em></div>
+            </div>
+
+            <div class="oracle-legend" aria-label="预测分数重评分曲线图例">
+              <span class="score-exp42-original"><i></i>Exp42 IoU</span>
+              <span class="score-exp42-depth"><i></i>Exp42 IoU×深度精度</span>
+              <span class="score-exp30-original"><i></i>Exp30 c×q×d</span>
+              <span class="score-exp30-depth"><i></i>Exp30 q×d</span>
+            </div>
+            <div class="oracle-chart-grid">
+              <article class="oracle-chart-card" style="grid-column:1 / -1">
+                <h4>四条Car-only分数流 · NMS后Moderate 3D AP_R40</h4>
+                <p>横轴为BEV NMS阈值；虚线是各checkpoint原始分数，实线是IoU×深度候选。</p>
+                <div id="exp43-score-chart" class="oracle-chart" aria-label="实验42与实验30预测IoU乘深度精度重评分的Moderate 3D AP曲线"></div>
+              </article>
+            </div>
+
+            <div class="table-wrap"><table><thead><tr><th>评估口径</th><th>Exp42 IoU</th><th>Exp42 IoU×d（增量）</th><th>Exp30 c×q×d</th><th>Exp30 q×d（增量）</th></tr></thead><tbody>
+              <tr><td>无NMS</td><td>21.8106</td><td>20.4364 <strong>（−1.3741）</strong></td><td>24.7909</td><td>18.2950 <strong>（−6.4959）</strong></td></tr>
+              <tr><td>NMS 0.01</td><td>20.1211</td><td>21.2533 <strong>（+1.1322）</strong></td><td>23.4297</td><td>20.4980 <strong>（−2.9317）</strong></td></tr>
+              <tr><td>NMS 0.70</td><td>22.6609</td><td>23.4988 <strong>（+0.8379）</strong></td><td>24.9772</td><td>21.4361 <strong>（−3.5411）</strong></td></tr>
+              <tr><td>NMS 0.80</td><td>22.9176</td><td>23.4941 <strong>（+0.5765）</strong></td><td>25.1427</td><td>21.1482 <strong>（−3.9945）</strong></td></tr>
+              <tr><td>NMS 0.90</td><td>22.4578</td><td>22.1889 <strong>（−0.2689）</strong></td><td>25.0327</td><td>20.1857 <strong>（−4.8470）</strong></td></tr>
+              <tr><td><strong>各自最佳NMS</strong></td><td><strong>22.9176 @ 0.80</strong></td><td><strong>23.4988 @ 0.70（+0.5812）</strong></td><td><strong>25.1427 @ 0.80</strong></td><td><strong>21.4361 @ 0.70（−3.7066）</strong></td></tr>
+            </tbody></table></div>
+
+            <div class="callout"><h4>直接答案：乘深度只对Exp42的NMS后AP有小幅收益</h4><p>Exp42的<code>IoU×深度精度</code>在NMS 0.01—0.8都高于原IoU分数，各自最佳Moderate从<code>22.9176</code>升到<code>23.4988</code>，增加<code>0.5812 AP</code>；但仍比Exp30原始<code>c×q×d</code>最佳<code>25.1427</code>低<code>1.6439 AP</code>。到NMS 0.9已经转为下降，因此它是可用的小改进信号，不是解决当前排序问题的充分方案。</p></div>
+            <div class="callout warning"><h4>AP上涨不代表Hungarian局部排序被修好</h4><p>Exp42乘深度后，无NMS Moderate反而下降<code>1.3741</code>；BEV IoU&gt;0.01的配对正确率从<code>68.068%</code>降到<code>62.420%</code>，活跃锚点全胜率从<code>51.217%</code>降到<code>44.230%</code>。新分数同时改变NMS选择与跨图AP排序，当前证据不能把NMS后上涨单独归因于“竞争框顺序更准”；它更可能混合了深度可靠性、难度校准和去重后的排序效应。</p></div>
+            <div class="callout warning"><h4>Car-only不等于分类分数可以删除</h4><p>实验30去掉<code>c</code>、只用<code>q×d</code>后，在全部NMS阈值都明显变差，各自最佳下降<code>3.7066 AP</code>。即使评估类别只有Car，分类项仍承担前景/背景置信和全数据集AP校准，不只是区分Pedestrian、Car、Cyclist。实验42的分类头本身已经被训练成全Query IoU质量分数，所以它与实验30的独立<code>q</code>也不能视为同一个头。</p></div>
+            <div class="callout"><h4>严格Car-only控制与历史结果如何对应</h4><p>四条流都在3769张图上保留恰好<code>188450=3769×50</code>个Car框，类别计数均为<code>[0,188450,0]</code>；两条历史原始流逐行零误差重放。Exp42严格Car-only与历史AP相同；Exp30历史展平top-50在NMS 0.8为<code>25.1490</code>，严格Car-only原始流为<code>25.1427</code>，只差<code>−0.0063</code>，该差值来自旧三槽输出的top-50名额分配，不代表当前数据集有三个评估类别。</p></div>
+
+            <h3>NMS 0.8冻结线性头：两个独立BS16方案完整50轮</h3>
+            <p class="section-subtitle">两边都从同一个Exp42 E191线性分类头冷启动，只训练最终<code>class_embed[-1]</code>的weight和bias；主干、Transformer、预测框、精确3D IoU与BEV竞争图全部冻结。两边都保留全Query连续IoU QFL（系数2.0），排序系数均为1.0。baseline训练时仅用BEV IoU&gt;0.01筛选Hungarian匹配Query与未匹配Query的所有RankNet配对，并不执行NMS；candidate训练时才执行真实贪心NMS 0.8并挖掘直接删光合格框的坏压制者。两边验证均严格使用Car-only 50 Query与真实贪心BEV NMS 0.8。</p>
+            <div class="metric-grid">
+              <div class="metric"><span>Exp42旧配对baseline</span><strong>best仍为E0</strong><em>完整50轮；Moderate 22.9182</em></div>
+              <div class="metric"><span>NMS失败配对方案 best · E14</span><strong>23.4165</strong><em>比同轮baseline增加0.8454 AP</em></div>
+              <div class="metric"><span>E14同轮 · 合格GT保留</span><strong>4707 vs 4707</strong><em>增量0；不是相对E0的−6</em></div>
+              <div class="metric"><span>NMS失败配对监督密度</span><strong>73—80 对/轮</strong><em>baseline固定5377对/轮</em></div>
+            </div>
+
+            <div class="table-wrap"><table><thead><tr><th>同轮状态</th><th>NMS 0.8 3D AP_R40 Easy / Moderate / Hard</th><th>candidate相对同轮baseline Moderate</th><th>合格GT保留率</th><th>被坏框删光GT</th><th>验证QFL</th><th>0.8局部配对正确率 / 全胜Query</th></tr></thead><tbody>
+              <tr><td>共同初始E0<br><small>只作绝对参考</small></td><td><code>29.1079 / 22.9182 / 19.9766</code></td><td>不用于Loss间比较</td><td><code>4713/4859=96.995%</code></td><td><code>146</code></td><td><code>0.448435</code></td><td><code>61.256% / 1734</code></td></tr>
+              <tr><td>Exp42旧配对baseline E14</td><td><code>28.6970 / 22.5712 / 19.6511</code></td><td>—</td><td><code>4707/4859=96.872%</code></td><td><code>152</code></td><td><code>0.489629</code></td><td><code>60.632% / 1722</code></td></tr>
+              <tr><td><strong>NMS失败配对方案 best E14</strong></td><td><strong><code>30.1569 / 23.4165 / 20.2660</code></strong></td><td><strong>+0.8454</strong></td><td><code>4707/4859=96.872%（+0）</code></td><td><code>152（+0）</code></td><td><code>0.368416</code></td><td><code>60.783% / 1709</code></td></tr>
+              <tr><td>Exp42旧配对baseline E50</td><td><code>28.6710 / 22.4433 / 19.4758</code></td><td>—</td><td><code>4707/4859=96.872%</code></td><td><code>152</code></td><td><code>0.477243</code></td><td><code>60.396% / 1718</code></td></tr>
+              <tr><td>NMS失败配对方案 E50</td><td><code>30.0123 / 23.1650 / 19.9021</code></td><td><strong>+0.7217</strong></td><td><code>4708/4859=96.892%（+1）</code></td><td><code>151（−1）</code></td><td><code>0.350723</code></td><td><code>60.503% / 1697</code></td></tr>
+            </tbody></table></div>
+            <div class="callout warning"><h4>正确结论必须按同轮比较</h4><p>candidate最佳E14对baseline E14的三档AP增加<code>+1.4599/+0.8454/+0.6149</code>，但两边都保留<code>4707</code>个合格GT、删光<code>152</code>个GT，保留数增量是0。E50同轮candidate多保留1个。E1—E50逐轮统计中，candidate有35轮更高、8轮相同、7轮更低，平均仅多<code>1.42</code>个GT，范围<code>−2～+5</code>；Moderate AP则50轮全部高于baseline，优势范围<code>+0.2053～+0.9967</code>。因此它对AP有稳定明显的优势，对合格GT保留率只有很小的正向趋势。</p></div>
+            <div class="callout"><h4>归因边界</h4><p>两组使用相同初始化、QFL、数据顺序和优化超参数，因此E14同轮<code>+0.8454 Moderate AP</code>可以归因于RankNet配对策略的差别，但当前只有一个seed。candidate相对E0的绝对变化仍混合QFL与RankNet作用；若要拆解这部分，仍需QFL-only第三臂。本轮没有自动追加第三个正式实验。</p></div>
+            <div class="callout"><h4>并行完整50轮与硬控制</h4><p>完整3712张train和3769张validation冻结缓存SHA为<code>679ce534…09887</code>。用户取消早停后，两臂均从E191重新冷启动；baseline与candidate由独立tmux会话<code>monodgp_exp43_baseline_full50_b16_20260825</code>和<code>monodgp_exp43_candidate_full50_b16_20260825</code>同时运行，每个进程各自BS16、参数、优化器和日志，早停参数明确为0，50轮batch顺序SHA逐轮相同。两项分别耗时539.46秒与666.97秒，均跑满50轮、退出码0、<code>stopped_early=false</code>、结果VERIFIED；原8/12轮早停结果仅保留为中间记录。</p></div>
+            <div class="callout"><h4>一次训练前正确性重跑</h4><p>第一次全量缓存硬对照在任何训练开始前中止：当前前向分类分数相对旧缓存最大漂移<code>0.000375</code>，9张图共交换18个NMS Query身份，三档AP最大差<code>0.000668</code>，略超旧容差<code>0.000600</code>；解码框、NMS后171414框以及<code>4859/4713/146</code>全部精确一致。只把AP重放容差调整为<code>0.000700</code>后复用同一536 MiB缓存做1次正确性重跑并通过；方法、数据、checkpoint、Loss和超参数未改。完整50轮汇总文件为<code>linear_head_nms080_retention_ranknet_parallel_b16_full50/comparison_summary.json</code>。</p></div>
+
+            <h3>全匹配—未匹配零间隔逆序Hinge：BS16完整50轮</h3>
+            <p class="section-subtitle">本方案完全不执行训练时NMS，也不使用BEV重叠或NMS阈值筛选。每张图对精确3D IoU做Hungarian后，将每个匹配Query与同图全部未匹配Query配对；按照两者“对所有GT最大真实3D IoU”的大小决定正确方向，并以真实质量差加权。正确顺序的Hinge loss与梯度严格为0，只惩罚逆序。</p>
+            <div class="metric-grid">
+              <div class="metric"><span>完整训练可比较配对</span><strong>487877 对/轮</strong><em>无NMS、无重叠过滤；50轮计数完全一致</em></div>
+              <div class="metric"><span>候选best · E7 Moderate</span><strong>23.1202</strong><em>QFL-only best为23.0934，仅高0.0268</em></div>
+              <div class="metric"><span>候选best · 合格GT保留</span><strong>4713 / 4859</strong><em>与E0和QFL-only best完全相同</em></div>
+              <div class="metric"><span>候选best · 验证加权逆序率</span><strong>6.4754%</strong><em>QFL-only best为6.4366%，反而高0.0387个百分点</em></div>
+            </div>
+
+            <div class="callout"><h4>Loss与配对口径</h4><p>令<code>d_q=q_i−q_j</code>、<code>d_z=z_i−z_j</code>，配对项为<code>|d_q|·ReLU(−sign(d_q)·d_z)</code>；在每个匹配Query内按总质量差归一化，再对活跃匹配Query求平均。总Loss为<code>2×全Query连续IoU QFL + 1×逆序Hinge</code>。训练集488011个总配对中有12219对（2.5038%）是未匹配Query的全GT最大IoU更高、134对质量相等；验证集对应29049/499682=5.8135%与10991对。因此不能无条件强迫Hungarian成员获胜，这也与前文“对锚点分配GT的IoU”统计不是同一口径。</p></div>
+
+            <div class="table-wrap"><table><thead><tr><th>状态</th><th>NMS 0.8 3D AP_R40 Easy / Moderate / Hard</th><th>合格GT保留 / 删光</th><th>验证QFL</th><th>全配对正确率 / 逆序数</th><th>加权逆序率</th><th>质量顺序零错误锚点 / 匹配Query高于全部未匹配</th></tr></thead><tbody>
+              <tr><td>共同初始E0</td><td><code>29.1079 / 22.9182 / 19.9766</code></td><td><code>4713/4859 / 146</code></td><td><code>0.448435</code></td><td><code>88.0243% / 58524</code></td><td><code>6.4207%</code></td><td><code>2439 / 3442</code></td></tr>
+              <tr><td>QFL-only best E1</td><td><code>29.4854 / 23.0934 / 19.8446</code></td><td><code>4713/4859 / 146</code></td><td><code>0.430638</code></td><td><code>88.0086% / 58601</code></td><td><code>6.4366%</code></td><td><code>2426 / 3449</code></td></tr>
+              <tr><td><strong>零间隔Hinge best E7</strong></td><td><strong><code>29.4709 / 23.1202 / 19.9522</code></strong></td><td><code>4713/4859 / 146</code></td><td><code>0.405365</code></td><td><code>87.9638% / 58820</code></td><td><code>6.4754%</code></td><td><code>2417 / 3436</code></td></tr>
+              <tr><td>QFL-only E50</td><td><code>29.6675 / 22.9243 / 19.8014</code></td><td><code>4706/4859 / 153</code></td><td><code>0.384724</code></td><td><code>87.9703% / 58788</code></td><td><code>6.4672%</code></td><td><code>2427 / 3443</code></td></tr>
+              <tr><td>零间隔Hinge E50</td><td><code>29.8676 / 22.8196 / 19.8066</code></td><td><code>4706/4859 / 153</code></td><td><code>0.378078</code></td><td><code>87.9656% / 58811</code></td><td><code>6.4811%</code></td><td><code>2427 / 3434</code></td></tr>
+            </tbody></table></div>
+
+            <div class="callout warning"><h4>直接结论：Loss在训练集有效，但没有泛化成验证排序收益</h4><p>训练E1→E50的配对正确率从<code>94.5074%</code>升到<code>94.5874%</code>，逆序从26797降到26407，加权逆序率从<code>1.6876%</code>降到<code>1.6364%</code>；所以它不是没有梯度。验证却从E0到E50反向变化：正确率<code>88.0243%→87.9656%</code>、逆序<code>58524→58811</code>、加权逆序率<code>6.4207%→6.4811%</code>，两个零错误锚点指标也分别下降12和8。best对best的Moderate只高0.0268但排序指标全部更差；同轮E50 Moderate还低0.1047，保留数完全相同。当前证据不支持继续调Hinge系数，更支持冻结单Query线性映射存在泛化/表达上限。</p></div>
+            <div class="callout"><h4>梯度、速度与执行控制</h4><p>错误配对合同的loss精确为<code>1/6</code>，三个Car logit梯度为<code>[−1/6,+1/6,0]</code>；正确配对loss和梯度为0，双精度gradcheck通过。BS16只构造<code>16×50×50</code>GPU广播张量，训练中位数<code>0.432s/轮</code>，完整逐轮验证占主要耗时。正式tmux会话<code>monodgp_exp43_all_mu_inversion_b16_s444_e50_20260826</code>使用seed444、50轮无早停，耗时529.557秒；环境、checkpoint、源结果重放、每轮配对计数和有限值控制全部通过，状态<code>VERIFIED</code>。权威结果为<code>linear_head_all_matched_unmatched_inversion_b16_seed444_full50/result.json</code>。</p></div>
+
+            <h3>原Hinge只保留真实IoU跨0.7配对：BS16完整50轮</h3>
+            <p class="section-subtitle">本轮不改Loss公式、QFL、系数或优化设置，只把配对范围限制为一侧对所有GT最大真实3D IoU≥0.7、另一侧&lt;0.7；无论哪一侧是Hungarian匹配Query，方向仍由真实质量差决定。训练仍不执行NMS或BEV重叠筛选。</p>
+            <div class="metric-grid">
+              <div class="metric"><span>完整训练跨0.7配对</span><strong>399972 对/轮</strong><em>10713个活跃匹配Query；50轮计数完全一致</em></div>
+              <div class="metric"><span>AP-best · E10 Moderate</span><strong>23.4798</strong><em>比QFL-only best高0.3864，比全配对best高0.3596</em></div>
+              <div class="metric"><span>目标pair正确率best · E38</span><strong>92.9660%</strong><em>E0为92.9466%，只高0.0194个百分点</em></div>
+              <div class="metric"><span>跨0.7整组全正确Query · E38</span><strong>4244 / 7997</strong><em>E0为4156，增加88个</em></div>
+            </div>
+
+            <div class="callout"><h4>配对与Loss保持原样</h4><p>从train的488011个原始匹配—未匹配pair中选出399972对，其中匹配Query质量更高396370对、未匹配Query质量更高3602对；validation选出216379对、覆盖7997个活跃匹配Query。Loss仍为<code>2×QFL + |d_q|·ReLU(−sign(d_q)·d_z)</code>，仍在每个匹配Query内按质量差总和归一化，再平均活跃匹配Query。错误合成样本loss为1.0、梯度为<code>[−0.5,+0.5,−0.5,+0.5]</code>；正确样本loss与梯度为0。</p></div>
+
+            <div class="table-wrap"><table><thead><tr><th>状态</th><th>NMS 0.8 3D AP_R40 Easy / Moderate / Hard</th><th>合格GT保留 / 删光</th><th>验证QFL</th><th>跨0.7正确率 / 逆序数</th><th>加权逆序率</th><th>按匹配Query整组全正确</th></tr></thead><tbody>
+              <tr><td>共同初始E0</td><td><code>29.1079 / 22.9182 / 19.9766</code></td><td><code>4713/4859 / 146</code></td><td><code>0.448435</code></td><td><code>92.9466% / 15262</code></td><td><code>4.0505%</code></td><td><code>4156/7997=51.9695%</code></td></tr>
+              <tr><td><strong>AP-best E10</strong></td><td><strong><code>30.0358 / 23.4798 / 20.1700</code></strong></td><td><code>4710/4859 / 149</code></td><td><code>0.384823</code></td><td><code>92.9416% / 15273</code></td><td><code>4.0521%</code></td><td><code>4226/7997=52.8448%</code></td></tr>
+              <tr><td><strong>目标正确率best E38</strong></td><td><code>30.1052 / 23.1976 / 19.9205</code></td><td><code>4706/4859 / 153</code></td><td><code>0.369539</code></td><td><strong><code>92.9660% / 15220</code></strong></td><td><strong><code>4.0270%</code></strong></td><td><strong><code>4244/7997=53.0699%</code></strong></td></tr>
+              <tr><td>E50</td><td><code>30.1532 / 23.1599 / 19.9393</code></td><td><code>4703/4859 / 156</code></td><td><code>0.360047</code></td><td><code>92.9517% / 15251</code></td><td><code>4.0340%</code></td><td><code>4234/7997=52.9449%</code></td></tr>
+            </tbody></table></div>
+
+            <div class="callout warning"><h4>直接答案：改善存在，但不在pair均值上形成大幅度</h4><p>目标正确率最佳E38相对E0只增加<code>0.0194</code>个百分点、少42个逆序，加权逆序率低<code>0.0235</code>个百分点；更明显的是按匹配Query整组全正确数增加88个、比例增加<code>1.1004</code>个百分点。AP-best E10甚至多11个逆序，但整组全正确数多70个。说明删掉同侧pair后，收益主要集中在少数Query整组纠正和全局分数分布，并非所有pair均匀变准。</p></div>
+            <div class="callout"><h4>与QFL-only及全配对的控制结论</h4><p>E10相对QFL-only best三档AP增加<code>+0.5504/+0.3864/+0.3253</code>，相对全配对best增加<code>+0.5649/+0.3596/+0.2178</code>，但均少保留3个合格GT。严格同轮E50相对QFL-only Moderate高<code>0.2356</code>、目标正确率高<code>0.0397</code>个百分点且少86个逆序；相对全配对Moderate高<code>0.3403</code>、目标正确率高<code>0.0508</code>个百分点且少110个逆序。范围限制比全配对有效，但相对原E0的绝对正确率提升仍很小。</p></div>
+            <h4>E1—E50严格同轮胜负</h4>
+            <div class="table-wrap"><table><thead><tr><th>指标</th><th>对QFL-only 赢 / 平 / 输</th><th>平均增量</th><th>对全配对Hinge 赢 / 平 / 输</th><th>平均增量</th><th>三方案中本方案最高</th></tr></thead><tbody>
+              <tr><td><strong>跨0.7 pair正确率</strong></td><td><strong><code>49 / 0 / 1</code></strong></td><td><strong>+0.0307个百分点</strong></td><td><strong><code>50 / 0 / 0</code></strong></td><td><strong>+0.0399个百分点</strong></td><td><strong>49/50轮</strong></td></tr>
+              <tr><td>跨0.7加权逆序率（越低越好）</td><td><code>49 / 0 / 1</code></td><td>−0.0236个百分点</td><td><code>50 / 0 / 0</code></td><td>−0.0334个百分点</td><td>—</td></tr>
+              <tr><td><strong>按匹配Query整组全正确数</strong></td><td><strong><code>50 / 0 / 0</code></strong></td><td><strong>+43.60个</strong></td><td><strong><code>50 / 0 / 0</code></strong></td><td><strong>+47.14个</strong></td><td><strong>50/50轮</strong></td></tr>
+              <tr><td><strong>Moderate 3D AP_R40</strong></td><td><strong><code>48 / 0 / 2</code></strong></td><td><strong>+0.2599</strong></td><td><strong><code>49 / 0 / 1</code></strong></td><td><strong>+0.2023</strong></td><td><strong>48/50轮</strong></td></tr>
+              <tr><td>NMS 0.8合格GT保留数</td><td><code>2 / 10 / 38</code></td><td>−1.52个</td><td><code>1 / 9 / 40</code></td><td>−1.84个</td><td>1/50轮，另9轮并列</td></tr>
+            </tbody></table></div>
+            <div class="callout warning"><h4>同轮结论修正了单点观察</h4><p>唯一一次目标pair正确率输给QFL-only发生在E7，只低<code>0.0037</code>个百分点，即多8个逆序；相对全配对则50轮每轮都少6—127个逆序，平均少86.3个。Moderate相对QFL-only只输E1/E17，相对全配对只输E1。因此相对E0的绝对提升虽小，但相对相同训练进度下的两个控制方案，跨0.7范围限制具有高度一致的排序和AP收益；代价是合格GT保留多数轮次稳定略低。</p></div>
+            <div class="callout"><h4>旧曲线补指标重放控制</h4><p>QFL-only与全配对Loss使用原E191、缓存、seed444、BS16、50轮和全部超参数并行确定性重放，只新增逐轮跨0.7验证指标。重放相对原正式历史E0—E50的AP/QFL最大差均为0，retention与旧Hungarian排序逐项完全相等，两项状态均为<code>VERIFIED</code>。tmux会话分别为<code>monodgp_exp43_cross070_metric_qfl_replay_s444_20260826</code>与<code>monodgp_exp43_cross070_metric_allpair_replay_s444_20260826</code>，耗时521.593秒与528.215秒；汇总凭据为<code>linear_head_cross070_metric_replay_controls_b16_seed444_full50/same_epoch_comparison.json</code>。</p></div>
+            <div class="callout"><h4>执行与硬控制</h4><p>256/64 smoke连续3轮固定27426对并通过。正式tmux会话<code>monodgp_exp43_cross070_inversion_b16_s444_e50_20260826</code>由PID 3970957持有，使用同一完整缓存SHA <code>679ce534…09887</code>、BS16、seed444、50轮无早停；训练中位数0.471秒/轮、验证平均9.544秒/轮，总耗时532.331秒。环境、checkpoint、源结果重放、配对结构与有限值控制全部通过，无正式失败重跑，状态<code>VERIFIED</code>；权威结果为<code>linear_head_cross_iou070_inversion_b16_seed444_full50/result.json</code>。</p></div>
+
+            <h3>冻结线性头的NMS阈值扫描：0.8是不是选错了</h3>
+            <p class="section-subtitle">固定同一份3769张validation缓存、Top-50框、各线性头权重、sigmoid置信度和官方评估器，只改变Car-only旋转BEV NMS阈值。AP-best组比较共同E0、QFL-only best E1、全配对best E7和跨0.7 best E10；另以三者统一E50排除“best本来就是按NMS 0.8选择”的混杂。</p>
+            <div class="metric-grid">
+              <div class="metric"><span>完整评估</span><strong>7头 × 10阈值</strong><em>70/70完成；状态VERIFIED</em></div>
+              <div class="metric"><span>Moderate最优阈值</span><strong>全部为0.8</strong><em>E0、三种best、三种E50均一致</em></div>
+              <div class="metric"><span>跨0.7 best · NMS 0.8</span><strong>23.4798</strong><em>比QFL/all-pair best高0.3864/0.3596</em></div>
+              <div class="metric"><span>若只看Hard</span><strong>20.1941 @ 0.7</strong><em>仅比0.8高0.0241；Easy/Moderate同时下降</em></div>
+            </div>
+            <div class="oracle-legend" aria-label="冻结线性头NMS阈值曲线图例">
+              <span class="nms-source"><i></i>共同E0</span>
+              <span class="nms-qfl"><i></i>QFL-only best E1</span>
+              <span class="nms-allpair"><i></i>全配对best E7</span>
+              <span class="nms-cross"><i></i>跨0.7 best E10</span>
+            </div>
+            <div class="oracle-chart-grid">
+              <article class="oracle-chart-card" style="grid-column:1 / -1">
+                <h4>AP-best组 · Moderate 3D AP_R40</h4>
+                <p>竖线标出0.8；四条曲线都在该点达到各自网格最高值。</p>
+                <div id="exp43-linear-nms-chart" class="oracle-chart" aria-label="四个冻结线性头在不同NMS阈值下的Moderate 3D AP曲线"></div>
+              </article>
+            </div>
+
+            <div class="table-wrap"><table><thead><tr><th>NMS</th><th>共同E0</th><th>QFL-only best</th><th>全配对best</th><th>跨0.7 best</th><th>跨0.7−QFL</th><th>跨0.7−全配对</th><th>跨0.7合格GT保留 / 删光</th></tr></thead><tbody>
+              <tr><td>0.01</td><td>20.1217</td><td>20.3300</td><td>20.3433</td><td><strong>20.7041</strong></td><td>+0.3741</td><td>+0.3608</td><td><code>3324 / 1535</code></td></tr>
+              <tr><td>0.10</td><td>20.0244</td><td>20.2461</td><td>20.2582</td><td><strong>20.6348</strong></td><td>+0.3887</td><td>+0.3765</td><td><code>3343 / 1516</code></td></tr>
+              <tr><td>0.20</td><td>20.4406</td><td>20.6617</td><td>20.6740</td><td><strong>21.0514</strong></td><td>+0.3897</td><td>+0.3774</td><td><code>3406 / 1453</code></td></tr>
+              <tr><td>0.30</td><td>20.5115</td><td>20.7384</td><td>20.7426</td><td><strong>21.1194</strong></td><td>+0.3810</td><td>+0.3768</td><td><code>3507 / 1352</code></td></tr>
+              <tr><td>0.40</td><td>20.9966</td><td>21.2166</td><td>21.2122</td><td><strong>21.6015</strong></td><td>+0.3849</td><td>+0.3893</td><td><code>3669 / 1190</code></td></tr>
+              <tr><td>0.50</td><td>21.4031</td><td>21.6198</td><td>21.6130</td><td><strong>21.9781</strong></td><td>+0.3583</td><td>+0.3651</td><td><code>3877 / 982</code></td></tr>
+              <tr><td>0.60</td><td>22.1397</td><td>22.3427</td><td>22.3509</td><td><strong>22.7239</strong></td><td>+0.3812</td><td>+0.3730</td><td><code>4205 / 654</code></td></tr>
+              <tr><td>0.70</td><td>22.6615</td><td>22.8749</td><td>22.8789</td><td><strong>23.2363</strong></td><td>+0.3615</td><td>+0.3574</td><td><code>4507 / 352</code></td></tr>
+              <tr><td><strong>0.80</strong></td><td><strong>22.9182</strong></td><td><strong>23.0934</strong></td><td><strong>23.1202</strong></td><td><strong>23.4798</strong></td><td><strong>+0.3864</strong></td><td><strong>+0.3596</strong></td><td><strong><code>4710 / 149</code></strong></td></tr>
+              <tr><td>0.90</td><td>22.4584</td><td>22.6627</td><td>22.6826</td><td><strong>22.9704</strong></td><td>+0.3078</td><td>+0.2878</td><td><code>4823 / 36</code></td></tr>
+            </tbody></table></div>
+
+            <div class="callout"><h4>直接答案：不是NMS 0.8拖累了这次结果</h4><p>按主指标Moderate，七个冻结头在完整网格中都由<code>0.8</code>取得最高值；统一E50下也一样：跨0.7为<code>23.1599</code>，QFL-only为<code>22.9243</code>、全配对为<code>22.8196</code>。因此“best按0.8选择”的偏置不足以解释结论。跨0.7方案在十个阈值上全部高于两个控制：best组优势范围为对QFL <code>+0.3078～+0.3897</code>、对全配对<code>+0.2878～+0.3893</code>；统一E50也分别全胜，范围<code>+0.1372～+0.3118</code>和<code>+0.2567～+0.4109</code>。</p></div>
+            <div class="callout warning"><h4>保留更多合格GT，不保证AP更高</h4><p>跨0.7 best把阈值从0.8升到0.9后，合格GT保留由<code>4710</code>升到<code>4823</code>、删光数由149降到36，但Moderate反而从<code>23.4798</code>降到<code>22.9704（−0.5094）</code>。原因是0.9抑制更弱，虽然少错删合格框，也保留更多重复框和高分假阳性，精度—召回排序变差。反过来0.7比0.8少保留203个合格GT，Moderate也低0.2435。合格GT保留率仍是局部NMS诊断，但不能单独替代官方AP。</p></div>
+            <div class="callout warning"><h4>Hard-only有一个极小例外，不足以改部署阈值</h4><p>跨0.7 best的Hard在0.7为<code>20.1941</code>，比0.8的<code>20.1700</code>高<code>0.0241</code>；其余六个头的Hard也在0.7略高，增量仅<code>0.0206～0.0625</code>。但同一切换会让跨0.7 best的Easy/Moderate下降<code>0.2978/0.2435</code>，而且阈值是在同一validation网格上挑选；当前证据不支持为了这一点Hard波动把默认0.8改成0.7。</p></div>
+            <div class="callout"><h4>执行、复现与两次烟测修正</h4><p>正式只读扫描由tmux会话<code>monodgp_exp43_nms_threshold_sweep</code>持有，PID <code>82569</code>，耗时<code>418.658s</code>，退出码0；70/70点完成，七个0.8 AP/保留数/输出框数均对保存结果零误差复现，缓存SHA仍为<code>679ce534…09887</code>。首次烟测在评估前因新进程未显式开启matmul TF32被环境门禁中止；补齐与源实验一致的TF32设置后，第一次正确性重跑已精确复现数值，但“部分协议”被脚本错误计作硬失败；只修正状态聚合后，第2次正确性重跑以<code>SMOKE_ONLY</code>通过。两次都未改权重、数据、阈值或评估口径，失败目录与日志保留；正式结果为<code>linear_head_cross070_nms_threshold_sweep/result.json</code>，状态<code>VERIFIED</code>。</p></div>
+
+            <h3>Moderate 3D AP_R40精确数值</h3>
+            <div class="table-wrap"><table><thead><tr><th>NMS</th><th>Exp42 当前</th><th>Exp42 仅匹配</th><th>Exp42 全量IoU</th><th>Exp30 当前</th><th>Exp30 仅匹配</th><th>Exp30 全量IoU</th></tr></thead><tbody>
+              <tr><td><strong>0.01</strong></td><td>20.1211</td><td><strong>52.2683</strong></td><td><strong>52.2683</strong></td><td>23.4297</td><td><strong>49.7798</strong></td><td><strong>49.7798</strong></td></tr>
+              <tr><td>0.10</td><td>20.0237</td><td>52.2683</td><td>52.2683</td><td>23.3998</td><td>49.7798</td><td>49.7798</td></tr>
+              <tr><td>0.20</td><td>20.4400</td><td>52.2683</td><td>52.2683</td><td>23.1121</td><td>49.7798</td><td>49.7798</td></tr>
+              <tr><td>0.30</td><td>20.5109</td><td>52.2683</td><td>52.2683</td><td>23.1244</td><td>49.7798</td><td>49.7798</td></tr>
+              <tr><td>0.40</td><td>20.9959</td><td>52.2683</td><td>52.2683</td><td>23.5293</td><td>49.7798</td><td>49.7798</td></tr>
+              <tr><td>0.50</td><td>21.4024</td><td>52.2683</td><td>52.2683</td><td>23.9709</td><td>49.7798</td><td>49.7798</td></tr>
+              <tr><td>0.60</td><td>22.1391</td><td>52.2683</td><td>52.2055</td><td>24.5074</td><td>49.7798</td><td>49.7503</td></tr>
+              <tr><td>0.70</td><td>22.6609</td><td>52.2683</td><td>51.4440</td><td>24.9839</td><td>49.7798</td><td>49.2523</td></tr>
+              <tr><td><strong>0.80</strong></td><td><strong>22.9176</strong></td><td>52.2683</td><td>48.5259</td><td><strong>25.1490</strong></td><td>49.7798</td><td>47.0463</td></tr>
+              <tr><td>0.90</td><td>22.4578</td><td>52.2683</td><td>42.8836</td><td>25.0385</td><td>49.7798</td><td>42.1295</td></tr>
+            </tbody></table></div>
+
+            <div class="callout"><h4>直接答案：实验42的候选几何上限反而更高</h4><p>NMS 0.01下，实验42 E191的一对一oracle为<code>62.2523 / 52.2683 / 44.8561</code>，实验30 E222为<code>59.7404 / 49.7798 / 44.7491</code>；Moderate前者高2.4885。可当前真实分数在NMS 0.8下，实验42只有22.9176，实验30为25.1490。因而这两个冻结checkpoint之间，实验42当前AP较低不能归因于“没有更好的候选框”；主要差距出在这些候选没有被真实分数正确选出、去重并放到跨图AP顺序中。</p></div>
+            <div class="callout"><h4>NMS 0.01何时有用</h4><p>全量query使用同尺度真实IoU后，两套checkpoint在NMS 0.01—0.5都精确达到各自一对一上限；从0.6开始才被重复候选拖低，实验42到0.8/0.9分别损失3.7424/9.3847 AP，实验30损失2.7335/7.6503 AP。也就是说，低NMS阈值在“质量分数已经正确”的前提下能完成强去重；当前分数下两者仍都在0.8附近最好，不能单独把部署阈值改成0.01。</p></div>
+            <div class="callout warning"><h4>为什么“锚点强制优先”与删除未匹配框完全重合</h4><p>该控制把每个Hungarian匹配框放在<code>1—2</code>分数带，把所有未匹配框限制在<code>0—0.99</code>；所以所有匹配框在全数据集上天然排在未匹配框之前。它在全部十个NMS阈值下都与“仅匹配框”精确重合，这是分数构造保证的结果，不是“真实未匹配假阳性天然无害”的证据。真正能观察未匹配重复框影响的是图中的“全量query同尺度真实IoU”曲线。</p></div>
+            <div class="callout warning"><h4>理论上限的边界</h4><p>这些oracle直接使用完整validation GT，并改变top-50选择、NMS顺序和跨图片AP置信度顺序，不可部署；checkpoint本身也由同一validation选出。实验42与实验30训练方法不同，因此“+2.4885”只是冻结候选几何的描述性比较，不是排序Loss的无混杂因果收益。</p></div>
+            <div class="callout"><h4>执行、缓存与复用</h4><p>持久tmux会话<code>monodgp_exp43_oracle_ceiling_now_20260825</code>正常退出，状态<code>completed</code>、退出码0。两边均完整评估3769张validation、BS16、十个NMS阈值，环境和checkpoint SHA硬控制通过，Material Passport均为VERIFIED。Exp42/Exp30前向分别361.80/364.91秒；缓存为239.8/244.7 MB，SHA256分别为<code>c6310340…7691b</code>和<code>c60ff84a…9d8f3</code>。只读复核中完整缓存约2.2秒即可载入，后续新阈值或归因分析无需再次跑模型前向。</p></div>
+
+            <h3>实验43收尾结论</h3>
+            <div class="callout"><h4>已证明的是“跨0.7范围限制有用”</h4><p>在同一Exp42 E191缓存、同一seed444、BS16、50轮、同一QFL、线性头和评估器下，跨0.7方案相对QFL-only的Moderate AP同轮<code>48/50</code>轮更高，平均<code>+0.2599</code>；相对全配对Hinge为<code>49/50</code>轮更高，平均<code>+0.2023</code>。AP-best E10的Moderate为<code>23.4798</code>，比两个控制best高<code>0.3864/0.3596</code>；而且在NMS <code>0.01、0.1—0.9</code>十个阈值上全部高于两个控制，因此不是只在0.8挑best造成的假象。</p></div>
+            <div class="callout warning"><h4>“为什么有用”只有部分证据</h4><p>最符合现有结果的解释是：<code>0.7</code>正好是KITTI Car 3D AP的TP几何门槛，删掉“两边都≥0.7”和“两边都&lt;0.7”的同侧配对后，排序梯度更集中于“可成为TP的Query—不合格Query”边界，减少对AP资格无直接帮助的同侧排序约束。与这一解释一致的现象是：跨0.7的整组全正确Query比QFL-only/全配对平均多<code>43.60/47.14</code>个，且全50轮都更多；但平均pair正确率只高<code>0.0307/0.0399</code>个百分点，说明收益是集中式而非普遍大幅改善。</p></div>
+            <div class="callout warning"><h4>当时尚未拆分的混杂</h4><p>上述首次收尾时还没有分开测试“只删高—高配对”与“只删低—低配对”，也未控制不同配对数导致的初始梯度强度。用户随后明确批准将这项因果消融继续纳入实验43，结果见下文；因此本段只保留为消融前的证据边界，不再是最终机制结论。</p></div>
+
+            <h3>跨0.7同侧配对因果消融：四组初始梯度等强线性头</h3>
+            <p class="section-subtitle">继续使用Exp42 E191同一冻结缓存、seed444、BS16、50轮无早停和NMS 0.8官方验证。将所有可比的匹配—未匹配Query对分为跨0.7、高—高和低—低三类；四个方案在共同E0上用固定系数把每批排序梯度RMS精确对齐到原跨0.7方案，训练中不执行NMS。</p>
+            <div class="metric-grid">
+              <div class="metric"><span>删除低—低配对 · AP主效应</span><strong>+0.1528</strong><em>44胜 / 0平 / 6负</em></div>
+              <div class="metric"><span>删除高—高配对 · AP主效应</span><strong>+0.0009</strong><em>24胜 / 0平 / 26负，基本为零</em></div>
+              <div class="metric"><span>只跨0.7 · best Moderate</span><strong>23.4798</strong><em>E10；精确复现实验43旧结果</em></div>
+              <div class="metric"><span>删除低—低、保留高—高 · best</span><strong>23.4259</strong><em>E9；仅比只跨0.7低0.0539</em></div>
+            </div>
+
+            <div class="table-wrap"><table><thead><tr><th>训练范围</th><th>配对数/轮</th><th>梯度等强系数</th><th>best epoch</th><th>3D AP_R40 Easy / Moderate / Hard</th><th>E50 Moderate</th></tr></thead><tbody>
+              <tr><td>全配对：跨＋高高＋低低</td><td><code>487877</code></td><td><code>3.4564</code></td><td>E35</td><td><code>29.6668 / 23.1905 / 20.0098</code></td><td><code>23.0670</code></td></tr>
+              <tr><td>删高高：跨＋低低</td><td><code>454625</code></td><td><code>3.5651</code></td><td>E20</td><td><code>29.9116 / 23.1697 / 19.8188</code></td><td><code>23.1090</code></td></tr>
+              <tr><td><strong>删低低：跨＋高高</strong></td><td><code>433224</code></td><td><code>0.9961</code></td><td>E9</td><td><strong><code>29.9494 / 23.4259 / 20.1567</code></strong></td><td><code>23.1614</code></td></tr>
+              <tr><td><strong>只跨0.7</strong></td><td><code>399972</code></td><td><code>1.0000</code></td><td>E10</td><td><strong><code>30.0358 / 23.4798 / 20.1700</code></strong></td><td><code>23.1599</code></td></tr>
+            </tbody></table></div>
+
+            <div class="table-wrap"><table><thead><tr><th>因果对比</th><th>50轮同轮胜/平/负</th><th>Moderate AP平均增量</th><th>结论</th></tr></thead><tbody>
+              <tr><td>有高高时删掉低低</td><td><code>37 / 0 / 13</code></td><td><strong>+0.1189</strong></td><td>低低有害</td></tr>
+              <tr><td>无高高时删掉低低</td><td><code>46 / 0 / 4</code></td><td><strong>+0.1868</strong></td><td>低低有害</td></tr>
+              <tr><td>有低低时删掉高高</td><td><code>18 / 0 / 32</code></td><td>−0.0330</td><td>删高高无益</td></tr>
+              <tr><td>无低低时删掉高高</td><td><code>29 / 0 / 21</code></td><td>+0.0348</td><td>影响很小</td></tr>
+            </tbody></table></div>
+
+            <div class="callout"><h4>最终机制结论：主要问题是低—低配对</h4><p>训练集三类对分别为跨0.7 <code>399972</code>、高—高 <code>33252</code>、低—低 <code>54653</code>。删除低—低的AP主效应在50轮中有44轮为正，平均<code>+0.1528</code>；删除高—高平均只<code>+0.0009</code>且胜负各半。因此“跨0.7有用”的更准确表述是：把两个都无法达到0.7 TP门槛的Query强行排出先后，会浪费并改变关键梯度；高—高配对在这个冻结线性头上则几乎不影响结果。</p></div>
+            <div class="callout"><h4>梯度证据排除了“只是Loss更强”</h4><p>未校准时，全配对初始排序梯度RMS只有跨0.7的<code>28.93%</code>，所以本次把全配对系数提到<code>3.4564</code>后再训练。即使四组初始排序梯度RMS完全一致，只跨0.7仍相对全配对同轮胜<code>44/50</code>、平均<code>+0.1537 AP</code>。同时“跨＋高高”与“只跨”的初始梯度余弦为<code>0.99938</code>、系数仅需<code>0.9961</code>；包含低低的两组与只跨的余弦只有<code>0.5901/0.5757</code>。这说明低低不只稀释了梯度，还改变了梯度方向。</p></div>
+            <div class="callout warning"><h4>证据边界与编号修正</h4><p>这是单seed、冻结Exp42 E191表示、只训练线性头的因果消融；足以回答本线性头为何受益，不能直接保证全模型训练后改善同样大。启动时我曾错误把该补充标为实验44；用户纠正后，全部产物已整体移入实验43目录<code>cross070_pair_scope_gradient_calibration_ablation/</code>。原manifest保留启动时的精确命令与旧路径作为原始回执，汇总<code>comparison.json</code>明确记录正确实验号为43。四个正式tmux均完成50轮、无失败重跑，状态全部<code>VERIFIED</code>，耗时<code>580.02—590.05秒</code>。后续把跨0.7范围用于完整模型训练时单独编号为实验44，不属于本次实验43收尾。</p></div>
           </article>
         </section>
       </div>
     </div>
 
-    <footer class="footer">MonoDGP 实验总览 v2 · 序号01—41</footer>
+    <footer class="footer">MonoDGP 实验总览 v2 · 序号01—43</footer>
   </main>
 
+  <script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js"></script>
   <script>
     (() => {
       const buttons = [...document.querySelectorAll('.nav-button')];
@@ -3624,7 +4111,11 @@
         buttons.forEach((button) => button.classList.toggle('active', button.dataset.target === safeTarget));
         panels.forEach((panel) => panel.classList.toggle('active', panel.id === safeTarget));
         if (updateHash) history.pushState(null, '', `#${safeTarget}`);
-        window.scrollTo({ top: document.querySelector('.workspace').offsetTop - 12, behavior: 'smooth' });
+        const scrollTarget = window.matchMedia('(max-width: 980px)').matches
+          ? document.getElementById(safeTarget)
+          : document.querySelector('.workspace');
+        const scrollTop = scrollTarget.getBoundingClientRect().top + window.scrollY - 12;
+        window.scrollTo({ top: scrollTop, behavior: updateHash ? 'smooth' : 'auto' });
       }
 
       buttons.forEach((button) => button.addEventListener('click', () => activate(button.dataset.target)));
@@ -3644,6 +4135,595 @@
       });
       window.addEventListener('hashchange', () => activate(location.hash.slice(1), false));
       activate(location.hash.slice(1) || 'overview', false);
+      window.addEventListener('load', () => activate(location.hash.slice(1) || 'overview', false), { once: true });
+    })();
+  </script>
+  <script>
+    (() => {
+      const charts = [
+        {
+          id: 'exp43-chart-exp42',
+          label: '实验42 E191',
+          values: [
+            { threshold: 0.01, current: 20.1211037269, matched: 52.2683125705, allQueries: 52.2683125705 },
+            { threshold: 0.10, current: 20.0237496620, matched: 52.2683125705, allQueries: 52.2683125705 },
+            { threshold: 0.20, current: 20.4399757429, matched: 52.2683125705, allQueries: 52.2683125705 },
+            { threshold: 0.30, current: 20.5108686035, matched: 52.2683125705, allQueries: 52.2683125705 },
+            { threshold: 0.40, current: 20.9959481326, matched: 52.2683125705, allQueries: 52.2683125705 },
+            { threshold: 0.50, current: 21.4024204418, matched: 52.2683125705, allQueries: 52.2683125705 },
+            { threshold: 0.60, current: 22.1391152837, matched: 52.2683125705, allQueries: 52.2054768609 },
+            { threshold: 0.70, current: 22.6608595325, matched: 52.2683125705, allQueries: 51.4440157429 },
+            { threshold: 0.80, current: 22.9175885894, matched: 52.2683125705, allQueries: 48.5259288836 },
+            { threshold: 0.90, current: 22.4578183388, matched: 52.2683125705, allQueries: 42.8836456464 }
+          ]
+        },
+        {
+          id: 'exp43-chart-exp30',
+          label: '实验30 E222',
+          values: [
+            { threshold: 0.01, current: 23.4296838034, matched: 49.7797958215, allQueries: 49.7797958215 },
+            { threshold: 0.10, current: 23.3997530804, matched: 49.7797958215, allQueries: 49.7797958215 },
+            { threshold: 0.20, current: 23.1120821652, matched: 49.7797958215, allQueries: 49.7797958215 },
+            { threshold: 0.30, current: 23.1243934592, matched: 49.7797958215, allQueries: 49.7797958215 },
+            { threshold: 0.40, current: 23.5293476587, matched: 49.7797958215, allQueries: 49.7797958215 },
+            { threshold: 0.50, current: 23.9709114788, matched: 49.7797958215, allQueries: 49.7797958215 },
+            { threshold: 0.60, current: 24.5073991508, matched: 49.7797958215, allQueries: 49.7502985058 },
+            { threshold: 0.70, current: 24.9838696350, matched: 49.7797958215, allQueries: 49.2522639766 },
+            { threshold: 0.80, current: 25.1489584526, matched: 49.7797958215, allQueries: 47.0463251285 },
+            { threshold: 0.90, current: 25.0385422888, matched: 49.7797958215, allQueries: 42.1295163272 }
+          ]
+        }
+      ];
+      const series = [
+        { key: 'current', label: '当前真实分数', color: '#7b8799', dash: '6 5', width: 2.2, radius: 3.2 },
+        { key: 'matched', label: '仅保留匈牙利匹配框', color: '#3478f6', dash: null, width: 3, radius: 4.2 },
+        { key: 'allQueries', label: '全量query同尺度真实IoU', color: '#16835b', dash: '4 3', width: 2.8, radius: 2.6 }
+      ];
+      const containers = charts.map((chart) => document.getElementById(chart.id)).filter(Boolean);
+      if (!window.d3) {
+        containers.forEach((container) => {
+          container.textContent = '曲线库未加载；完整精确数值见下方表格。';
+          container.style.color = '#677084';
+          container.style.padding = '24px 6px';
+        });
+        return;
+      }
+
+      const tooltip = document.createElement('div');
+      tooltip.className = 'oracle-tooltip';
+      tooltip.setAttribute('role', 'status');
+      tooltip.setAttribute('aria-live', 'polite');
+      document.body.appendChild(tooltip);
+      const allScores = charts.flatMap((chart) => chart.values.flatMap((row) => series.map((item) => row[item.key])));
+      const yDomain = [Math.floor((d3.min(allScores) - 1) / 5) * 5, Math.ceil((d3.max(allScores) + 1) / 5) * 5];
+      const renderedWidths = new WeakMap();
+
+      function render(chart) {
+        const container = document.getElementById(chart.id);
+        const width = Math.floor(container?.getBoundingClientRect().width || 0);
+        if (!container || width < 180 || renderedWidths.get(container) === width) return;
+        renderedWidths.set(container, width);
+        container.replaceChildren();
+
+        const compact = width < 480;
+        const height = compact ? 315 : 340;
+        const margin = compact
+          ? { top: 16, right: 13, bottom: 48, left: 48 }
+          : { top: 18, right: 18, bottom: 50, left: 54 };
+        const innerWidth = width - margin.left - margin.right;
+        const innerHeight = height - margin.top - margin.bottom;
+        const x = d3.scaleLinear().domain([0.01, 0.9]).range([0, innerWidth]);
+        const y = d3.scaleLinear().domain(yDomain).nice().range([innerHeight, 0]);
+        const tickValues = compact
+          ? [0.01, 0.2, 0.4, 0.6, 0.8, 0.9]
+          : chart.values.map((row) => row.threshold);
+        const svg = d3.select(container).append('svg')
+          .attr('viewBox', `0 0 ${width} ${height}`)
+          .attr('role', 'img')
+          .attr('aria-label', container.getAttribute('aria-label'));
+        svg.append('title').text(`${chart.label}：NMS阈值与Moderate 3D AP_R40`);
+        const plot = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
+
+        plot.append('g')
+          .attr('class', 'grid')
+          .call(d3.axisLeft(y).ticks(6).tickSize(-innerWidth).tickFormat(''));
+        plot.append('g')
+          .attr('transform', `translate(0,${innerHeight})`)
+          .call(d3.axisBottom(x).tickValues(tickValues).tickFormat((value) => value === 0.01 ? '0.01' : value.toFixed(1)));
+        plot.append('g').call(d3.axisLeft(y).ticks(6));
+        svg.append('text')
+          .attr('class', 'axis-label')
+          .attr('x', margin.left + innerWidth / 2)
+          .attr('y', height - 8)
+          .attr('text-anchor', 'middle')
+          .text('BEV NMS IoU阈值');
+        svg.append('text')
+          .attr('class', 'axis-label')
+          .attr('transform', `translate(14,${margin.top + innerHeight / 2}) rotate(-90)`)
+          .attr('text-anchor', 'middle')
+          .text('Moderate 3D AP_R40');
+
+        const line = (key) => d3.line()
+          .x((row) => x(row.threshold))
+          .y((row) => y(row[key]));
+        series.forEach((item) => {
+          plot.append('path')
+            .datum(chart.values)
+            .attr('fill', 'none')
+            .attr('stroke', item.color)
+            .attr('stroke-width', item.width)
+            .attr('stroke-linejoin', 'round')
+            .attr('stroke-linecap', 'round')
+            .attr('stroke-dasharray', item.dash)
+            .attr('d', line(item.key));
+          plot.selectAll(`.point-${item.key}`)
+            .data(chart.values)
+            .join('circle')
+            .attr('class', `point-${item.key}`)
+            .attr('cx', (row) => x(row.threshold))
+            .attr('cy', (row) => y(row[item.key]))
+            .attr('r', item.radius)
+            .attr('fill', '#fff')
+            .attr('stroke', item.color)
+            .attr('stroke-width', 2);
+        });
+
+        const focus = plot.append('g').style('display', 'none');
+        focus.append('line').attr('class', 'focus-guide').attr('y1', 0).attr('y2', innerHeight);
+        const focusPoints = focus.selectAll('circle')
+          .data(series)
+          .join('circle')
+          .attr('r', 4.5)
+          .attr('fill', '#fff')
+          .attr('stroke', (item) => item.color)
+          .attr('stroke-width', 2.2);
+
+        plot.append('rect')
+          .attr('width', innerWidth)
+          .attr('height', innerHeight)
+          .attr('fill', 'transparent')
+          .style('cursor', 'crosshair')
+          .on('pointerenter', () => focus.style('display', null))
+          .on('pointermove', (event) => {
+            const [pointerX] = d3.pointer(event);
+            const row = d3.least(chart.values, (value) => Math.abs(x(value.threshold) - pointerX));
+            const focusX = x(row.threshold);
+            focus.select('line').attr('x1', focusX).attr('x2', focusX);
+            focusPoints
+              .attr('cx', focusX)
+              .attr('cy', (item) => y(row[item.key]));
+            tooltip.innerHTML = `<strong>${chart.label} · NMS ${row.threshold === 0.01 ? '0.01' : row.threshold.toFixed(1)}</strong>`
+              + series.map((item) => `<div>${item.label}：${row[item.key].toFixed(4)}</div>`).join('');
+            tooltip.classList.add('visible');
+            const bounds = tooltip.getBoundingClientRect();
+            const left = Math.min(event.clientX + 14, window.innerWidth - bounds.width - 12);
+            const top = Math.min(event.clientY + 14, window.innerHeight - bounds.height - 12);
+            tooltip.style.left = `${Math.max(12, left)}px`;
+            tooltip.style.top = `${Math.max(12, top)}px`;
+          })
+          .on('pointerleave', () => {
+            focus.style('display', 'none');
+            tooltip.classList.remove('visible');
+          });
+      }
+
+      const renderAll = () => charts.forEach(render);
+      const observer = new ResizeObserver(() => window.requestAnimationFrame(renderAll));
+      containers.forEach((container) => observer.observe(container));
+      renderAll();
+    })();
+  </script>
+  <script>
+    (() => {
+      const chart = {
+        id: 'exp43-score-chart',
+        values: [
+          { threshold: 0.01, exp42Original: 20.1211037269, exp42Depth: 21.2532663284, exp30Original: 23.4296838034, exp30Depth: 20.4979560935 },
+          { threshold: 0.10, exp42Original: 20.0237496620, exp42Depth: 21.1097764471, exp30Original: 23.3997530804, exp30Depth: 20.4145235845 },
+          { threshold: 0.20, exp42Original: 20.4399757429, exp42Depth: 21.0770252745, exp30Original: 23.1032806919, exp30Depth: 20.8263162028 },
+          { threshold: 0.30, exp42Original: 20.5108686035, exp42Depth: 21.3617282993, exp30Original: 23.1165002477, exp30Depth: 20.7359466467 },
+          { threshold: 0.40, exp42Original: 20.9959481326, exp42Depth: 21.5228400779, exp30Original: 23.5219544754, exp30Depth: 20.5743032083 },
+          { threshold: 0.50, exp42Original: 21.4024204418, exp42Depth: 22.1109677554, exp30Original: 23.9638628233, exp30Depth: 20.8230736712 },
+          { threshold: 0.60, exp42Original: 22.1391152837, exp42Depth: 22.9277038798, exp30Original: 24.5005304559, exp30Depth: 21.1633842978 },
+          { threshold: 0.70, exp42Original: 22.6608595325, exp42Depth: 23.4987589323, exp30Original: 24.9772354958, exp30Depth: 21.4361262369 },
+          { threshold: 0.80, exp42Original: 22.9175885894, exp42Depth: 23.4940981455, exp30Original: 25.1426777570, exp30Depth: 21.1482275668 },
+          { threshold: 0.90, exp42Original: 22.4578183388, exp42Depth: 22.1889204070, exp30Original: 25.0327414757, exp30Depth: 20.1857154545 }
+        ]
+      };
+      const series = [
+        { key: 'exp42Original', label: 'Exp42 IoU', color: '#7b8799', dash: '6 5', width: 2.2 },
+        { key: 'exp42Depth', label: 'Exp42 IoU×深度精度', color: '#3478f6', dash: null, width: 3 },
+        { key: 'exp30Original', label: 'Exp30 c×q×d', color: '#e27832', dash: '6 5', width: 2.2 },
+        { key: 'exp30Depth', label: 'Exp30 q×d', color: '#16835b', dash: null, width: 2.8 }
+      ];
+      const container = document.getElementById(chart.id);
+      if (!container) return;
+      if (!window.d3) {
+        container.textContent = '曲线库未加载；完整精确数值见下方表格。';
+        container.style.color = '#677084';
+        container.style.padding = '24px 6px';
+        return;
+      }
+
+      const tooltip = document.createElement('div');
+      tooltip.className = 'oracle-tooltip';
+      tooltip.setAttribute('role', 'status');
+      tooltip.setAttribute('aria-live', 'polite');
+      document.body.appendChild(tooltip);
+      let renderedWidth = 0;
+
+      function render() {
+        const width = Math.floor(container.getBoundingClientRect().width || 0);
+        if (width < 180 || width === renderedWidth) return;
+        renderedWidth = width;
+        container.replaceChildren();
+        const compact = width < 480;
+        const height = compact ? 330 : 370;
+        const margin = compact
+          ? { top: 16, right: 13, bottom: 48, left: 48 }
+          : { top: 18, right: 18, bottom: 50, left: 58 };
+        const innerWidth = width - margin.left - margin.right;
+        const innerHeight = height - margin.top - margin.bottom;
+        const allValues = chart.values.flatMap((row) => series.map((item) => row[item.key]));
+        const extent = d3.extent(allValues);
+        const padding = Math.max(0.5, (extent[1] - extent[0]) * 0.08);
+        const x = d3.scaleLinear().domain(d3.extent(chart.values, (row) => row.threshold)).range([0, innerWidth]);
+        const y = d3.scaleLinear().domain([extent[0] - padding, extent[1] + padding]).nice().range([innerHeight, 0]);
+        const ticks = compact
+          ? [0.01, 0.2, 0.4, 0.6, 0.8, 0.9]
+          : chart.values.map((row) => row.threshold);
+        const svg = d3.select(container).append('svg')
+          .attr('viewBox', `0 0 ${width} ${height}`)
+          .attr('role', 'img')
+          .attr('aria-label', container.getAttribute('aria-label'));
+        svg.append('title').text('四条Car-only分数流的NMS阈值与Moderate 3D AP_R40');
+        const plot = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
+        plot.append('g').attr('class', 'grid')
+          .call(d3.axisLeft(y).ticks(6).tickSize(-innerWidth).tickFormat(''));
+        plot.append('g').attr('transform', `translate(0,${innerHeight})`)
+          .call(d3.axisBottom(x).tickValues(ticks).tickFormat((value) => value === 0.01 ? '0.01' : value.toFixed(1)));
+        plot.append('g').call(d3.axisLeft(y).ticks(6));
+        svg.append('text').attr('class', 'axis-label')
+          .attr('x', margin.left + innerWidth / 2).attr('y', height - 8)
+          .attr('text-anchor', 'middle').text('BEV NMS IoU阈值');
+        svg.append('text').attr('class', 'axis-label')
+          .attr('transform', `translate(14,${margin.top + innerHeight / 2}) rotate(-90)`)
+          .attr('text-anchor', 'middle').text('Moderate 3D AP_R40');
+
+        series.forEach((item) => {
+          const line = d3.line()
+            .x((row) => x(row.threshold))
+            .y((row) => y(row[item.key]));
+          plot.append('path').datum(chart.values)
+            .attr('fill', 'none').attr('stroke', item.color)
+            .attr('stroke-width', item.width).attr('stroke-dasharray', item.dash)
+            .attr('stroke-linejoin', 'round').attr('stroke-linecap', 'round')
+            .attr('d', line);
+          plot.selectAll(`.score-point-${item.key}`).data(chart.values).join('circle')
+            .attr('class', `score-point-${item.key}`)
+            .attr('cx', (row) => x(row.threshold)).attr('cy', (row) => y(row[item.key]))
+            .attr('r', 3.2).attr('fill', '#fff').attr('stroke', item.color).attr('stroke-width', 2);
+        });
+
+        const focus = plot.append('g').style('display', 'none');
+        focus.append('line').attr('class', 'focus-guide').attr('y1', 0).attr('y2', innerHeight);
+        const points = focus.selectAll('circle').data(series).join('circle')
+          .attr('r', 4.3).attr('fill', '#fff')
+          .attr('stroke', (item) => item.color).attr('stroke-width', 2.2);
+        plot.append('rect').attr('width', innerWidth).attr('height', innerHeight)
+          .attr('fill', 'transparent').style('cursor', 'crosshair')
+          .on('pointerenter', () => focus.style('display', null))
+          .on('pointermove', (event) => {
+            const [pointerX] = d3.pointer(event);
+            const row = d3.least(chart.values, (value) => Math.abs(x(value.threshold) - pointerX));
+            const focusX = x(row.threshold);
+            focus.select('line').attr('x1', focusX).attr('x2', focusX);
+            points.attr('cx', focusX).attr('cy', (item) => y(row[item.key]));
+            tooltip.innerHTML = `<strong>NMS ${row.threshold === 0.01 ? '0.01' : row.threshold.toFixed(1)}</strong>`
+              + series.map((item) => `<div>${item.label}：${row[item.key].toFixed(4)}</div>`).join('');
+            tooltip.classList.add('visible');
+            const bounds = tooltip.getBoundingClientRect();
+            tooltip.style.left = `${Math.max(12, Math.min(event.clientX + 14, window.innerWidth - bounds.width - 12))}px`;
+            tooltip.style.top = `${Math.max(12, Math.min(event.clientY + 14, window.innerHeight - bounds.height - 12))}px`;
+          })
+          .on('pointerleave', () => {
+            focus.style('display', 'none');
+            tooltip.classList.remove('visible');
+          });
+      }
+
+      const observer = new ResizeObserver(() => window.requestAnimationFrame(render));
+      observer.observe(container);
+      render();
+    })();
+  </script>
+  <script>
+    (() => {
+      const container = document.getElementById('exp43-linear-nms-chart');
+      if (!container) return;
+      const values = [
+        { threshold: 0.01, source: 20.121733, qfl: 20.329956, allpair: 20.343304, cross: 20.704096 },
+        { threshold: 0.10, source: 20.024379, qfl: 20.246078, allpair: 20.258222, cross: 20.634757 },
+        { threshold: 0.20, source: 20.440605, qfl: 20.661666, allpair: 20.674030, cross: 21.051409 },
+        { threshold: 0.30, source: 20.511498, qfl: 20.738399, allpair: 20.742579, cross: 21.119369 },
+        { threshold: 0.40, source: 20.996578, qfl: 21.216576, allpair: 21.212178, cross: 21.601456 },
+        { threshold: 0.50, source: 21.403050, qfl: 21.619802, allpair: 21.612966, cross: 21.978077 },
+        { threshold: 0.60, source: 22.139745, qfl: 22.342723, allpair: 22.350930, cross: 22.723943 },
+        { threshold: 0.70, source: 22.661489, qfl: 22.874851, allpair: 22.878937, cross: 23.236321 },
+        { threshold: 0.80, source: 22.918218, qfl: 23.093419, allpair: 23.120193, cross: 23.479812 },
+        { threshold: 0.90, source: 22.458444, qfl: 22.662650, allpair: 22.682596, cross: 22.970429 }
+      ];
+      const series = [
+        { key: 'source', label: '共同E0', color: '#7b8799', dash: '6 5', width: 2.1 },
+        { key: 'qfl', label: 'QFL-only best E1', color: '#e27832', dash: null, width: 2.3 },
+        { key: 'allpair', label: '全配对best E7', color: '#8b5cf6', dash: '4 3', width: 2.3 },
+        { key: 'cross', label: '跨0.7 best E10', color: '#16835b', dash: null, width: 3.1 }
+      ];
+      if (!window.d3) {
+        container.textContent = '曲线库未加载；完整精确数值见下方表格。';
+        container.style.color = '#677084';
+        container.style.padding = '24px 6px';
+        return;
+      }
+
+      const tooltip = document.createElement('div');
+      tooltip.className = 'oracle-tooltip';
+      tooltip.setAttribute('role', 'status');
+      tooltip.setAttribute('aria-live', 'polite');
+      document.body.appendChild(tooltip);
+      let renderedWidth = 0;
+
+      function render() {
+        const width = Math.floor(container.getBoundingClientRect().width || 0);
+        if (width < 180 || width === renderedWidth) return;
+        renderedWidth = width;
+        container.replaceChildren();
+        const compact = width < 480;
+        const height = compact ? 315 : 350;
+        const margin = compact
+          ? { top: 18, right: 12, bottom: 48, left: 52 }
+          : { top: 20, right: 20, bottom: 50, left: 58 };
+        const innerWidth = width - margin.left - margin.right;
+        const innerHeight = height - margin.top - margin.bottom;
+        const x = d3.scaleLinear()
+          .domain(d3.extent(values, (row) => row.threshold))
+          .range([0, innerWidth]);
+        const allScores = values.flatMap((row) => series.map((item) => row[item.key]));
+        const scoreExtent = d3.extent(allScores);
+        const padding = Math.max(0.2, (scoreExtent[1] - scoreExtent[0]) * 0.08);
+        const y = d3.scaleLinear()
+          .domain([scoreExtent[0] - padding, scoreExtent[1] + padding])
+          .nice()
+          .range([innerHeight, 0]);
+        const tickValues = compact
+          ? [0.01, 0.2, 0.4, 0.6, 0.8]
+          : values.map((row) => row.threshold);
+        const svg = d3.select(container).append('svg')
+          .attr('viewBox', `0 0 ${width} ${height}`)
+          .attr('role', 'img')
+          .attr('aria-label', container.getAttribute('aria-label'));
+        svg.append('title').text('冻结线性头的NMS阈值与Moderate 3D AP_R40');
+        const plot = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
+        plot.append('g').attr('class', 'grid')
+          .call(d3.axisLeft(y).ticks(6).tickSize(-innerWidth).tickFormat(''));
+        plot.append('g').attr('transform', `translate(0,${innerHeight})`)
+          .call(d3.axisBottom(x).tickValues(tickValues)
+            .tickFormat((value) => value === 0.01 ? '0.01' : value.toFixed(1)));
+        plot.append('g').call(d3.axisLeft(y).ticks(6));
+        svg.append('text').attr('class', 'axis-label')
+          .attr('x', margin.left + innerWidth / 2).attr('y', height - 8)
+          .attr('text-anchor', 'middle').text('BEV NMS IoU阈值');
+        svg.append('text').attr('class', 'axis-label')
+          .attr('transform', `translate(15,${margin.top + innerHeight / 2}) rotate(-90)`)
+          .attr('text-anchor', 'middle').text('Moderate 3D AP_R40');
+
+        plot.append('line')
+          .attr('x1', x(0.8)).attr('x2', x(0.8))
+          .attr('y1', 0).attr('y2', innerHeight)
+          .attr('stroke', '#ba4253').attr('stroke-width', 1.3)
+          .attr('stroke-dasharray', '4 4');
+        plot.append('text').attr('x', x(0.8) + 5).attr('y', 12)
+          .attr('fill', '#a23849').attr('font-size', 10)
+          .attr('font-weight', 800).text('0.8');
+
+        const line = (key) => d3.line()
+          .x((row) => x(row.threshold)).y((row) => y(row[key]));
+        series.forEach((item) => {
+          plot.append('path').datum(values).attr('fill', 'none')
+            .attr('stroke', item.color).attr('stroke-width', item.width)
+            .attr('stroke-dasharray', item.dash).attr('d', line(item.key));
+          plot.selectAll(`.linear-nms-${item.key}`)
+            .data(values).join('circle')
+            .attr('class', `linear-nms-${item.key}`)
+            .attr('cx', (row) => x(row.threshold))
+            .attr('cy', (row) => y(row[item.key]))
+            .attr('r', item.key === 'cross' ? 3.8 : 2.8)
+            .attr('fill', '#fff').attr('stroke', item.color)
+            .attr('stroke-width', item.key === 'cross' ? 2.2 : 1.8);
+        });
+
+        const focus = plot.append('g').style('display', 'none');
+        focus.append('line').attr('class', 'focus-guide')
+          .attr('y1', 0).attr('y2', innerHeight);
+        const focusPoints = focus.selectAll('circle').data(series).join('circle')
+          .attr('r', 4.1).attr('fill', '#fff')
+          .attr('stroke', (item) => item.color).attr('stroke-width', 2.1);
+        plot.append('rect').attr('width', innerWidth).attr('height', innerHeight)
+          .attr('fill', 'transparent').style('cursor', 'crosshair')
+          .on('pointerenter', () => focus.style('display', null))
+          .on('pointermove', (event) => {
+            const [pointerX] = d3.pointer(event);
+            const row = d3.least(values, (value) => Math.abs(x(value.threshold) - pointerX));
+            const focusX = x(row.threshold);
+            focus.select('line').attr('x1', focusX).attr('x2', focusX);
+            focusPoints.attr('cx', focusX).attr('cy', (item) => y(row[item.key]));
+            tooltip.innerHTML = `<strong>NMS ${row.threshold === 0.01 ? '0.01' : row.threshold.toFixed(1)}</strong>`
+              + series.map((item) => `<div>${item.label}：${row[item.key].toFixed(4)}</div>`).join('')
+              + `<div>跨0.7−QFL：+${(row.cross - row.qfl).toFixed(4)}</div>`
+              + `<div>跨0.7−全配对：+${(row.cross - row.allpair).toFixed(4)}</div>`;
+            tooltip.classList.add('visible');
+            const bounds = tooltip.getBoundingClientRect();
+            tooltip.style.left = `${Math.max(12, Math.min(event.clientX + 14, window.innerWidth - bounds.width - 12))}px`;
+            tooltip.style.top = `${Math.max(12, Math.min(event.clientY + 14, window.innerHeight - bounds.height - 12))}px`;
+          })
+          .on('pointerleave', () => {
+            focus.style('display', 'none');
+            tooltip.classList.remove('visible');
+          });
+      }
+
+      const observer = new ResizeObserver(() => window.requestAnimationFrame(render));
+      observer.observe(container);
+      render();
+    })();
+  </script>
+  <script>
+    (() => {
+      const edges = Array.from({ length: 21 }, (_, index) => index / 20);
+      const histograms = [
+        {
+          id: 'exp43-hist-gt',
+          label: '每个GT的最佳Query',
+          exp42: [5.224548, 1.350868, 1.386652, 1.735552, 2.415459, 2.889605, 2.898551, 3.193773, 3.757381, 4.830918, 5.215602, 5.564502, 7.353731, 8.713544, 11.155842, 12.891394, 11.182680, 6.673824, 1.538737, 0.026838],
+          exp30: [5.287171, 1.288245, 1.395598, 1.529791, 1.923421, 2.540705, 2.871712, 3.292181, 3.927357, 4.651995, 5.215602, 6.137055, 7.353731, 9.554482, 11.361603, 13.168724, 11.227411, 6.137055, 1.109322, 0.026838]
+        },
+        {
+          id: 'exp43-hist-query',
+          label: '每个Query的最近GT',
+          exp42: [77.824357, 1.425312, 1.401433, 1.372247, 1.455028, 1.454497, 1.269302, 1.328204, 1.286813, 1.369063, 1.306447, 1.342001, 1.376492, 1.417352, 1.447068, 1.365880, 0.971080, 0.485540, 0.100292, 0.001592],
+          exp30: [78.812417, 1.336694, 1.420005, 1.389228, 1.505439, 1.349960, 1.300080, 1.286283, 1.219952, 1.229504, 1.250730, 1.275670, 1.302202, 1.394004, 1.318652, 1.271955, 0.858583, 0.410719, 0.066331, 0.001592]
+        }
+      ];
+      const models = [
+        { key: 'exp42', label: '实验42 E191', color: '#3478f6' },
+        { key: 'exp30', label: '实验30 E222', color: '#e27832' }
+      ];
+      const containers = histograms.map((chart) => document.getElementById(chart.id)).filter(Boolean);
+      if (!window.d3) {
+        containers.forEach((container) => {
+          container.textContent = '直方图库未加载；精确汇总见图下方表格。';
+          container.style.color = '#677084';
+          container.style.padding = '24px 6px';
+        });
+        return;
+      }
+
+      const tooltip = document.createElement('div');
+      tooltip.className = 'oracle-tooltip';
+      tooltip.setAttribute('role', 'status');
+      tooltip.setAttribute('aria-live', 'polite');
+      document.body.appendChild(tooltip);
+      const renderedWidths = new WeakMap();
+
+      function moveTooltip(event) {
+        const bounds = tooltip.getBoundingClientRect();
+        const left = Math.min(event.clientX + 14, window.innerWidth - bounds.width - 12);
+        const top = Math.min(event.clientY + 14, window.innerHeight - bounds.height - 12);
+        tooltip.style.left = `${Math.max(12, left)}px`;
+        tooltip.style.top = `${Math.max(12, top)}px`;
+      }
+
+      function render(chart) {
+        const container = document.getElementById(chart.id);
+        const width = Math.floor(container?.getBoundingClientRect().width || 0);
+        if (!container || width < 180 || renderedWidths.get(container) === width) return;
+        renderedWidths.set(container, width);
+        container.replaceChildren();
+
+        const compact = width < 480;
+        const height = compact ? 315 : 340;
+        const margin = compact
+          ? { top: 16, right: 12, bottom: 48, left: 49 }
+          : { top: 18, right: 18, bottom: 50, left: 56 };
+        const innerWidth = width - margin.left - margin.right;
+        const innerHeight = height - margin.top - margin.bottom;
+        const rows = edges.slice(0, -1).map((start, index) => ({
+          start,
+          end: edges[index + 1],
+          exp42: chart.exp42[index],
+          exp30: chart.exp30[index]
+        }));
+        const x = d3.scaleLinear().domain([0, 1]).range([0, innerWidth]);
+        const maximum = d3.max(rows, (row) => d3.max(models, (model) => row[model.key]));
+        const y = d3.scaleLinear().domain([0, maximum * 1.08]).nice().range([innerHeight, 0]);
+        const tickValues = compact
+          ? [0, 0.2, 0.4, 0.6, 0.8, 1]
+          : Array.from({ length: 11 }, (_, index) => index / 10);
+        const svg = d3.select(container).append('svg')
+          .attr('viewBox', `0 0 ${width} ${height}`)
+          .attr('role', 'img')
+          .attr('aria-label', container.getAttribute('aria-label'));
+        svg.append('title').text(`${chart.label}最大真实3D IoU分布`);
+        const plot = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
+
+        plot.append('g')
+          .attr('class', 'grid')
+          .call(d3.axisLeft(y).ticks(6).tickSize(-innerWidth).tickFormat(''));
+        plot.append('g')
+          .attr('transform', `translate(0,${innerHeight})`)
+          .call(d3.axisBottom(x).tickValues(tickValues).tickFormat(d3.format('.1f')));
+        plot.append('g').call(d3.axisLeft(y).ticks(6).tickFormat((value) => `${value}%`));
+        svg.append('text')
+          .attr('class', 'axis-label')
+          .attr('x', margin.left + innerWidth / 2)
+          .attr('y', height - 8)
+          .attr('text-anchor', 'middle')
+          .text('最大真实3D IoU');
+        svg.append('text')
+          .attr('class', 'axis-label')
+          .attr('transform', `translate(14,${margin.top + innerHeight / 2}) rotate(-90)`)
+          .attr('text-anchor', 'middle')
+          .text('样本占比');
+
+        const binWidth = x(0.05) - x(0);
+        const gap = Math.max(0.6, Math.min(1.2, binWidth * 0.07));
+        const barWidth = Math.max(1, (binWidth - gap * 3) / 2);
+        models.forEach((model, modelIndex) => {
+          plot.selectAll(`.hist-${chart.id}-${model.key}`)
+            .data(rows)
+            .join('rect')
+            .attr('class', `hist-${chart.id}-${model.key}`)
+            .attr('x', (row) => x(row.start) + gap + modelIndex * (barWidth + gap))
+            .attr('y', (row) => y(row[model.key]))
+            .attr('width', barWidth)
+            .attr('height', (row) => innerHeight - y(row[model.key]))
+            .attr('rx', Math.min(1.5, barWidth / 4))
+            .attr('fill', model.color)
+            .attr('fill-opacity', 0.78)
+            .on('pointerenter pointermove', (event, row) => {
+              const closing = row.end === 1 ? ']' : ')';
+              tooltip.innerHTML = `<strong>${chart.label} · [${row.start.toFixed(2)}, ${row.end.toFixed(2)}${closing}</strong>`
+                + `<div>实验42 E191：${row.exp42.toFixed(4)}%</div>`
+                + `<div>实验30 E222：${row.exp30.toFixed(4)}%</div>`
+                + `<div>差值：${(row.exp42 - row.exp30 >= 0 ? '+' : '')}${(row.exp42 - row.exp30).toFixed(4)}个百分点</div>`;
+              tooltip.classList.add('visible');
+              moveTooltip(event);
+            })
+            .on('pointerleave', () => tooltip.classList.remove('visible'));
+        });
+
+        plot.append('line')
+          .attr('x1', x(0.7))
+          .attr('x2', x(0.7))
+          .attr('y1', 0)
+          .attr('y2', innerHeight)
+          .attr('stroke', '#ba4253')
+          .attr('stroke-width', 1.4)
+          .attr('stroke-dasharray', '4 4')
+          .attr('pointer-events', 'none');
+        plot.append('text')
+          .attr('x', x(0.7) + 4)
+          .attr('y', 11)
+          .attr('fill', '#a23849')
+          .attr('font-size', 10)
+          .attr('font-weight', 800)
+          .text('0.7');
+      }
+
+      const renderAll = () => histograms.forEach(render);
+      const observer = new ResizeObserver(() => window.requestAnimationFrame(renderAll));
+      containers.forEach((container) => observer.observe(container));
+      renderAll();
     })();
   </script>
 </body>

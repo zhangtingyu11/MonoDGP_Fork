@@ -675,15 +675,16 @@ class SetCriterion(nn.Module):
         if not 0.0 <= self.iou_classification_nms_min_iou_delta < 1.0:
             raise ValueError('NMS ranking minimum IoU delta must be in [0, 1)')
         if self.iou_classification_nms_strategy not in {
-                'all_conflicting_pairs', 'best_query_suppressors'}:
+                'all_conflicting_pairs', 'best_query_suppressors',
+                'hungarian_unmatched_overlap'}:
             raise ValueError(
                 'unsupported NMS ranking strategy: '
                 f'{self.iou_classification_nms_strategy}')
-        if (self.iou_classification_nms_strategy
-                == 'best_query_suppressors'
+        if (self.iou_classification_nms_strategy in {
+                'best_query_suppressors', 'hungarian_unmatched_overlap'}
                 and not self.iou_classification_nms_final_layer_only):
             raise ValueError(
-                'best-query NMS ranking must be final-layer-only')
+                'matched-query NMS ranking must be final-layer-only')
         if (self.iou_classification_enabled
                 and self.matcher.cost_iou3d == 0):
             raise ValueError(
@@ -925,6 +926,8 @@ class SetCriterion(nn.Module):
                     decode_mean_sizes=(
                         self.matcher.iou3d_decode_mean_sizes),
                     group_num=(self.group_num if self.training else 1),
+                    iou3d_only_indices=getattr(
+                        self.matcher, 'last_iou3d_only_indices', None),
                     bev_iou_threshold=(
                         self.iou_classification_nms_bev_threshold),
                     min_iou_delta=(
@@ -1519,9 +1522,14 @@ class SetCriterion(nn.Module):
         # Compute Det 2D and 3D loss
         outputs_without_aux = {k: v for k, v in outputs.items() if k != 'aux_outputs' and k != 'inter_outputs'}
         # Retrieve the matching between the outputs of the last layer and the targets
+        collect_iou3d_only_indices = bool(
+            self.iou_classification_nms_ranking_enabled
+            and self.iou_classification_nms_strategy
+            == 'hungarian_unmatched_overlap')
         indices = self.matcher(
             outputs_without_aux, targets, group_num=group_num,
-            prepared_targets=prepared_matcher_targets)
+            prepared_targets=prepared_matcher_targets,
+            collect_iou3d_only_indices=collect_iou3d_only_indices)
         final_iou3d = getattr(self.matcher, 'last_iou3d_matrix', None)
         self.last_final_iou3d_matrix = (
             final_iou3d.detach()

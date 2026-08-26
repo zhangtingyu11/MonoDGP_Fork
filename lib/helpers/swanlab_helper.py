@@ -79,7 +79,7 @@ LOSS_CHINESE_NAMES = {
     'loss_quality_point': '全query三维IoU点式损失',
     'loss_quality_rank': '同GT候选query排序损失',
     'loss_iou_classification_nms_rank': (
-        '触发0.8BEV NMS候选对加权排序损失'),
+        'NMS阈值内匹配Query排序损失'),
 }
 
 LOSS_DIAGNOSTIC_CHINESE_NAMES = {
@@ -158,9 +158,19 @@ LOSS_DIAGNOSTIC_CHINESE_NAMES = {
         '跨真实三维IoU 0.7的NMS候选对数'),
     'monitor_nms_rank_cross_0_7_wrong_fraction': (
         '跨真实三维IoU 0.7的NMS候选对逆序比例'),
-    'monitor_nms_rank_gt_unit_count': '参与best-query排序诊断的GT组数',
+    'monitor_nms_rank_score_margin_mean': (
+        '匹配Query减未匹配Query的类别logit差均值'),
+    'monitor_nms_rank_gt_unit_count': '参与排序诊断的GT组数',
     'monitor_nms_rank_optimized_gt_unit_count': (
-        '本批存在压制最优query候选的GT组数'),
+        '实际进入排序Loss的GT组数'),
+    'monitor_nms_rank_active_gt_fraction': (
+        '存在相交未匹配Query的匹配GT比例'),
+    'monitor_nms_rank_pair_per_active_gt': (
+        '每个参与排序GT的未匹配Query数'),
+    'monitor_nms_rank_matched_not_top_gt_unit_count': (
+        '匹配Query分数未领先的GT组数'),
+    'monitor_nms_rank_matched_not_top_gt_fraction': (
+        '匹配Query分数未领先的参与排序GT比例'),
 }
 
 _IOU3D_MATCHING_DIAGNOSTICS = {
@@ -215,10 +225,15 @@ _ONLINE_FINAL_DIAGNOSTICS = {
     'monitor_nms_rank_iou_gap_mean',
     'monitor_nms_rank_inverted_iou_gap_mean',
     'monitor_nms_rank_bev_iou_mean',
+    'monitor_nms_rank_score_margin_mean',
     'monitor_nms_rank_cross_0_7_pair_count',
     'monitor_nms_rank_cross_0_7_wrong_fraction',
     'monitor_nms_rank_gt_unit_count',
     'monitor_nms_rank_optimized_gt_unit_count',
+    'monitor_nms_rank_active_gt_fraction',
+    'monitor_nms_rank_pair_per_active_gt',
+    'monitor_nms_rank_matched_not_top_gt_unit_count',
+    'monitor_nms_rank_matched_not_top_gt_fraction',
 }
 
 _ONLINE_GROUP0_DIAGNOSTICS = {
@@ -287,6 +302,8 @@ def chinese_grouped_monitoring(raw_losses, weight_dict, scope,
     shared_keys = {'loss_depth_map', 'loss_region'}
     final_query_total = 0.0
     full_total = 0.0
+    nms_rank_raw = None
+    nms_rank_weighted = None
     auxiliary_totals = {}
     intermediate_totals = {}
 
@@ -302,6 +319,9 @@ def chinese_grouped_monitoring(raw_losses, weight_dict, scope,
         if layer_name == '最终Decoder层' and base_key in final_query_keys:
             result[f'{scope}最终查询损失/{metric_name}'] = weighted
             final_query_total += weighted
+            if base_key == 'loss_iou_classification_nms_rank':
+                nms_rank_raw = value
+                nms_rank_weighted = weighted
         elif layer_name == '最终Decoder层' and base_key in shared_keys:
             result[f'{scope}共享损失/{metric_name}'] = weighted
         elif layer_name.startswith('辅助Decoder'):
@@ -315,6 +335,13 @@ def chinese_grouped_monitoring(raw_losses, weight_dict, scope,
     result[
         f'{scope}核心概览/{final_query_label}最终查询损失合计'
     ] = final_query_total
+    if nms_rank_raw is not None:
+        result[f'{scope}NMS匹配排序诊断/原始标准RankNet损失'] = (
+            nms_rank_raw)
+        result[f'{scope}NMS匹配排序诊断/加权排序损失'] = (
+            nms_rank_weighted)
+        result[f'{scope}NMS匹配排序诊断/加权排序损失占完整目标比例'] = (
+            nms_rank_weighted / full_total if full_total else 0.0)
     for layer_name, total in auxiliary_totals.items():
         result[
             f'{scope}辅助Decoder损失/{layer_name}/该层加权损失合计'
@@ -344,7 +371,7 @@ def chinese_grouped_monitoring(raw_losses, weight_dict, scope,
             elif base_key.startswith('monitor_quality_'):
                 diagnostic_group = '三维IoU质量头诊断'
             elif base_key.startswith('monitor_nms_'):
-                diagnostic_group = 'NMS最优query排序诊断'
+                diagnostic_group = 'NMS匹配排序诊断'
             else:
                 diagnostic_group = '高IoU未匹配预测诊断'
             result[f'{scope}{diagnostic_group}/{layer_name}/'
@@ -469,8 +496,10 @@ class ScalarMeanAccumulator:
             'pair_count', 'pair_correct_count', 'weight_sum',
             'weighted_correct_sum', 'inversion_count', 'iou_gap_sum',
             'inverted_iou_gap_sum', 'bev_iou_sum',
+            'score_margin_sum',
             'cross_0_7_pair_count', 'cross_0_7_wrong_count',
-            'gt_unit_count', 'optimized_gt_unit_count')
+            'gt_unit_count', 'optimized_gt_unit_count',
+            'matched_not_top_gt_unit_count')
         totals = {}
         for suffix in nms_total_keys:
             key = nms_prefix + suffix
@@ -488,6 +517,9 @@ class ScalarMeanAccumulator:
             means[nms_prefix + 'bev_iou_mean'] = (
                 totals.get('bev_iou_sum', pair_count.new_zeros(()))
                 / pair_count.clamp_min(1))
+            if 'score_margin_sum' in totals:
+                means[nms_prefix + 'score_margin_mean'] = (
+                    totals['score_margin_sum'] / pair_count.clamp_min(1))
         if 'weight_sum' in totals:
             means[nms_prefix + 'weighted_accuracy'] = (
                 totals.get(
@@ -506,6 +538,23 @@ class ScalarMeanAccumulator:
                     'cross_0_7_wrong_count',
                     totals['cross_0_7_pair_count'].new_zeros(()))
                 / totals['cross_0_7_pair_count'].clamp_min(1))
+        if ('score_margin_sum' in totals and 'gt_unit_count' in totals):
+            means[nms_prefix + 'active_gt_fraction'] = (
+                totals.get(
+                    'optimized_gt_unit_count',
+                    totals['gt_unit_count'].new_zeros(()))
+                / totals['gt_unit_count'].clamp_min(1))
+        if ('score_margin_sum' in totals
+                and 'optimized_gt_unit_count' in totals):
+            active_count = totals['optimized_gt_unit_count']
+            means[nms_prefix + 'pair_per_active_gt'] = (
+                totals.get('pair_count', active_count.new_zeros(()))
+                / active_count.clamp_min(1))
+            means[nms_prefix + 'matched_not_top_gt_fraction'] = (
+                totals.get(
+                    'matched_not_top_gt_unit_count',
+                    active_count.new_zeros(()))
+                / active_count.clamp_min(1))
         return scalar_values_to_floats(means)
 
 
