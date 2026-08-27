@@ -661,7 +661,7 @@
       <h1>实验总览 v2</h1>
       <p>实验总账的可视化索引。每项实验单独记录目的、对比条件、执行过程和客观结果，方便后续持续追加。</p>
       <div class="hero-meta">
-        <span class="pill"><span class="status-dot"></span>43 项实验已记录</span>
+        <span class="pill"><span class="status-dot"></span>45 项实验已记录</span>
         <span class="pill">数据来源：实验总账v2</span>
         <span class="pill">更新日期：2026-08-26</span>
       </div>
@@ -873,6 +873,14 @@
           <span class="nav-index">43</span>
           <span class="nav-copy"><strong>几何、评分与冻结线性头</strong><small>跨0.7收益主要来自删除低—低配对</small></span>
         </button>
+        <button class="nav-button" data-target="exp44" type="button">
+          <span class="nav-index">44</span>
+          <span class="nav-copy"><strong>跨0.7排序Loss全模型训练</strong><small>E129停止·不作为基线</small></span>
+        </button>
+        <button class="nav-button" data-target="exp45" type="button">
+          <span class="nav-index">45</span>
+          <span class="nav-copy"><strong>Exp30方法复现与确定性基线</strong><small>250轮完成·E174 best</small></span>
+        </button>
       </nav>
 
       <div>
@@ -1013,6 +1021,8 @@
               <div class="truth"><span class="number">41</span><h3>最终层最优Query的NMS决策排序</h3><p>只纠正真正可能压掉每GT最优query的最终层候选；250轮已完成，E151最终保持NMS 0.8 Moderate best 22.9292；全query真实IoU oracle排序配合NMS 0.01的描述性上限为49.9247。</p></div>
               <div class="truth"><span class="number">42</span><h3>纯3D IoU匈牙利匹配Query对未匹配Query排序</h3><p>每组先做一对一纯3D IoU匹配，只对与匹配框BEV IoU严格大于0.01的未匹配query计算标准RankNet；250轮已完成，NMS 0.01选优的最终best为E191。</p></div>
               <div class="truth"><span class="number">43</span><h3>几何上限、评分与冻结线性头</h3><p>冻结实验42 E191与实验30 E222完成GT oracle、IoU分布和评分诊断；跨0.7方案在全NMS阈值上优于控制。后续四臂梯度等强消融进一步定位：删除低—低配对的Moderate AP主效应为<code>+0.1528</code>，删除高—高仅<code>+0.0009</code>。</p></div>
+              <div class="truth"><span class="number">44</span><h3>跨0.7排序Loss全模型训练</h3><p>把实验43冻结线性头中的跨0.7排序范围用于完整模型训练；到E129仍明显低于实验30，用户停止该方向，不作为后续baseline。</p></div>
+              <div class="truth"><span class="number">45</span><h3>Exp30方法复现与确定性新基线</h3><p>方法严格回到实验30，不启用跨焦距或额外排序Loss；250轮复现完成，并把等价提速与严格确定性执行合同固化为后续baseline。</p></div>
             </div>
           </article>
 
@@ -4092,10 +4102,43 @@
             <div class="callout warning"><h4>证据边界与编号修正</h4><p>这是单seed、冻结Exp42 E191表示、只训练线性头的因果消融；足以回答本线性头为何受益，不能直接保证全模型训练后改善同样大。启动时我曾错误把该补充标为实验44；用户纠正后，全部产物已整体移入实验43目录<code>cross070_pair_scope_gradient_calibration_ablation/</code>。原manifest保留启动时的精确命令与旧路径作为原始回执，汇总<code>comparison.json</code>明确记录正确实验号为43。四个正式tmux均完成50轮、无失败重跑，状态全部<code>VERIFIED</code>，耗时<code>580.02—590.05秒</code>。后续把跨0.7范围用于完整模型训练时单独编号为实验44，不属于本次实验43收尾。</p></div>
           </article>
         </section>
+
+        <section id="exp44" class="content-panel" aria-labelledby="exp44-title">
+          <article class="section-card">
+            <div class="section-head"><div><span class="section-kicker">实验 44 · 08-26</span><h2 id="exp44-title">跨0.7排序Loss完整模型训练</h2><p class="section-subtitle">把实验43冻结线性头中表现最好的跨0.7配对范围加入完整模型；该方向没有转化为可接受的检测AP，按用户决定停止。</p></div><span class="done-badge">E129停止 · 不采用</span></div>
+            <div class="metric-grid">
+              <div class="metric"><span>无NMS Moderate best</span><strong>15.6187</strong><em>E125</em></div>
+              <div class="metric"><span>NMS 0.8 Moderate best</span><strong>21.7329</strong><em>E100</em></div>
+              <div class="metric"><span>正式停止点</span><strong>E129</strong><em>用户终止排序Loss方向</em></div>
+            </div>
+            <div class="callout warning"><h4>结论：冻结线性头正信号没有迁移成全模型收益</h4><p>实验44虽然使用了实验43定位出的跨0.7配对范围，但完整模型训练到E129时，无NMS与NMS 0.8结果都明显低于实验30。该结果足以否定“仅把该排序Loss加入全模型即可成为更好baseline”的当前实现，不把未完成的250轮轨迹包装为完整阴性实验。</p></div>
+            <div class="callout"><h4>执行记录</h4><p>第一次运行在E7后因执行产物问题停止并单独保留为<code>stopped_e7_corrupt_20260826_163248</code>；修正后的正式运行完成至E129，SwanLab运行<code>1893ayg7</code>正常结束。停止是用户对研究方向的决定，不是OOM或未知崩溃。</p></div>
+          </article>
+        </section>
+
+        <section id="exp45" class="content-panel" aria-labelledby="exp45-title">
+          <article class="section-card">
+            <div class="section-head"><div><span class="section-kicker">实验 45 · 08-27</span><h2 id="exp45-title">Exp30方法复现与确定性新基线</h2><p class="section-subtitle">方法严格复刻实验30：完整P2几何修正、精确3D IoU Hungarian匹配和独立3D IoU质量头；不启用跨焦距、全query分类或任何额外排序Loss。</p></div><span class="done-badge">250轮完成 · 新baseline</span></div>
+            <div class="metric-grid">
+              <div class="metric"><span>复现run无NMS Moderate best</span><strong>24.1647</strong><em>E174</em></div>
+              <div class="metric"><span>主验证推理</span><strong>46.597s</strong><em>3769图 · BS16</em></div>
+              <div class="metric"><span>严格确定性训练</span><strong>2×2 epoch</strong><em>loss、梯度日志、checkpoint全等</em></div>
+            </div>
+            <div class="table-wrap"><table><thead><tr><th>baseline层面</th><th>固定内容</th><th>证据</th></tr></thead><tbody>
+              <tr><td>方法</td><td>直接继承<code>monodgp_exp30.yaml</code></td><td>Exp30配置从提交<code>1111687</code>到当前main无漂移</td></tr>
+              <tr><td>训练提速</td><td>批量精确3D IoU匹配、CUDA训练预取</td><td>批量与逐图IoU矩阵逐元素零误差</td></tr>
+              <tr><td>验证提速</td><td>CUDA验证预取；只计算决定best的无NMS <code>c×q×d</code></td><td>E174主指标精确复现<code>24.164683873540987</code></td></tr>
+              <tr><td>确定性</td><td>严格PyTorch算法＋仓库内确定性MSDA backward</td><td>两次独立2-epoch运行的464条训练指标、464条梯度日志及E1/E2全部checkpoint tensor完全相同</td></tr>
+            </tbody></table></div>
+            <div class="callout"><h4>为何把实验45定为新baseline</h4><p>实验44及更早排序Loss没有稳定超过实验30；继续把它们作为主线会把“方法是否有效”和“排序分数是否学准”缠在一起。实验45退回已经被验证有效的完整P2几何与独立质量头，后续新方法都应基于这份配置做单变量对照。</p></div>
+            <div class="callout warning"><h4>严格区分已完成run与新执行合同</h4><p>250轮复现run使用了批量3D IoU和轻量主验证，但当时MSDA backward仍非严格确定；其E1/E2均值loss为<code>45.745384 / 32.299019</code>，最终E174 best为<code>24.164683873540987</code>。后来加入严格确定性MSDA后，两次独立2-epoch得到完全相同的<code>45.553740 / 31.983561</code>，每轮约3分02秒。由于浮点归约顺序改变，不能把旧E174 AP声称为严格确定性250轮的训练结果；它是实验45已完成复现run的冻结结果，而未来正式对照采用新的严格确定性执行合同。</p></div>
+            <div class="callout"><h4>执行与复核</h4><p>250轮run在CUDA 12.9栈完成，SwanLab ID为<code>jrg8fguf</code>。仓库内确定性CUDA源码与两轮测试使用的v7源码SHA256同为<code>211a8d86…f9cc473</code>；新旧扩展在small float64与Exp45 encoder B16上三类梯度逐bit相同。完整B16训练step的总Loss、全部分项Loss、梯度和更新参数重复全等，稳态约<code>0.597s</code>。E174 checkpoint在组合后代码上再次完整验证，Moderate 3D AP_R40仍精确为<code>24.164683873540987</code>。</p></div>
+          </article>
+        </section>
       </div>
     </div>
 
-    <footer class="footer">MonoDGP 实验总览 v2 · 序号01—43</footer>
+    <footer class="footer">MonoDGP 实验总览 v2 · 序号01—45</footer>
   </main>
 
   <script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js"></script>

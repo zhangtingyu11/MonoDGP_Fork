@@ -1,0 +1,21 @@
+base_config: monodgp_exp30.yaml
+
+model_name: 'V2-0045_实验45_新基线'
+
+model:
+  # Execution-only vectorization of Exp30's exact 3D-IoU matcher cost.
+  use_batched_iou3d_match_cost: true
+
+trainer:
+  # Strict mode routes deformable-attention backward through the repository's
+  # deterministic CUDA implementation.
+  strict_determinism: true
+
+  # Preserve Exp30's no-NMS c×q×d checkpoint-selection metric while skipping
+  # validation-only losses, auxiliary score decodes and NMS grids.
+  primary_ap_only_validation: true
+
+  swanlab:
+    experiment_name: '实验45_新基线'
+    description: '以实验30完整P2几何修正为方法基线；不启用跨焦距、分类排序或额外排序Loss。执行层启用严格确定性MSDA、批量精确3D IoU匹配、CUDA预取，并只验证决定checkpoint best的无NMS c×q×d主指标。'
+    tags: ['实验45', '新基线', '实验30方法', '完整P2', '三维IoU质量头', '严格确定性']

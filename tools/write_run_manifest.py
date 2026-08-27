@@ -23,7 +23,7 @@ from lib.helpers.utils_helper import set_random_seed
 
 
 EXPECTED = {
-    'executable': str(ROOT_DIR / '.venv-cu129/bin/python'),
+    'executable': '/home/zhangtingyu/Project/Mono3D/MonoDGP/.venv-cu129/bin/python',
     'python': '3.10.20',
     'torch': '2.8.0+cu129',
     'torchvision': '0.23.0+cu129',
@@ -154,6 +154,31 @@ def main():
     receipt.extend(
         f"SHA256 {path.name}：{_sha256(path)}"
         for path in quality_files if path.exists())
+    deterministic_extension_dir = (
+        ROOT_DIR / 'lib/models/monodgp/ops/deterministic')
+    deterministic_binaries = tuple(sorted(
+        deterministic_extension_dir.glob(
+            'MonoDGPDeterministicMSDA*.so')))
+    if (cfg['trainer'].get('strict_determinism', False)
+            and not deterministic_binaries):
+        raise RuntimeError(
+            'strict deterministic run requires the repository-local MSDA '
+            'extension; build it before writing the formal run manifest')
+    deterministic_extension_files = (
+        deterministic_extension_dir / 'msda_deterministic_backward.cu',
+        *deterministic_binaries,
+    )
+    receipt.extend(
+        f"SHA256 仓库内确定性MSDA {path.name}：{_sha256(path)}"
+        for path in deterministic_extension_files if path.exists())
+    receipt.extend([
+        '严格确定性算法：' + str(bool(
+            cfg['trainer'].get('strict_determinism', False))),
+        '批量精确三维IoU匹配：' + str(bool(
+            cfg['model'].get('use_batched_iou3d_match_cost', False))),
+        '仅主AP验证：' + str(bool(
+            cfg['trainer'].get('primary_ap_only_validation', False))),
+    ])
     high_iou_weighting = cfg['model'].get(
         'high_iou_unmatched_negative_weighting', {})
     receipt.extend([

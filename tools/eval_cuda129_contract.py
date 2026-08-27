@@ -23,6 +23,16 @@ def main():
     parser.add_argument("--checkpoint", required=True)
     parser.add_argument("--batch-size", type=int, default=8)
     parser.add_argument(
+        "--primary-only",
+        action="store_true",
+        help="Decode only the configured primary score and skip diagnostics.",
+    )
+    parser.add_argument(
+        "--cuda-prefetch",
+        action="store_true",
+        help="Use pinned-memory one-batch CUDA evaluation prefetch.",
+    )
+    parser.add_argument(
         "--work-dir",
         default="/tmp/monodgp_cuda129_eval_contract",
         help="Temporary directory for the contract log; predictions stay in memory.",
@@ -42,7 +52,7 @@ def main():
         batch_size=args.batch_size,
         num_workers=4,
         shuffle=False,
-        pin_memory=False,
+        pin_memory=args.cuda_prefetch,
         drop_last=False,
     )
 
@@ -58,7 +68,11 @@ def main():
     os.makedirs(output_dir, exist_ok=True)
     logger = create_logger(os.path.join(output_dir, "eval.log"))
 
-    train_cfg = {"save_path": save_path, "save_all": False}
+    train_cfg = {
+        "save_path": save_path,
+        "save_all": False,
+        "use_cuda_eval_prefetch": args.cuda_prefetch,
+    }
     tester_cfg = dict(cfg["tester"])
     tester_cfg["export_predictions"] = False
     tester = Tester(
@@ -69,7 +83,10 @@ def main():
         train_cfg=train_cfg,
         model_name=model_name,
     )
-    results = tester.inference()
+    results = tester.inference(
+        collect_diagnostics=not args.primary_only,
+        primary_only=args.primary_only,
+    )
     moderate_ap = tester.evaluate(results)
     print(f"checkpoint_epoch={checkpoint.get('epoch')}")
     print(f"car_moderate_3d_ap_r40={moderate_ap}")

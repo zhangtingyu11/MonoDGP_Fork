@@ -9,7 +9,10 @@ from torch import nn
 import numpy as np
 
 from utils.box_ops import box_cxcywh_to_xyxy, generalized_box_iou, box_xyxy_to_cxcywh, box_cxcylrtb_to_xyxy
-from .iou3d_match_cost import pairwise_iou3d_match_cost
+from .iou3d_match_cost import (
+    batched_pairwise_iou3d_match_cost,
+    pairwise_iou3d_match_cost,
+)
 
 
 class QuerySelection(nn.Module):
@@ -112,6 +115,7 @@ class HungarianMatcher(nn.Module):
     def __init__(self, cost_class: float = 1, cost_3dcenter: float = 1,
                  cost_bbox: float = 1, cost_giou: float = 1,
                  use_batched_same_image_cost=False,
+                 use_batched_iou3d_match_cost=False,
                  cost_iou3d: float = 0,
                  iou3d_decode_mean_sizes=None):
         """Creates the matcher
@@ -128,6 +132,8 @@ class HungarianMatcher(nn.Module):
         self.cost_iou3d = float(cost_iou3d)
         self.use_batched_same_image_cost = bool(
             use_batched_same_image_cost)
+        self.use_batched_iou3d_match_cost = bool(
+            use_batched_iou3d_match_cost)
         decode_means = (
             iou3d_decode_mean_sizes
             if iou3d_decode_mean_sizes is not None
@@ -240,25 +246,33 @@ class HungarianMatcher(nn.Module):
         baseline_cost = cost.clone() if collect_comparison else None
         iou3d_matrix = torch.zeros_like(cost) if use_iou3d else None
         if use_iou3d:
-            for batch_index, target_count in enumerate(
-                    prepared_targets['sizes']):
-                if target_count == 0:
-                    continue
-                image_outputs = {
-                    key: value[batch_index]
-                    for key, value in outputs.items()
-                    if key in (
-                        'pred_logits', 'pred_boxes', 'pred_depth',
-                        'pred_3d_dim', 'pred_angle')}
-                image_iou3d, receipt = pairwise_iou3d_match_cost(
-                    image_outputs, targets[batch_index],
-                    self.iou3d_decode_mean_sizes)
-                cost[batch_index, :, :target_count].sub_(
-                    self.cost_iou3d * image_iou3d)
-                iou3d_matrix[
-                    batch_index, :, :target_count].copy_(image_iou3d)
-                pair_count += receipt['pair_count']
-                exact_pair_count += receipt['exact_pair_count']
+            if self.use_batched_iou3d_match_cost:
+                iou3d_matrix, receipt = (
+                    batched_pairwise_iou3d_match_cost(
+                        outputs, targets, self.iou3d_decode_mean_sizes))
+                cost.sub_(self.cost_iou3d * iou3d_matrix)
+                pair_count = receipt['pair_count']
+                exact_pair_count = receipt['exact_pair_count']
+            else:
+                for batch_index, target_count in enumerate(
+                        prepared_targets['sizes']):
+                    if target_count == 0:
+                        continue
+                    image_outputs = {
+                        key: value[batch_index]
+                        for key, value in outputs.items()
+                        if key in (
+                            'pred_logits', 'pred_boxes', 'pred_depth',
+                            'pred_3d_dim', 'pred_angle')}
+                    image_iou3d, receipt = pairwise_iou3d_match_cost(
+                        image_outputs, targets[batch_index],
+                        self.iou3d_decode_mean_sizes)
+                    cost[batch_index, :, :target_count].sub_(
+                        self.cost_iou3d * image_iou3d)
+                    iou3d_matrix[
+                        batch_index, :, :target_count].copy_(image_iou3d)
+                    pair_count += receipt['pair_count']
+                    exact_pair_count += receipt['exact_pair_count']
         cost = torch.nan_to_num(cost, nan=0.0, posinf=0.0, neginf=0.0)
         self.last_iou3d_matrix = iou3d_matrix
         cost_numpy = cost.cpu().numpy()
@@ -476,5 +490,7 @@ def build_matcher(cfg):
         cost_iou3d=cfg.get('set_cost_iou3d', 0),
         iou3d_decode_mean_sizes=cfg.get(
             'iou3d_decode_mean_sizes', ((0.0, 0.0, 0.0),) * 3),
+        use_batched_iou3d_match_cost=cfg.get(
+            'use_batched_iou3d_match_cost', False),
         use_batched_same_image_cost=cfg.get(
             'use_batched_same_image_matcher_cost', False))

@@ -162,6 +162,8 @@ class Tester(object):
 
     def test(self):
         assert self.cfg['mode'] in ['single', 'all']
+        primary_only = bool(
+            self.train_cfg.get('primary_ap_only_validation', False))
 
         # test a single checkpoint
         if self.cfg['mode'] == 'single' or not self.train_cfg["save_all"]:
@@ -176,7 +178,9 @@ class Tester(object):
                             map_location=self.device,
                             logger=self.logger)
             self.model.to(self.device)
-            results = self.inference()
+            results = self.inference(
+                collect_diagnostics=not primary_only,
+                primary_only=primary_only)
             self.evaluate(results)
 
         # test all checkpoints in the given dir
@@ -196,7 +200,9 @@ class Tester(object):
                                 map_location=self.device,
                                 logger=self.logger)
                 self.model.to(self.device)
-                results = self.inference()
+                results = self.inference(
+                    collect_diagnostics=not primary_only,
+                    primary_only=primary_only)
                 self.evaluate(results)
 
     def inference(self, collect_diagnostics=True, primary_only=False):

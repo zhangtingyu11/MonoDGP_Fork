@@ -859,16 +859,25 @@ class Trainer(object):
                         and (formal_validation or early_validation)):
                     validation_kind = (
                         'formal' if formal_validation else 'early-diagnostic')
+                    primary_ap_only = bool(
+                        formal_validation
+                        and self.cfg.get(
+                            'primary_ap_only_validation', False))
                     self.logger.info(
                         "Test Epoch %d (%s)", self.epoch, validation_kind)
                     results = self.tester.inference(
-                        collect_diagnostics=formal_validation,
-                        primary_only=early_validation)
+                        collect_diagnostics=(
+                            formal_validation and not primary_ap_only),
+                        primary_only=(
+                            early_validation or primary_ap_only))
                     evaluation = self.tester.evaluate(
                         results, return_metrics=True)
-                    nms_best_state, current_nms_selection = (
-                        self._evaluate_nms_best_selection(
-                            results, nms_best_state))
+                    if primary_ap_only:
+                        current_nms_selection = {}
+                    else:
+                        nms_best_state, current_nms_selection = (
+                            self._evaluate_nms_best_selection(
+                                results, nms_best_state))
                     if early_validation:
                         early_suffix = (
                             'best selection enabled'
@@ -947,9 +956,14 @@ class Trainer(object):
                                 payload,
                                 step=self.epoch * len(self.train_loader))
                         continue
-                    quality_score_report = (
-                        self.tester.evaluate_quality_score_variants(
-                            primary_evaluation=evaluation))
+                    if primary_ap_only:
+                        quality_score_report = {
+                            self.tester.primary_quality_score: evaluation
+                        } if self.tester.primary_quality_score else {}
+                    else:
+                        quality_score_report = (
+                            self.tester.evaluate_quality_score_variants(
+                                primary_evaluation=evaluation))
                     for name, score_evaluation in (
                             quality_score_report.items()):
                         score_best = quality_score_best.setdefault(name, {})
@@ -1015,8 +1029,10 @@ class Trainer(object):
                         save_checkpoint(
                             get_checkpoint_state(self.model, self.optimizer, self.epoch, best_result, best_epoch),
                             ckpt_name)
-                        nms_report = self.tester.evaluate_best_refresh_bev_nms(
-                            results)
+                        if not primary_ap_only:
+                            nms_report = (
+                                self.tester.evaluate_best_refresh_bev_nms(
+                                    results))
                         if nms_report:
                             diagnostics_dir = os.path.join(
                                 self.output_dir, 'diagnostics')
@@ -1168,6 +1184,11 @@ class Trainer(object):
                     batch_idx % log_frequency == 0
                     or batch_idx + 1 == batch_count)
                 if should_log:
+                    image_ids = info.get('img_id', ())
+                    if torch.is_tensor(image_ids):
+                        image_ids = image_ids.detach().cpu().tolist()
+                    else:
+                        image_ids = list(image_ids)
                     loss_keys = sorted(detr_losses_dict)
                     loss_values = torch.stack([
                         detr_losses_dict[key].detach().reshape(())
@@ -1181,9 +1202,9 @@ class Trainer(object):
                         for group in self.optimizer.param_groups)
                     self.logger.info(
                         "Train metrics: epoch=%d/%d, step=%d/%d, "
-                        "lr=[%s], loss_detr=%.6f, losses={%s}",
+                        "image_ids=%s, lr=[%s], loss_detr=%.6f, losses={%s}",
                         epoch + 1, self.cfg['max_epoch'],
-                        batch_idx + 1, batch_count, learning_rates,
+                        batch_idx + 1, batch_count, image_ids, learning_rates,
                         detr_losses_log, loss_text)
 
                 swanlab_payload = None

@@ -33,6 +33,14 @@ args = parser.parse_args()
 def main():
     assert (os.path.exists(args.config))
     cfg = load_config(args.config)
+    strict_determinism = bool(
+        cfg['trainer'].get('strict_determinism', False)
+        or os.environ.get('MONODGP_STRICT_DETERMINISM', '0') == '1')
+    torch.use_deterministic_algorithms(strict_determinism, warn_only=False)
+    if strict_determinism:
+        from lib.models.monodgp.ops.functions.ms_deform_attn_func import (
+            ensure_deterministic_msda_available)
+        ensure_deterministic_msda_available()
     set_random_seed(cfg.get('random_seed', 444))
 
     model_name = cfg['model_name']
@@ -43,6 +51,11 @@ def main():
         output_path,
         'train.%s.log' % datetime.datetime.now().strftime('%Y%m%d_%H%M%S'))
     logger = create_logger(log_file)
+    logger.info('PyTorch strict deterministic algorithms: %s', strict_determinism)
+    deterministic_msda = bool(
+        strict_determinism
+        or os.environ.get('MONODGP_DETERMINISTIC_MSDA', '0') == '1')
+    logger.info('Deterministic MSDA: %s', deterministic_msda)
     tracker = SwanLabTracker(
         cfg=cfg['trainer'].get('swanlab', {}),
         run_config=cfg,

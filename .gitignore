@@ -1,6 +1,10 @@
 # Local experiment diagnostics and generated evidence.
 diagnostics/
 
+# Repository-local CUDA extension build products.
+lib/models/monodgp/ops/deterministic/build/
+lib/models/monodgp/ops/deterministic/*.so
+
 # Local-only experiment verification tests.
 tests/test_experiment_33_config.py
 tests/test_experiment_34_config.py
