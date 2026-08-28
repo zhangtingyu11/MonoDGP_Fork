@@ -1,0 +1,28 @@
+base_config: monodgp_exp46.yaml
+
+model_name: 'V2-0047_实验47_去除三维IoU质量头'
+
+model:
+  # The only method ablation from Exp46: remove the independent 3D-IoU
+  # quality head and its Hungarian-positive quality regression loss.
+  iou_quality_head:
+    enabled: false
+
+tester:
+  threshold: 0.0
+  topk: 50
+  # Restore MonoDGP's historical path: classification selects top-50, then
+  # decoded confidence is classification probability times depth precision.
+  primary_quality_score: current_cxd
+  quality_score_fusions:
+    - {name: current_cxd, alpha: 1.0, beta: 0.0, gamma: 1.0, historical_topk: true}
+  quality_ranking_monitoring: false
+
+trainer:
+  swanlab:
+    enabled: true
+    required: true
+    mode: online
+    experiment_name: '实验47_实验46去除三维IoU质量头'
+    description: '严格基于实验46从头训练，唯一方法变量是删除独立三维IoU质量头及其Hungarian正样本质量回归Loss。模型不再输出pred_quality，推理恢复MonoDGP历史current_cxd路径：先按分类概率选择top-50，再以分类概率乘深度置信度作为最终AP分数。完整P2几何、精确3D IoU Hungarian匹配、分类与框回归、数据增强、seed444、严格确定性执行优化、250轮训练及E10至E110每10轮验证、E120起逐轮验证的协议全部继承实验46。'
+    tags: ['实验47', '实验46消融', '去除三维IoU质量头', '分类乘深度', '完整P2', '严格确定性']

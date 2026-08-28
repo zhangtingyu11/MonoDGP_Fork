@@ -1,0 +1,21 @@
+base_config: monodgp_exp45.yaml
+
+model_name: 'V2-0046_实验46_确定性优化新基线'
+
+trainer:
+  # These execution optimizations are bitwise-equivalent to Exp45 strict.
+  fill_uninitialized_memory: false
+  deterministic_bilinear_backward: true
+
+  # Run lightweight primary-AP evaluation at E10, E20, ..., E110. Starting
+  # at E120, run Exp45's no-NMS c×q×d formal evaluation after every epoch.
+  validation_start_epoch: 120
+  early_validation_interval: 10
+
+  swanlab:
+    enabled: true
+    required: true
+    mode: online
+    experiment_name: '实验46_确定性优化新基线'
+    description: '方法与实验45及实验30完全一致，作为后续实验的新baseline。保留完整P2几何一致性、独立三维IoU质量头、批量精确3D IoU匹配、严格确定性MSDA、CUDA训练及验证预取和仅主AP验证；仅加入已经过真实BS16全loss、全梯度、更新参数以及完整1 epoch checkpoint逐位一致验证的两项执行优化：关闭严格模式下无意义的未初始化内存填充，并以保持四角autograd拓扑的确定性CUDA index backward替换RegionSegHead双线性上采样的慢速index_put归约。训练250轮，E10至E110每10轮做一次轻量主AP验证；从E120开始每轮做无NMS c×q×d Car 3D AP_R40正式验证并据此选择best。'
+    tags: ['实验46', '新基线', '实验30方法', '完整P2', '三维IoU质量头', '严格确定性', '逐位一致优化']

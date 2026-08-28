@@ -25,6 +25,11 @@ _FORCE_DETERMINISTIC_MSDA = (
 _DETERMINISTIC_MSDA = None
 
 
+def set_force_deterministic_msda(enabled):
+    global _FORCE_DETERMINISTIC_MSDA
+    _FORCE_DETERMINISTIC_MSDA = bool(enabled)
+
+
 def ensure_deterministic_msda_available():
     global _DETERMINISTIC_MSDA
     if _DETERMINISTIC_MSDA is None:

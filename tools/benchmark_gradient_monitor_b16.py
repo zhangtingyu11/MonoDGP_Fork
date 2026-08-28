@@ -5,7 +5,6 @@ import sys
 from pathlib import Path
 
 import torch
-import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
@@ -25,11 +24,19 @@ def timed(callable_):
 
 
 def main():
-    with (ROOT / 'configs/monodgp.yaml').open(encoding='utf-8') as handle:
-        cfg = yaml.load(handle, Loader=yaml.Loader)
+    from lib.helpers.config_helper import load_config
+
+    cfg = load_config(ROOT / 'configs/monodgp_exp45.yaml')
     cfg['dataset']['batch_size'] = 16
     cfg['trainer']['save_frequency'] = 1000
     cfg['trainer']['swanlab']['enabled'] = False
+    strict = bool(cfg['trainer'].get('strict_determinism', False))
+    torch.use_deterministic_algorithms(strict, warn_only=False)
+    if strict:
+        from lib.models.monodgp.ops.functions.ms_deform_attn_func import (
+            ensure_deterministic_msda_available,
+        )
+        ensure_deterministic_msda_available()
     train_loader, model, criterion, _, trainer = build_stack(
         cfg, 'gradient-monitor-b16')
     inputs, calibs, raw_targets, _ = next(iter(train_loader))

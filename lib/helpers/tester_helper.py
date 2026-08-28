@@ -189,7 +189,13 @@ class Tester(object):
             checkpoints_list = []
             for _, _, files in os.walk(self.output_dir):
                 for f in files:
-                    if f.endswith(".pth") and int(f[17:-4]) >= start_epoch:
+                    prefix = "checkpoint_epoch_"
+                    epoch_text = (
+                        f[len(prefix):-4]
+                        if f.startswith(prefix) and f.endswith(".pth")
+                        else ""
+                    )
+                    if epoch_text.isdigit() and int(epoch_text) >= start_epoch:
                         checkpoints_list.append(os.path.join(self.output_dir, f))
             checkpoints_list.sort(key=os.path.getmtime)
 

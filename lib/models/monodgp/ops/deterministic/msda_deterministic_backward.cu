@@ -16,6 +16,222 @@ namespace {
 constexpr int kThreads = 256;
 constexpr int kReduceThreads = 32;
 
+__global__ void deterministic_bilinear2d_index_backward_float_kernel(
+    const float* __restrict__ grad_value,
+    float* __restrict__ grad_input,
+    int64_t input_numel,
+    int input_height,
+    int input_width,
+    int output_height,
+    int output_width,
+    int corner) {
+  const float height_scale = output_height > 1
+      ? static_cast<float>(input_height - 1) / static_cast<float>(output_height - 1)
+      : 0.0f;
+  const float width_scale = output_width > 1
+      ? static_cast<float>(input_width - 1) / static_cast<float>(output_width - 1)
+      : 0.0f;
+  const bool use_next_y = corner >= 2;
+  const bool use_next_x = corner == 1 || corner == 3;
+  for (int64_t input_index = static_cast<int64_t>(blockIdx.x) * blockDim.x
+           + threadIdx.x;
+       input_index < input_numel;
+       input_index += static_cast<int64_t>(blockDim.x) * gridDim.x) {
+    int64_t cursor = input_index;
+    const int input_x = cursor % input_width;
+    cursor /= input_width;
+    const int input_y = cursor % input_height;
+    const int64_t channel_batch = cursor / input_height;
+    float sum = 0.0f;
+    const int output_y_begin = max(
+        0, static_cast<int>(ceilf(static_cast<float>(input_y - 1) / height_scale)));
+    const int output_y_end = min(
+        output_height - 1,
+        static_cast<int>(floorf(static_cast<float>(input_y + 1) / height_scale)));
+    const int output_x_begin = max(
+        0, static_cast<int>(ceilf(static_cast<float>(input_x - 1) / width_scale)));
+    const int output_x_end = min(
+        output_width - 1,
+        static_cast<int>(floorf(static_cast<float>(input_x + 1) / width_scale)));
+    for (int output_y = output_y_begin; output_y <= output_y_end; ++output_y) {
+      const float source_y = fmaxf(height_scale * static_cast<float>(output_y), 0.0f);
+      const int base_y = static_cast<int>(source_y);
+      const int selected_y = use_next_y ? min(base_y + 1, input_height - 1) : base_y;
+      if (selected_y != input_y) {
+        continue;
+      }
+      for (int output_x = output_x_begin; output_x <= output_x_end; ++output_x) {
+        const float source_x = fmaxf(width_scale * static_cast<float>(output_x), 0.0f);
+        const int base_x = static_cast<int>(source_x);
+        const int selected_x = use_next_x ? min(base_x + 1, input_width - 1) : base_x;
+        if (selected_x == input_x) {
+          const int64_t output_index =
+              (channel_batch * output_height + output_y) * output_width + output_x;
+          sum = __fadd_rn(sum, grad_value[output_index]);
+        }
+      }
+    }
+    grad_input[input_index] = sum;
+  }
+}
+
+torch::Tensor deterministic_bilinear2d_index_backward_cuda(
+    const torch::Tensor& grad_value,
+    int64_t input_height,
+    int64_t input_width,
+    int64_t corner) {
+  TORCH_CHECK(grad_value.is_cuda(), "grad_value must be CUDA");
+  TORCH_CHECK(grad_value.scalar_type() == torch::kFloat,
+              "only float32 grad_value is supported");
+  TORCH_CHECK(grad_value.dim() == 4 && grad_value.is_contiguous(),
+              "grad_value must be contiguous NCHW");
+  TORCH_CHECK(corner >= 0 && corner < 4, "corner must be in [0, 4)");
+  const int64_t output_height = grad_value.size(2);
+  const int64_t output_width = grad_value.size(3);
+  TORCH_CHECK(output_height == input_height * 2
+              && output_width == input_width * 2,
+              "only exact 2x output sizes are supported");
+  const c10::cuda::CUDAGuard device_guard(grad_value.device());
+  auto result = torch::empty(
+      {grad_value.size(0), grad_value.size(1), input_height, input_width},
+      grad_value.options());
+  const int64_t input_numel = result.numel();
+  const int blocks = static_cast<int>(std::min<int64_t>(
+      (input_numel + kThreads - 1) / kThreads, 65535));
+  cudaStream_t stream = at::cuda::getCurrentCUDAStream(grad_value.get_device());
+  deterministic_bilinear2d_index_backward_float_kernel<<<
+      blocks, kThreads, 0, stream>>>(
+          grad_value.data_ptr<float>(),
+          result.data_ptr<float>(),
+          input_numel,
+          static_cast<int>(input_height),
+          static_cast<int>(input_width),
+          static_cast<int>(output_height),
+          static_cast<int>(output_width),
+          static_cast<int>(corner));
+  C10_CUDA_KERNEL_LAUNCH_CHECK();
+  return result;
+}
+
+__global__ void deterministic_bilinear2d_backward_corners_float_kernel(
+    const float* __restrict__ grad_output,
+    float* __restrict__ corner_gradients,
+    int64_t input_numel,
+    int input_height,
+    int input_width,
+    int output_height,
+    int output_width) {
+  const float height_scale = output_height > 1
+      ? static_cast<float>(input_height - 1) / static_cast<float>(output_height - 1)
+      : 0.0f;
+  const float width_scale = output_width > 1
+      ? static_cast<float>(input_width - 1) / static_cast<float>(output_width - 1)
+      : 0.0f;
+  for (int64_t input_index = static_cast<int64_t>(blockIdx.x) * blockDim.x
+           + threadIdx.x;
+       input_index < input_numel;
+       input_index += static_cast<int64_t>(blockDim.x) * gridDim.x) {
+    int64_t cursor = input_index;
+    const int input_x = cursor % input_width;
+    cursor /= input_width;
+    const int input_y = cursor % input_height;
+    const int64_t channel_batch = cursor / input_height;
+
+    float sums[4] = {0.0f, 0.0f, 0.0f, 0.0f};
+    const int output_y_begin = max(
+        0, static_cast<int>(ceilf(static_cast<float>(input_y - 1) / height_scale)));
+    const int output_y_end = min(
+        output_height - 1,
+        static_cast<int>(floorf(static_cast<float>(input_y + 1) / height_scale)));
+    const int output_x_begin = max(
+        0, static_cast<int>(ceilf(static_cast<float>(input_x - 1) / width_scale)));
+    const int output_x_end = min(
+        output_width - 1,
+        static_cast<int>(floorf(static_cast<float>(input_x + 1) / width_scale)));
+
+    for (int output_y = output_y_begin; output_y <= output_y_end; ++output_y) {
+      const float source_y = fmaxf(height_scale * static_cast<float>(output_y), 0.0f);
+      const int base_y = static_cast<int>(source_y);
+      const int next_y = min(base_y + 1, input_height - 1);
+      const float y_weight = fminf(fmaxf(source_y - static_cast<float>(base_y), 0.0f), 1.0f);
+      for (int output_x = output_x_begin; output_x <= output_x_end; ++output_x) {
+        const float source_x = fmaxf(width_scale * static_cast<float>(output_x), 0.0f);
+        const int base_x = static_cast<int>(source_x);
+        const int next_x = min(base_x + 1, input_width - 1);
+        const float x_weight = fminf(fmaxf(source_x - static_cast<float>(base_x), 0.0f), 1.0f);
+        const int64_t output_index =
+            (channel_batch * output_height + output_y) * output_width + output_x;
+        const float gradient = grad_output[output_index];
+        // Match the separate pointwise kernels in PyTorch autograd exactly.
+        // Explicit round-to-nearest intrinsics prevent nvcc from contracting
+        // the multiply/subtract pairs into FMAs.
+        const float gradient_y = __fmul_rn(gradient, y_weight);
+        const float top_gradient = __fsub_rn(gradient, gradient_y);
+        const float bottom_gradient = gradient_y;
+        if (input_y == base_y && input_x == base_x) {
+          const float top_x = __fmul_rn(top_gradient, x_weight);
+          sums[0] = __fadd_rn(sums[0], __fsub_rn(top_gradient, top_x));
+        }
+        if (input_y == base_y && input_x == next_x) {
+          sums[1] = __fadd_rn(
+              sums[1], __fmul_rn(top_gradient, x_weight));
+        }
+        if (input_y == next_y && input_x == base_x) {
+          const float bottom_x = __fmul_rn(bottom_gradient, x_weight);
+          sums[2] = __fadd_rn(
+              sums[2], __fsub_rn(bottom_gradient, bottom_x));
+        }
+        if (input_y == next_y && input_x == next_x) {
+          sums[3] = __fadd_rn(
+              sums[3], __fmul_rn(bottom_gradient, x_weight));
+        }
+      }
+    }
+    for (int corner = 0; corner < 4; ++corner) {
+      corner_gradients[static_cast<int64_t>(corner) * input_numel + input_index]
+          = sums[corner];
+    }
+  }
+}
+
+torch::Tensor deterministic_bilinear2d_backward_corners_cuda(
+    const torch::Tensor& grad_output,
+    int64_t input_height,
+    int64_t input_width) {
+  TORCH_CHECK(grad_output.is_cuda(), "grad_output must be CUDA");
+  TORCH_CHECK(grad_output.scalar_type() == torch::kFloat,
+              "only float32 grad_output is supported");
+  TORCH_CHECK(grad_output.dim() == 4 && grad_output.is_contiguous(),
+              "grad_output must be contiguous NCHW");
+  TORCH_CHECK(input_height > 1 && input_width > 1,
+              "input spatial dimensions must be greater than one");
+  const int64_t output_height = grad_output.size(2);
+  const int64_t output_width = grad_output.size(3);
+  TORCH_CHECK(output_height == input_height * 2
+              && output_width == input_width * 2,
+              "only exact 2x output sizes are supported");
+  const c10::cuda::CUDAGuard device_guard(grad_output.device());
+  const int64_t input_numel = grad_output.size(0) * grad_output.size(1)
+      * input_height * input_width;
+  auto result = torch::empty(
+      {4, grad_output.size(0), grad_output.size(1), input_height, input_width},
+      grad_output.options());
+  const int blocks = static_cast<int>(std::min<int64_t>(
+      (input_numel + kThreads - 1) / kThreads, 65535));
+  cudaStream_t stream = at::cuda::getCurrentCUDAStream(grad_output.get_device());
+  deterministic_bilinear2d_backward_corners_float_kernel<<<
+      blocks, kThreads, 0, stream>>>(
+          grad_output.data_ptr<float>(),
+          result.data_ptr<float>(),
+          input_numel,
+          static_cast<int>(input_height),
+          static_cast<int>(input_width),
+          static_cast<int>(output_height),
+          static_cast<int>(output_width));
+  C10_CUDA_KERNEL_LAUNCH_CHECK();
+  return result;
+}
+
 inline int ceil_log2_u64(uint64_t value) {
   int bits = 0;
   uint64_t capacity = 1;
@@ -687,6 +903,21 @@ std::vector<torch::Tensor> deterministic_msda_query_grads_cuda(
 }
 
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, module) {
+  module.def(
+      "deterministic_bilinear2d_index_backward",
+      &deterministic_bilinear2d_index_backward_cuda,
+      "Deterministic bilinear 2D indexed-corner backward (CUDA)",
+      pybind11::arg("grad_value"),
+      pybind11::arg("input_height"),
+      pybind11::arg("input_width"),
+      pybind11::arg("corner"));
+  module.def(
+      "deterministic_bilinear2d_backward_corners",
+      &deterministic_bilinear2d_backward_corners_cuda,
+      "Deterministic bilinear 2D backward corner sums (CUDA)",
+      pybind11::arg("grad_output"),
+      pybind11::arg("input_height"),
+      pybind11::arg("input_width"));
   module.def(
       "deterministic_msda_grad_value",
       &deterministic_msda_grad_value_cuda,

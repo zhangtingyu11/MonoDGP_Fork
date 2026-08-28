@@ -159,10 +159,13 @@ def main():
     deterministic_binaries = tuple(sorted(
         deterministic_extension_dir.glob(
             'MonoDGPDeterministicMSDA*.so')))
-    if (cfg['trainer'].get('strict_determinism', False)
+    deterministic_msda = bool(
+        cfg['trainer'].get('strict_determinism', False)
+        or cfg['trainer'].get('deterministic_msda', False))
+    if (deterministic_msda
             and not deterministic_binaries):
         raise RuntimeError(
-            'strict deterministic run requires the repository-local MSDA '
+            'deterministic MSDA requires the repository-local MSDA '
             'extension; build it before writing the formal run manifest')
     deterministic_extension_files = (
         deterministic_extension_dir / 'msda_deterministic_backward.cu',
@@ -174,6 +177,12 @@ def main():
     receipt.extend([
         '严格确定性算法：' + str(bool(
             cfg['trainer'].get('strict_determinism', False))),
+        '严格模式填充未初始化内存：' + str(bool(
+            cfg['trainer'].get('fill_uninitialized_memory', True))),
+        '确定性双线性index backward：' + str(bool(
+            cfg['trainer'].get(
+                'deterministic_bilinear_backward', False))),
+        '确定性MSDA backward：' + str(deterministic_msda),
         '批量精确三维IoU匹配：' + str(bool(
             cfg['model'].get('use_batched_iou3d_match_cost', False))),
         '仅主AP验证：' + str(bool(

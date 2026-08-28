@@ -6,6 +6,10 @@ import torch.nn.functional as F
 import math
 from sklearn.cluster import KMeans
 
+from .ops.functions.deterministic_bilinear import (
+    deterministic_bilinear_upsample2x,
+)
+
 
 class SEBlock(nn.Module):
     def __init__(self, channel, reduction=16):
@@ -35,7 +39,6 @@ class RegionSegHead(nn.Module):
                         nn.Conv2d(256, num_classes, 3, 1, 1)))
         self.input_proj = nn.ModuleList(input_proj_list)
         self.pred = nn.ModuleList(pred_list)
-        self.upsample = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
         self.attention = nn.ModuleList([SEBlock(d_model) for _ in range(n_levels)])
         
     def forward(self, features):
@@ -43,7 +46,9 @@ class RegionSegHead(nn.Module):
         p = [None] * len(features)
         p[-1] = self.input_proj[-1](features[-1])
         for i in range(len(features) - 2, -1, -1):
-            p[i] = self.input_proj[i](features[i]) + self.upsample(p[i + 1])
+            p[i] = (
+                self.input_proj[i](features[i])
+                + deterministic_bilinear_upsample2x(p[i + 1]))
         
         region_probs = []
         for i in range(len(features)):

@@ -37,10 +37,31 @@ def main():
         cfg['trainer'].get('strict_determinism', False)
         or os.environ.get('MONODGP_STRICT_DETERMINISM', '0') == '1')
     torch.use_deterministic_algorithms(strict_determinism, warn_only=False)
-    if strict_determinism:
+    fill_uninitialized_memory = bool(
+        cfg['trainer'].get('fill_uninitialized_memory', True))
+    torch.utils.deterministic.fill_uninitialized_memory = (
+        fill_uninitialized_memory)
+    deterministic_msda = bool(
+        strict_determinism
+        or cfg['trainer'].get('deterministic_msda', False)
+        or os.environ.get('MONODGP_DETERMINISTIC_MSDA', '0') == '1')
+    deterministic_bilinear_backward = bool(
+        cfg['trainer'].get('deterministic_bilinear_backward', False)
+        or os.environ.get(
+            'MONODGP_DETERMINISTIC_BILINEAR_BACKWARD', '0') == '1')
+    if deterministic_msda:
         from lib.models.monodgp.ops.functions.ms_deform_attn_func import (
-            ensure_deterministic_msda_available)
+            ensure_deterministic_msda_available,
+            set_force_deterministic_msda)
+        set_force_deterministic_msda(True)
         ensure_deterministic_msda_available()
+    if deterministic_bilinear_backward:
+        if not strict_determinism:
+            raise ValueError(
+                'deterministic_bilinear_backward requires strict_determinism')
+        from lib.models.monodgp.ops.functions.deterministic_bilinear import (
+            set_force_deterministic_bilinear_backward)
+        set_force_deterministic_bilinear_backward(True)
     set_random_seed(cfg.get('random_seed', 444))
 
     model_name = cfg['model_name']
@@ -52,10 +73,13 @@ def main():
         'train.%s.log' % datetime.datetime.now().strftime('%Y%m%d_%H%M%S'))
     logger = create_logger(log_file)
     logger.info('PyTorch strict deterministic algorithms: %s', strict_determinism)
-    deterministic_msda = bool(
-        strict_determinism
-        or os.environ.get('MONODGP_DETERMINISTIC_MSDA', '0') == '1')
+    logger.info(
+        'PyTorch fill uninitialized memory: %s',
+        torch.utils.deterministic.fill_uninitialized_memory)
     logger.info('Deterministic MSDA: %s', deterministic_msda)
+    logger.info(
+        'Deterministic bilinear backward: %s',
+        deterministic_bilinear_backward)
     tracker = SwanLabTracker(
         cfg=cfg['trainer'].get('swanlab', {}),
         run_config=cfg,

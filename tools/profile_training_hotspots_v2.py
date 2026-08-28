@@ -6,6 +6,7 @@ import cProfile
 import hashlib
 import json
 import math
+import os
 from pathlib import Path
 import pstats
 import sqlite3
@@ -25,13 +26,24 @@ sys.path.insert(0, str(ROOT))
 
 
 def load_config():
-    from tools.benchmark_batched_same_image_matcher_v2 import (
-        load_config as load_seq9_config,
-    )
+    from lib.helpers.config_helper import load_config as load_experiment_config
 
-    cfg = load_seq9_config(True)
+    cfg = load_experiment_config(ROOT / 'configs/monodgp_exp45.yaml')
     cfg['trainer']['max_epoch'] = 1
     cfg['trainer']['save_path'] = '/tmp/monodgp_seq11_no_artifacts/'
+    cfg['trainer']['swanlab']['enabled'] = False
+    strict_override = os.environ.get('MONODGP_PROFILE_STRICT')
+    strict = (
+        bool(cfg['trainer'].get('strict_determinism', False))
+        if strict_override is None else strict_override == '1'
+    )
+    cfg['trainer']['strict_determinism'] = strict
+    torch.use_deterministic_algorithms(strict, warn_only=False)
+    if strict:
+        from lib.models.monodgp.ops.functions.ms_deform_attn_func import (
+            ensure_deterministic_msda_available,
+        )
+        ensure_deterministic_msda_available()
     return cfg
 
 
@@ -143,7 +155,8 @@ class _PhaseContext:
 
 
 def make_targets_and_dn(trainer, inputs, raw_targets):
-    img_sizes = raw_targets['img_size']
+    img_sizes = raw_targets.get(
+        'model_image_size', raw_targets['img_size'])
     targets = trainer.prepare_targets(raw_targets, inputs.shape[0])
     dn_args = None
     if trainer.cfg['use_dn']:
