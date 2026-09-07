@@ -52,3 +52,33 @@ def test_in_memory_annotations_match_historical_text_roundtrip(tmp_path):
         assert disk.keys() == memory.keys()
         for key in disk:
             np.testing.assert_array_equal(memory[key], disk[key])
+
+    # Close scores must remain distinct (including tiny scores and scores >1).
+    # Test the actual exporter, not a reimplementation of its formatting.
+    from lib.helpers.tester_helper import Tester
+
+    scores = np.array([0.8812345, 0.8812346, 0.00012464268, 26.140564],
+                      dtype=np.float32)
+    predictions = np.repeat(np.array(decoded[1], dtype=np.float32), len(scores), axis=0)
+    predictions[:, 1] = -0.123456
+    predictions[:, 2] = 10.126789
+    predictions[:, 13] = scores
+    precise_decoded = {1: predictions, 2: []}
+    original = predictions.copy()
+    memory_annos = dataset._decoded_predictions_to_annos(precise_decoded)
+    np.testing.assert_array_equal(memory_annos[0]['score'], scores.astype(np.float64))
+    assert memory_annos[0]['score'][0] < memory_annos[0]['score'][1]
+    np.testing.assert_array_equal(memory_annos[0]['alpha'], [-0.12] * len(scores))
+    np.testing.assert_array_equal(memory_annos[0]['bbox'][:, 0], [10.13] * len(scores))
+
+    tester = object.__new__(Tester)
+    tester.output_dir = str(tmp_path / 'export')
+    tester.dataset_type = 'KITTI'
+    tester.class_name = dataset.class_name
+    tester.save_results(precise_decoded)
+    disk_annos = kitti_common.get_label_annos(
+        tmp_path / 'export' / 'outputs' / 'data', [1, 2])
+    for disk, memory in zip(disk_annos, memory_annos):
+        for key in disk:
+            np.testing.assert_array_equal(memory[key], disk[key])
+    np.testing.assert_array_equal(predictions, original)

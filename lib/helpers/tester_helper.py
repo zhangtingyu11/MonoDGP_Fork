@@ -493,7 +493,12 @@ class Tester(object):
                 class_name = self.class_name[int(results[img_id][i][0])]
                 f.write('{} 0.0 0'.format(class_name))
                 for j in range(1, len(results[img_id][i])):
-                    f.write(' {:.2f}'.format(results[img_id][i][j]))
+                    value = results[img_id][i][j]
+                    if j == 13:
+                        # Preserve score ordering and match in-memory evaluation.
+                        f.write(' ' + repr(float(value)))
+                    else:
+                        f.write(' {:.2f}'.format(value))
                 f.write('\n')
             f.close()
 

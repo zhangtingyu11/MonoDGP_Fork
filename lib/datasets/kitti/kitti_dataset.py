@@ -269,9 +269,9 @@ class KITTI_Dataset(data.Dataset):
     def _decoded_predictions_to_annos(self, results):
         """Convert decoded predictions to KITTI annotations without disk I/O.
 
-        Values are rounded to the same two decimals used by the historical
-        text export, so switching to in-memory evaluation does not silently
-        change AP merely by retaining extra floating-point precision.
+        Geometry retains the historical two-decimal text precision. Scores
+        retain their original precision to avoid introducing ranking ties;
+        Tester.save_results uses a lossless float representation for scores.
         """
         annos = []
         for image_id in self.idx_list:
@@ -286,10 +286,9 @@ class KITTI_Dataset(data.Dataset):
             score = np.empty(count, dtype=np.float64)
 
             for index, prediction in enumerate(predictions):
-                # This exactly mirrors Tester.save_results(..., "{:.2f}")
-                # followed by kitti_common.get_label_anno(...).
+                # Only geometry is rounded, matching the text export.
                 quantized = np.array(
-                    [float(f"{value:.2f}") for value in prediction[1:]],
+                    [float(f"{value:.2f}") for value in prediction[1:13]],
                     dtype=np.float64,
                 )
                 names.append(self.class_name[int(prediction[0])])
@@ -298,7 +297,7 @@ class KITTI_Dataset(data.Dataset):
                 dimensions_hwl[index] = quantized[5:8]
                 location[index] = quantized[8:11]
                 rotation_y[index] = quantized[11]
-                score[index] = quantized[12]
+                score[index] = float(prediction[13])
 
             annos.append({
                 'name': np.asarray(names),
