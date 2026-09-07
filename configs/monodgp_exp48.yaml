@@ -1,0 +1,30 @@
+base_config: monodgp_exp47.yaml
+
+model_name: 'V2-0048_实验48_全Query三维IoU分类乘深度'
+
+model:
+  # Replace Exp47's binary class target with every query's maximum exact
+  # same-image 3D IoU target. Exp47 already has no independent quality head.
+  iou_quality_head:
+    enabled: false
+  iou_classification:
+    enabled: true
+    beta: 2.0
+  high_iou_unmatched_negative_weighting:
+    enabled: false
+
+tester:
+  threshold: 0.0
+  topk: 50
+  # The classification probability now represents IoU. Preserve the approved
+  # Exp48 score definition by multiplying it with depth confidence.
+  primary_quality_score: iou_classification_x_depth
+  quality_score_fusions:
+    - {name: iou_classification_x_depth, alpha: 1.0, beta: 0.0, gamma: 1.0, historical_topk: true}
+  quality_ranking_monitoring: false
+
+trainer:
+  swanlab:
+    experiment_name: '实验48_全Query三维IoU分类乘深度'
+    description: '严格基于实验47从头训练，唯一方法变量是把3D decoder分类头从二元Hungarian正负分类改为监督每个query与同图全部GT的最大精确3D IoU；无GT时目标为0，使用beta=2的Quality Focal Loss。与实验47相同，不使用独立质量头；最终排序分数严格为IoU分类概率乘深度置信度。完整P2几何、同P2 MixUp、精确3D IoU Hungarian、其他Loss、严格确定性优化、step学习率及验证日程均继承实验47。'
+    tags: ['实验48', '实验47增量', '全Query', '3D-IoU分类', '分类乘深度', '单一质量语义头']

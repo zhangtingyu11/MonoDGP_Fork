@@ -1,0 +1,14 @@
+base_config: monodgp_exp47.yaml
+
+model_name: 'V2-0050_实验50_MixUp成功样本虚拟焦距'
+
+dataset:
+  mixup_virtual_focal: true
+  mixup_virtual_focal_scope: successful_mixup
+  mixup_virtual_focal_multipliers: [0.9, 1.0, 1.1]
+
+trainer:
+  swanlab:
+    experiment_name: '实验50_MixUp成功样本虚拟焦距'
+    description: '严格基于实验47从头训练，唯一方法变量是仅对实际成功应用原同P2 MixUp的训练样本加入0.9、1.0、1.1确定性虚拟焦距，倍率按(image_id+epoch)%3循环；未请求MixUp、供体失败或未成功MixUp的样本倍率为1.0。变换合并、完整P2/标签同步和新增Car画布边界裁切回退与实验49完全相同，只有适用范围不同。验证不增强；无独立质量头、c×d评分及其余全部设置继承实验47。'
+    tags: ['实验50', '实验47增量', 'MixUp成功样本', '确定性虚拟焦距', '完整P2', 'c×d']

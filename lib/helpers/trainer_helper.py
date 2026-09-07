@@ -57,6 +57,7 @@ _MIXUP_TARGET_KEYS = (
     'mixup_virtual_focal_multiplier',
     'mixup_virtual_focal_requested_multiplier',
     'mixup_virtual_focal_cancelled',
+    'mixup_virtual_focal_eligible',
     'mixup_donor_target_count', 'mixup_retained_support_min',
     'mixup_retained_support_observed',
     'mixup_projection_residual_sum', 'mixup_projection_residual_max',
@@ -82,6 +83,9 @@ def collect_mixup_counts(targets):
         .detach().float().reshape(-1))
     virtual_focal_cancelled = (
         targets['mixup_virtual_focal_cancelled']
+        .detach().float().reshape(-1))
+    virtual_focal_eligible = (
+        targets['mixup_virtual_focal_eligible']
         .detach().float().reshape(-1))
     donor_target_count = (
         targets['mixup_donor_target_count'].detach().float().reshape(-1))
@@ -121,33 +125,35 @@ def collect_mixup_counts(targets):
         'focal_scale_y_sum': focal_scale_y.sum(),
         'cross_focal_scale_x_sum': (focal_scale_x * cross_focal).sum(),
         'cross_focal_scale_y_sum': (focal_scale_y * cross_focal).sum(),
-        'virtual_focal_sum': (virtual_focal * applied).sum(),
+        'virtual_focal_eligible_count': virtual_focal_eligible.sum(),
+        'virtual_focal_sum': (
+            virtual_focal * virtual_focal_eligible).sum(),
         'virtual_focal_cancelled_count': (
-            virtual_focal_cancelled * applied).sum(),
+            virtual_focal_cancelled * virtual_focal_eligible).sum(),
         'virtual_focal_requested_0_9_count': (
-            applied * torch.isclose(
+            virtual_focal_eligible * torch.isclose(
                 virtual_focal_requested,
                 virtual_focal_requested.new_tensor(0.9))).sum(),
         'virtual_focal_requested_1_1_count': (
-            applied * torch.isclose(
+            virtual_focal_eligible * torch.isclose(
                 virtual_focal_requested,
                 virtual_focal_requested.new_tensor(1.1))).sum(),
         'virtual_focal_cancelled_0_9_count': (
-            applied * virtual_focal_cancelled * torch.isclose(
+            virtual_focal_eligible * virtual_focal_cancelled * torch.isclose(
                 virtual_focal_requested,
                 virtual_focal_requested.new_tensor(0.9))).sum(),
         'virtual_focal_cancelled_1_1_count': (
-            applied * virtual_focal_cancelled * torch.isclose(
+            virtual_focal_eligible * virtual_focal_cancelled * torch.isclose(
                 virtual_focal_requested,
                 virtual_focal_requested.new_tensor(1.1))).sum(),
         'virtual_focal_0_9_count': (
-            applied * torch.isclose(
+            virtual_focal_eligible * torch.isclose(
                 virtual_focal, virtual_focal.new_tensor(0.9))).sum(),
         'virtual_focal_1_0_count': (
-            applied * torch.isclose(
+            virtual_focal_eligible * torch.isclose(
                 virtual_focal, virtual_focal.new_tensor(1.0))).sum(),
         'virtual_focal_1_1_count': (
-            applied * torch.isclose(
+            virtual_focal_eligible * torch.isclose(
                 virtual_focal, virtual_focal.new_tensor(1.1))).sum(),
         'donor_target_count_sum': donor_target_count.sum(),
         'total_target_count_sum': (
@@ -198,10 +204,13 @@ def mixup_monitor_payload(counts, scope):
     sample_count = values['sample_count']
     requested = values['requested_count']
     applied = values['applied_count']
+    virtual_focal_eligible = values['virtual_focal_eligible_count']
     cross_focal = values['cross_focal_count']
     safe_sample = sample_count if sample_count else 1.0
     safe_requested = requested if requested else 1.0
     safe_applied = applied if applied else 1.0
+    safe_virtual_focal_eligible = (
+        virtual_focal_eligible if virtual_focal_eligible else 1.0)
     safe_cross_focal = cross_focal if cross_focal else 1.0
     prefix = f'{scope}跨焦距MixUp'
     payload = {
@@ -224,22 +233,28 @@ def mixup_monitor_payload(counts, scope):
             values['cross_focal_scale_x_sum'] / safe_cross_focal),
         f'{prefix}/跨P2样本平均垂直焦距倍率': (
             values['cross_focal_scale_y_sum'] / safe_cross_focal),
-        f'{prefix}/成功样本平均虚拟焦距倍率': (
-            values['virtual_focal_sum'] / safe_applied),
-        f'{prefix}/成功样本虚拟焦距因新增裁车取消比例': (
-            values['virtual_focal_cancelled_count'] / safe_applied),
+        f'{prefix}/虚拟焦距适用样本比例': (
+            virtual_focal_eligible / safe_sample),
+        f'{prefix}/适用样本平均虚拟焦距倍率': (
+            values['virtual_focal_sum'] / safe_virtual_focal_eligible),
+        f'{prefix}/适用样本虚拟焦距因新增裁车取消比例': (
+            values['virtual_focal_cancelled_count']
+            / safe_virtual_focal_eligible),
         f'{prefix}/请求0.9虚拟焦距样本取消比例': (
             values['virtual_focal_cancelled_0_9_count']
             / max(values['virtual_focal_requested_0_9_count'], 1.0)),
         f'{prefix}/请求1.1虚拟焦距样本取消比例': (
             values['virtual_focal_cancelled_1_1_count']
             / max(values['virtual_focal_requested_1_1_count'], 1.0)),
-        f'{prefix}/成功样本虚拟焦距0.9比例': (
-            values['virtual_focal_0_9_count'] / safe_applied),
-        f'{prefix}/成功样本虚拟焦距1.0比例': (
-            values['virtual_focal_1_0_count'] / safe_applied),
-        f'{prefix}/成功样本虚拟焦距1.1比例': (
-            values['virtual_focal_1_1_count'] / safe_applied),
+        f'{prefix}/适用样本虚拟焦距0.9比例': (
+            values['virtual_focal_0_9_count']
+            / safe_virtual_focal_eligible),
+        f'{prefix}/适用样本虚拟焦距1.0比例': (
+            values['virtual_focal_1_0_count']
+            / safe_virtual_focal_eligible),
+        f'{prefix}/适用样本虚拟焦距1.1比例': (
+            values['virtual_focal_1_1_count']
+            / safe_virtual_focal_eligible),
         f'{prefix}/成功样本平均供体GT数': (
             values['donor_target_count_sum'] / safe_applied),
         f'{prefix}/全部训练GT中供体GT比例': (
@@ -691,9 +706,17 @@ class Trainer(object):
                 optimizer=self.optimizer,
                 filename=resume_model_path,
                 map_location=self.device,
-                logger=self.logger)
-            self.lr_scheduler.last_epoch = self.epoch - 1
+                logger=self.logger,
+                lr_scheduler=self.lr_scheduler,
+                warmup_lr_scheduler=self.warmup_lr_scheduler)
             self.logger.info("Loading Checkpoint... Best Result:{}, Best Epoch:{}".format(self.best_result, self.best_epoch))
+
+    def _checkpoint_state(self, best_result, best_epoch):
+        return get_checkpoint_state(
+            self.model, self.optimizer, self.epoch,
+            best_result, best_epoch,
+            lr_scheduler=self.lr_scheduler,
+            warmup_lr_scheduler=self.warmup_lr_scheduler)
 
     def _initial_nms_best_state(self):
         threshold = f'{self.nms_best_selection_threshold:.2f}'
@@ -753,9 +776,7 @@ class Trainer(object):
                 self.output_dir,
                 f'checkpoint_best_bev_nms_{key.replace(".", "_")}')
             save_checkpoint(
-                get_checkpoint_state(
-                    self.model, self.optimizer, self.epoch,
-                    state['score'], state['epoch']),
+                self._checkpoint_state(state['score'], state['epoch']),
                 checkpoint_name)
         diagnostics_dir = os.path.join(self.output_dir, 'diagnostics')
         os.makedirs(diagnostics_dir, exist_ok=True)
@@ -797,6 +818,8 @@ class Trainer(object):
             np.random.seed(np.random.get_state()[1][0] + epoch)
             if hasattr(self.train_loader.dataset, 'set_epoch'):
                 self.train_loader.dataset.set_epoch(epoch)
+            if hasattr(self.detr_loss, 'set_epoch'):
+                self.detr_loss.set_epoch(epoch + 1)
             # train one epoch
             train_summary = self.train_one_epoch(epoch)
             self.epoch += 1
@@ -827,7 +850,8 @@ class Trainer(object):
                     payload, step=self.epoch * len(self.train_loader))
 
             # update learning rate
-            if self.warmup_lr_scheduler is not None and epoch < 5:
+            if (self.warmup_lr_scheduler is not None
+                    and epoch < self.warmup_lr_scheduler.num_epoch):
                 self.warmup_lr_scheduler.step()
             else:
                 self.lr_scheduler.step()
@@ -841,7 +865,7 @@ class Trainer(object):
                     ckpt_name = os.path.join(self.output_dir, 'checkpoint')
                
                 save_checkpoint(
-                    get_checkpoint_state(self.model, self.optimizer, self.epoch, best_result, best_epoch),
+                    self._checkpoint_state(best_result, best_epoch),
                     ckpt_name)
 
                 validation_start_epoch = max(
@@ -857,6 +881,8 @@ class Trainer(object):
                     self.cfg.get('early_validation_updates_best', False))
                 if (self.tester is not None
                         and (formal_validation or early_validation)):
+                    if hasattr(self.tester, 'set_epoch'):
+                        self.tester.set_epoch(self.epoch)
                     validation_kind = (
                         'formal' if formal_validation else 'early-diagnostic')
                     primary_ap_only = bool(
@@ -917,9 +943,8 @@ class Trainer(object):
                                 ckpt_name = os.path.join(
                                     self.output_dir, 'checkpoint_best')
                                 save_checkpoint(
-                                    get_checkpoint_state(
-                                        self.model, self.optimizer,
-                                        self.epoch, best_result, best_epoch),
+                                    self._checkpoint_state(
+                                        best_result, best_epoch),
                                     ckpt_name)
                                 nms_report = (
                                     self.tester
@@ -1027,7 +1052,7 @@ class Trainer(object):
                         best_epoch = self.epoch
                         ckpt_name = os.path.join(self.output_dir, 'checkpoint_best')
                         save_checkpoint(
-                            get_checkpoint_state(self.model, self.optimizer, self.epoch, best_result, best_epoch),
+                            self._checkpoint_state(best_result, best_epoch),
                             ckpt_name)
                         if not primary_ap_only:
                             nms_report = (

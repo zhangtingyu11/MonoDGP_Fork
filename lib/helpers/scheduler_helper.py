@@ -4,17 +4,49 @@ import math
 
 
 def build_lr_scheduler(cfg, optimizer, last_epoch):
-    def lr_lbmd(cur_epoch):
-        cur_decay = 1
-        for decay_step in cfg['decay_list']:
-            if cur_epoch >= decay_step:
-                cur_decay = cur_decay * cfg['decay_rate']
-        return cur_decay
-
-    lr_scheduler = lr_sched.LambdaLR(optimizer, lr_lbmd, last_epoch=last_epoch)
+    scheduler_type = str(cfg.get('type', 'step')).lower()
+    if scheduler_type == 'step':
+        def lr_lbmd(cur_epoch):
+            cur_decay = 1
+            for decay_step in cfg['decay_list']:
+                if cur_epoch >= decay_step:
+                    cur_decay = cur_decay * cfg['decay_rate']
+            return cur_decay
+        lr_scheduler = lr_sched.LambdaLR(
+            optimizer, lr_lbmd, last_epoch=last_epoch)
+    elif scheduler_type == 'cos':
+        t_max = int(cfg['t_max'])
+        eta_min = float(cfg.get('eta_min', 0.0))
+        if t_max <= 0:
+            raise ValueError('cosine scheduler t_max must be positive')
+        if any(float(group['lr']) <= 0.0
+               for group in optimizer.param_groups):
+            raise ValueError('cosine scheduler requires positive base LR')
+        lr_scheduler = lr_sched.CosineAnnealingLR(
+            optimizer, T_max=t_max, eta_min=eta_min,
+            last_epoch=last_epoch)
+    else:
+        raise ValueError(
+            f"unsupported lr_scheduler type: {scheduler_type}")
     warmup_lr_scheduler = None
     if cfg['warmup']:
-        warmup_lr_scheduler = CosineWarmupLR(optimizer, num_epoch=5, init_lr=0.00001)
+        warmup_epochs = int(cfg.get('warmup_epochs', 5))
+        warmup_init_lr = float(cfg.get('warmup_init_lr', 0.00001))
+        warmup_type = str(cfg.get('warmup_type', 'cosine')).lower()
+        if warmup_epochs <= 0:
+            raise ValueError('warmup_epochs must be positive')
+        if warmup_init_lr < 0.0:
+            raise ValueError('warmup_init_lr must be non-negative')
+        if warmup_type == 'cosine':
+            warmup_class = CosineWarmupLR
+        elif warmup_type == 'linear':
+            warmup_class = LinearWarmupLR
+        else:
+            raise ValueError(
+                f'unsupported warmup_type: {warmup_type}')
+        warmup_lr_scheduler = warmup_class(
+            optimizer, num_epoch=warmup_epochs,
+            init_lr=warmup_init_lr)
     return lr_scheduler, warmup_lr_scheduler
 
 

@@ -125,6 +125,9 @@ def main():
         'MixUp虚拟焦距倍率：' + ','.join(map(
             str, cfg['dataset'].get(
                 'mixup_virtual_focal_multipliers', ()))),
+        '虚拟焦距适用范围：' + str(
+            cfg['dataset'].get(
+                'mixup_virtual_focal_scope', 'successful_mixup')),
         'best刷新时BEV NMS阈值：' + ','.join(map(
             str, cfg['tester'].get('best_refresh_bev_nms_thresholds', ()))),
         f"命令：{args.command}",
@@ -140,6 +143,8 @@ def main():
         ROOT_DIR / 'lib/datasets/kitti/kitti_utils.py',
         ROOT_DIR / 'lib/datasets/kitti/mixup_geometry.py',
         ROOT_DIR / 'lib/helpers/decode_helper.py',
+        ROOT_DIR / 'lib/helpers/scheduler_helper.py',
+        ROOT_DIR / 'lib/helpers/save_helper.py',
         ROOT_DIR / 'lib/helpers/tester_helper.py',
         ROOT_DIR / 'lib/helpers/trainer_helper.py',
         ROOT_DIR / 'lib/helpers/quality_ranking_monitor.py',
@@ -248,8 +253,16 @@ def main():
             quality_cfg.get('target_encoding', '未配置')),
         '质量头独立初始化种子：' + str(
             quality_cfg.get('init_seed', '未配置')),
+        '质量头训练启用轮次：' + str(
+            quality_cfg.get('training_start_epoch', 1)),
         '主排序分数：' + str(
             cfg['tester'].get('primary_quality_score', '历史默认')),
+        '排序分数切换轮次：' + str(
+            cfg['tester'].get(
+                'quality_score_activation_epoch', '未配置')),
+        '切换前主排序分数：' + str(
+            cfg['tester'].get(
+                'pre_activation_primary_quality_score', '未配置')),
         '预注册排序组合：' + ';'.join(
             f"{item['name']}(alpha={item.get('alpha', 1.0)},"
             f"beta={item.get('beta', 1.0)},"
@@ -257,6 +270,11 @@ def main():
             f"historical_topk={bool(item.get('historical_topk', False))},"
             f"classification_only={bool(item.get('classification_only', False))})"
             for item in score_fusions),
+        '学习率调度：' + str(cfg['lr_scheduler'].get('type', 'step')),
+        'Cosine T_max：' + str(
+            cfg['lr_scheduler'].get('t_max', '未配置')),
+        'Cosine eta_min：' + str(
+            cfg['lr_scheduler'].get('eta_min', '未配置')),
     ])
     (output_dir / 'run_manifest.txt').write_text(
         '\n'.join(receipt) + '\n', encoding='utf-8')

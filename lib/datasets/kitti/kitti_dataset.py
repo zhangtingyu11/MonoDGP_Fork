@@ -112,6 +112,9 @@ class KITTI_Dataset(data.Dataset):
         self.mixup_max_attempts = int(cfg.get('mixup_max_attempts', 50))
         self.mixup_virtual_focal = bool(
             cfg.get('mixup_virtual_focal', False))
+        self.mixup_virtual_focal_scope = str(
+            cfg.get(
+                'mixup_virtual_focal_scope', 'successful_mixup'))
         self.mixup_virtual_focal_multipliers = tuple(float(value) for value in
             cfg.get('mixup_virtual_focal_multipliers', (0.9, 1.0, 1.1)))
         self.augmentation_epoch = 0
@@ -140,9 +143,11 @@ class KITTI_Dataset(data.Dataset):
         if self.mixup_max_attempts <= 0:
             raise ValueError('mixup_max_attempts must be positive')
         if self.mixup_virtual_focal:
-            if not self.cross_focal_mixup:
+            if self.mixup_virtual_focal_scope not in (
+                    'successful_mixup', 'all_samples'):
                 raise ValueError(
-                    'mixup_virtual_focal requires cross_focal_mixup=true')
+                    'mixup_virtual_focal_scope must be successful_mixup '
+                    'or all_samples')
             if not self.mixup_virtual_focal_multipliers:
                 raise ValueError(
                     'mixup_virtual_focal_multipliers must not be empty')
@@ -377,6 +382,7 @@ class KITTI_Dataset(data.Dataset):
         mixup_virtual_focal_multiplier = 1.0
         mixup_virtual_focal_requested_multiplier = 1.0
         mixup_virtual_focal_cancelled = 0.0
+        mixup_virtual_focal_eligible = 0.0
         mixup_donor_index = -1
         mixup_donor_target_count = 0
         mixup_donor_source_indices = np.full(
@@ -394,12 +400,25 @@ class KITTI_Dataset(data.Dataset):
         mixup_valid_mask = None
         calib = self.get_calib(index)
 
+        if (self.data_augmentation and self.mixup_virtual_focal
+                and self.mixup_virtual_focal_scope == 'all_samples'):
+            multiplier_index = (
+                index + self.augmentation_epoch
+            ) % len(self.mixup_virtual_focal_multipliers)
+            mixup_virtual_focal_multiplier = (
+                self.mixup_virtual_focal_multipliers[multiplier_index])
+            mixup_virtual_focal_requested_multiplier = (
+                mixup_virtual_focal_multiplier)
+            mixup_virtual_focal_eligible = 1.0
+
         if self.data_augmentation:
 
             if np.random.random() < self.random_mixup3d:
                 random_mix_flag = True
                 mixup_requested = 1.0
-                if self.mixup_virtual_focal:
+                if (self.mixup_virtual_focal
+                        and self.mixup_virtual_focal_scope
+                        == 'successful_mixup'):
                     multiplier_index = (
                         index + self.augmentation_epoch
                     ) % len(self.mixup_virtual_focal_multipliers)
@@ -440,7 +459,9 @@ class KITTI_Dataset(data.Dataset):
         baseline_affine_inv_h = np.eye(3, dtype=np.float32)
         baseline_affine_inv_h[:2] = baseline_trans_inv.astype(
             np.float32, copy=False)
-        if random_mix_flag and self.mixup_virtual_focal:
+        if (self.mixup_virtual_focal
+                and (random_mix_flag
+                     or self.mixup_virtual_focal_scope == 'all_samples')):
             crop_size = baseline_crop_size / mixup_virtual_focal_multiplier
 
         # The affine is sampled once for both RGB and labels.  Computing its
@@ -627,12 +648,53 @@ class KITTI_Dataset(data.Dataset):
             mixup_attempts = float(count_num)
 
         if (mixup_requested > 0.0 and not random_mix_flag
-                and self.mixup_virtual_focal):
+                and self.mixup_virtual_focal
+                and self.mixup_virtual_focal_scope
+                == 'successful_mixup'):
             mixup_virtual_focal_multiplier = 1.0
             crop_size = baseline_crop_size
             trans, trans_inv = baseline_trans, baseline_trans_inv
             affine_h = baseline_affine_h.copy()
             affine_inv_h = baseline_affine_inv_h.copy()
+
+        # Exp49 applies virtual focal to every training sample, including
+        # samples for which MixUp was not requested or no donor was accepted.
+        # Apply Exp37's incremental Car canvas-cut protection to the primary
+        # image in that path as well. Donor-aware protection above remains the
+        # stricter check whenever MixUp succeeds.
+        if (self.mixup_virtual_focal
+                and self.mixup_virtual_focal_scope == 'all_samples'
+                and not random_mix_flag):
+            # A rejected donor may have triggered donor-specific fallback
+            # inside the retry loop. It must not cancel Exp49's primary-only
+            # augmentation after MixUp ultimately fails.
+            mixup_virtual_focal_multiplier = (
+                mixup_virtual_focal_requested_multiplier)
+            mixup_virtual_focal_cancelled = 0.0
+            crop_size = (
+                baseline_crop_size / mixup_virtual_focal_multiplier)
+            trans, trans_inv = get_affine_transform(
+                center, crop_size, 0, self.resolution, inv=1)
+            affine_h = np.eye(3, dtype=np.float32)
+            affine_h[:2] = trans.astype(np.float32, copy=False)
+            affine_inv_h = np.eye(3, dtype=np.float32)
+            affine_inv_h[:2] = trans_inv.astype(
+                np.float32, copy=False)
+            primary_objects = self.get_label(index)
+            image_flip_h = np.eye(3, dtype=np.float64)
+            if random_flip_flag:
+                image_flip_h[0, 0] = -1.0
+                image_flip_h[0, 2] = float(img_size[0])
+            if (mixup_virtual_focal_multiplier != 1.0
+                    and self._virtual_focal_introduces_canvas_cut(
+                    primary_objects, (), np.eye(3, dtype=np.float64),
+                    image_flip_h, baseline_affine_h, affine_h)):
+                mixup_virtual_focal_multiplier = 1.0
+                mixup_virtual_focal_cancelled = 1.0
+                crop_size = baseline_crop_size
+                trans, trans_inv = baseline_trans, baseline_trans_inv
+                affine_h = baseline_affine_h.copy()
+                affine_inv_h = baseline_affine_inv_h.copy()
 
         # add affine transformation for 2d images.
         img = img.transform(tuple(self.resolution.tolist()),
@@ -852,6 +914,10 @@ class KITTI_Dataset(data.Dataset):
                 mixup_cross_focal = 0.0
                 mixup_focal_scale_x = 0.0
                 mixup_focal_scale_y = 0.0
+
+        if (self.mixup_virtual_focal
+                and self.mixup_virtual_focal_scope == 'successful_mixup'):
+            mixup_virtual_focal_eligible = float(mixup_applied > 0.0)
 
         # image encoding
         img = np.array(img).astype(np.float32) / 255.0
@@ -1275,7 +1341,9 @@ class KITTI_Dataset(data.Dataset):
             targets['physical_ray_heading'] = np.bool_(True)
             targets['model_image_size'] = self.resolution.astype(
                 np.float32, copy=True)
-        if self.cross_focal_mixup:
+        # Cross-P2 experiments and the Exp49/50 same-P2 virtual-focal
+        # experiments both require an auditable augmentation receipt.
+        if self.cross_focal_mixup or self.mixup_virtual_focal:
             targets.update({
                 'mixup_requested': np.float32(mixup_requested),
                 'mixup_applied': np.float32(mixup_applied),
@@ -1306,6 +1374,8 @@ class KITTI_Dataset(data.Dataset):
                     mixup_virtual_focal_requested_multiplier),
                 'mixup_virtual_focal_cancelled': np.float32(
                     mixup_virtual_focal_cancelled),
+                'mixup_virtual_focal_eligible': np.float32(
+                    mixup_virtual_focal_eligible),
                 'mixup_donor_index': np.int64(mixup_donor_index),
                 'mixup_donor_target_count': np.int64(
                     mixup_donor_target_count),

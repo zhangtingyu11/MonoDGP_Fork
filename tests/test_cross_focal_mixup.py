@@ -168,8 +168,31 @@ def test_mixup_monitor_reports_conditional_rates_and_coverage():
         'mixup_reject_geometry': torch.tensor([0.0, 1.0, 0.0, 0.0]),
         'mixup_reject_no_overlap': torch.tensor([0.0, 0.0, 0.0, 0.0]),
         'mixup_reject_partial_object': torch.tensor([0.0, 1.0, 0.0, 0.0]),
+        'mixup_reject_primary_mask_boundary': torch.zeros(4),
+        'mixup_reject_donor_mask_boundary': torch.zeros(4),
+        'mixup_reject_center_outside': torch.zeros(4),
+        'mixup_reject_no_valid_target': torch.zeros(4),
         'mixup_focal_scale_x': torch.tensor([1.1, 0.0, 0.0, 1.0]),
         'mixup_focal_scale_y': torch.tensor([1.2, 0.0, 0.0, 1.0]),
+        'mixup_virtual_focal_multiplier': torch.tensor(
+            [0.9, 1.0, 1.0, 1.1]),
+        'mixup_virtual_focal_requested_multiplier': torch.tensor(
+            [0.9, 1.0, 1.0, 1.1]),
+        'mixup_virtual_focal_cancelled': torch.zeros(4),
+        'mixup_virtual_focal_eligible': torch.tensor(
+            [1.0, 0.0, 0.0, 1.0]),
+        'mixup_donor_target_count': torch.tensor([2.0, 0.0, 0.0, 1.0]),
+        'mixup_retained_support_min': torch.tensor([0.8, 0.0, 0.0, 1.0]),
+        'mixup_retained_support_observed': torch.tensor(
+            [1.0, 0.0, 0.0, 1.0]),
+        'mixup_projection_residual_sum': torch.zeros(4),
+        'mixup_projection_residual_max': torch.zeros(4),
+        'mixup_depth_shift_abs_sum': torch.zeros(4),
+        'mixup_depth_shift_abs_max': torch.zeros(4),
+        'mixup_primary_donor_overlap_ratio': torch.zeros(4),
+        'mask_2d': torch.tensor([
+            [1.0, 1.0], [1.0, 0.0], [0.0, 0.0], [1.0, 1.0],
+        ]),
     }
     counts = collect_mixup_counts(targets)
     doubled = add_mixup_counts({}, counts)

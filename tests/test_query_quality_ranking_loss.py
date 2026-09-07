@@ -169,8 +169,8 @@ class _QualityOnlyMatcher(nn.Module):
         self.use_batched_same_image_cost = False
 
     def forward(self, outputs, targets, group_num=11,
-                prepared_targets=None):
-        del group_num, prepared_targets
+                prepared_targets=None, collect_iou3d_only_indices=False):
+        del group_num, prepared_targets, collect_iou3d_only_indices
         self.last_iou3d_matrix = self.iou3d.to(
             outputs['pred_quality'].device)
         empty = torch.empty(

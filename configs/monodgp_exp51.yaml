@@ -1,0 +1,27 @@
+base_config: monodgp_exp47.yaml
+
+model_name: 'V2-0051_实验51_第121轮启用质量头训练'
+
+model:
+  iou_quality_head:
+    enabled: true
+    training_start_epoch: 121
+
+tester:
+  # E120 is an explicit diagnostic using c×d because q has never trained.
+  # E121 and later activate c×q×d as the formal selection score.
+  quality_score_activation_epoch: 121
+  pre_activation_primary_quality_score: current_cxd
+  pre_activation_quality_score_fusions:
+    - {name: current_cxd, alpha: 1.0, beta: 0.0, gamma: 1.0, historical_topk: true}
+  primary_quality_score: c_q_d
+  quality_score_fusions:
+    - {name: c_q_d, alpha: 1.0, beta: 1.0, gamma: 1.0}
+
+trainer:
+  validation_start_epoch: 121
+  early_validation_interval: 10
+  swanlab:
+    experiment_name: '实验51_第121轮启用质量头训练'
+    description: '基于实验47从头训练，并从初始化起额外保留独立质量头；E1至E120完全关闭其Loss，质量头参数获得grad=None且不被AdamW或权重衰减更新，其他全部Loss照常训练。E120仅以实验47的c×d做早期诊断且不参与best。E121起启用Hungarian正样本精确3D IoU质量回归，梯度完整回传质量头及共享3D decoder，并切换为c×q×d正式逐轮验证和best选择。无detach、无参数冻结解冻重建优化器；由于额外质量头从初始化起存在，不宣称E1至E120参数轨迹与实验47逐位一致。'
+    tags: ['实验51', '实验47增量', '质量头延迟训练', 'E121启用', '完整反向传播', 'c×q×d']

@@ -1,0 +1,14 @@
+base_config: monodgp_exp47.yaml
+
+model_name: 'V2-0049_实验49_全样本确定性虚拟焦距'
+
+dataset:
+  mixup_virtual_focal: true
+  mixup_virtual_focal_scope: all_samples
+  mixup_virtual_focal_multipliers: [0.9, 1.0, 1.1]
+
+trainer:
+  swanlab:
+    experiment_name: '实验49_全样本确定性虚拟焦距'
+    description: '严格基于实验47从头训练，唯一方法变量是对全部训练样本加入0.9、1.0、1.1确定性虚拟焦距，倍率按(image_id+epoch)%3循环。虚拟焦距合并进既有裁剪/Resize仿射，RGB只插值一次，完整P2、2D框和3D投影中心同步更新；若虚拟焦距新增Car画布边界部分可见则回退倍率1.0。验证不做增强。无独立质量头、c×d评分、同P2 MixUp、全部Loss与匹配、严格确定性优化、step学习率及验证日程均继承实验47。'
+    tags: ['实验49', '实验47增量', '全样本', '确定性虚拟焦距', '完整P2', 'c×d']

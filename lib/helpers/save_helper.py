@@ -1,5 +1,6 @@
 import os
 import re
+import warnings
 import torch
 import torch.nn as nn
 
@@ -41,7 +42,9 @@ def model_state_to_cpu(model_state):
     return model_state_cpu
 
 
-def get_checkpoint_state(model=None, optimizer=None, epoch=None, best_result=None, best_epoch=None):
+def get_checkpoint_state(model=None, optimizer=None, epoch=None,
+                         best_result=None, best_epoch=None,
+                         lr_scheduler=None, warmup_lr_scheduler=None):
     optim_state = optimizer.state_dict() if optimizer is not None else None
     if model is not None:
         if isinstance(model, torch.nn.DataParallel):
@@ -51,7 +54,18 @@ def get_checkpoint_state(model=None, optimizer=None, epoch=None, best_result=Non
     else:
         model_state = None
 
-    return {'epoch': epoch, 'model_state': model_state, 'optimizer_state': optim_state, 'best_result': best_result, 'best_epoch': best_epoch}
+    return {
+        'epoch': epoch,
+        'model_state': model_state,
+        'optimizer_state': optim_state,
+        'lr_scheduler_state': (
+            lr_scheduler.state_dict() if lr_scheduler is not None else None),
+        'warmup_lr_scheduler_state': (
+            warmup_lr_scheduler.state_dict()
+            if warmup_lr_scheduler is not None else None),
+        'best_result': best_result,
+        'best_epoch': best_epoch,
+    }
 
 
 def save_checkpoint(state, filename):
@@ -59,7 +73,8 @@ def save_checkpoint(state, filename):
     torch.save(state, filename)
 
 
-def load_checkpoint(model, optimizer, filename, map_location, logger=None):
+def load_checkpoint(model, optimizer, filename, map_location, logger=None,
+                    lr_scheduler=None, warmup_lr_scheduler=None):
     if os.path.isfile(filename):
         logger.info("==> Loading from checkpoint '{}'".format(filename))
         checkpoint = torch.load(filename, map_location)
@@ -71,6 +86,52 @@ def load_checkpoint(model, optimizer, filename, map_location, logger=None):
                 model, checkpoint['model_state'], logger=logger)
         if optimizer is not None and checkpoint['optimizer_state'] is not None:
             optimizer.load_state_dict(checkpoint['optimizer_state'])
+        warmup_epochs = int(getattr(
+            warmup_lr_scheduler, 'num_epoch', 5))
+        if lr_scheduler is not None:
+            scheduler_state = checkpoint.get('lr_scheduler_state')
+            if scheduler_state is not None:
+                lr_scheduler.load_state_dict(scheduler_state)
+            elif epoch >= 0 and not (
+                    warmup_lr_scheduler is not None
+                    and epoch <= warmup_epochs):
+                # Historical checkpoints predate scheduler serialization.
+                # Reconstruct the exact closed-form state after ``epoch``
+                # completed epochs.  The next resumed epoch must train with
+                # lr(epoch), then advance to lr(epoch + 1), exactly like an
+                # uninterrupted run.
+                completed_scheduler_steps = (
+                    epoch - warmup_epochs
+                    if warmup_lr_scheduler is not None else epoch)
+                loaded_lrs = [
+                    group['lr'] for group in lr_scheduler.optimizer.param_groups]
+                with warnings.catch_warnings():
+                    warnings.simplefilter('ignore', UserWarning)
+                    lr_scheduler.step(completed_scheduler_steps)
+                # The optimizer checkpoint already contains the exact
+                # recursively-computed LR, which can differ by a few ulps from
+                # the scheduler's closed form.  Keep that exact value while
+                # retaining the reconstructed epoch/state for the next step.
+                for group, loaded_lr in zip(
+                        lr_scheduler.optimizer.param_groups, loaded_lrs):
+                    group['lr'] = loaded_lr
+                lr_scheduler._last_lr = loaded_lrs
+        if warmup_lr_scheduler is not None:
+            warmup_state = checkpoint.get('warmup_lr_scheduler_state')
+            if warmup_state is not None:
+                warmup_lr_scheduler.load_state_dict(warmup_state)
+            elif 0 <= epoch <= warmup_epochs:
+                loaded_lrs = [
+                    group['lr']
+                    for group in warmup_lr_scheduler.optimizer.param_groups]
+                with warnings.catch_warnings():
+                    warnings.simplefilter('ignore', UserWarning)
+                    warmup_lr_scheduler.step(epoch)
+                for group, loaded_lr in zip(
+                        warmup_lr_scheduler.optimizer.param_groups,
+                        loaded_lrs):
+                    group['lr'] = loaded_lr
+                warmup_lr_scheduler._last_lr = loaded_lrs
         logger.info("==> Done")
     else:
         raise FileNotFoundError

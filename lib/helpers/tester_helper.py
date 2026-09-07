@@ -130,7 +130,47 @@ class Tester(object):
                 and self.criterion is None):
             raise ValueError(
                 'NMS best-query monitoring requires the criterion')
-        self.quality_score_specs = tuple(
+        self.quality_score_specs = self._parse_quality_score_specs(
+            cfg.get('quality_score_fusions', ()))
+        self.primary_quality_score = cfg.get('primary_quality_score')
+        self._validate_quality_score_specs(
+            self.quality_score_specs, self.primary_quality_score)
+        self.quality_score_activation_epoch = cfg.get(
+            'quality_score_activation_epoch')
+        if self.quality_score_activation_epoch is not None:
+            self.quality_score_activation_epoch = int(
+                self.quality_score_activation_epoch)
+            if self.quality_score_activation_epoch < 1:
+                raise ValueError(
+                    'quality_score_activation_epoch must be at least 1')
+        self.pre_activation_quality_score_specs = (
+            self._parse_quality_score_specs(
+                cfg.get('pre_activation_quality_score_fusions', ())))
+        self.pre_activation_primary_quality_score = cfg.get(
+            'pre_activation_primary_quality_score')
+        if self.quality_score_activation_epoch is None:
+            if (self.pre_activation_quality_score_specs
+                    or self.pre_activation_primary_quality_score is not None):
+                raise ValueError(
+                    'pre-activation score configuration requires '
+                    'quality_score_activation_epoch')
+        else:
+            self._validate_quality_score_specs(
+                self.pre_activation_quality_score_specs,
+                self.pre_activation_primary_quality_score)
+        self.current_epoch = None
+        self.last_primary_quality_score = self.primary_quality_score
+        self.use_cuda_eval_prefetch = bool(
+            train_cfg.get('use_cuda_eval_prefetch', False))
+        if self.use_cuda_eval_prefetch and self.device.type != 'cuda':
+            raise RuntimeError('CUDA evaluation prefetch is enabled without CUDA')
+        self.cuda_eval_copy_stream = (
+            torch.cuda.Stream(device=self.device)
+            if self.use_cuda_eval_prefetch else None)
+
+    @staticmethod
+    def _parse_quality_score_specs(specs):
+        return tuple(
             {
                 'name': str(spec['name']),
                 'alpha': float(spec.get('alpha', 1.0)),
@@ -141,24 +181,34 @@ class Tester(object):
                 'classification_only': bool(
                     spec.get('classification_only', False)),
             }
-            for spec in cfg.get('quality_score_fusions', ()))
-        score_names = [spec['name'] for spec in self.quality_score_specs]
+            for spec in specs)
+
+    @staticmethod
+    def _validate_quality_score_specs(specs, primary):
+        score_names = [spec['name'] for spec in specs]
         if len(score_names) != len(set(score_names)):
             raise ValueError('quality score fusion names must be unique')
-        self.primary_quality_score = cfg.get('primary_quality_score')
-        if self.quality_score_specs and self.primary_quality_score is None:
+        if specs and primary is None:
             raise ValueError(
                 'quality score fusions require primary_quality_score')
-        if (self.primary_quality_score is not None
-                and self.primary_quality_score not in score_names):
+        if primary is not None and primary not in score_names:
             raise ValueError('primary quality score is not registered')
-        self.use_cuda_eval_prefetch = bool(
-            train_cfg.get('use_cuda_eval_prefetch', False))
-        if self.use_cuda_eval_prefetch and self.device.type != 'cuda':
-            raise RuntimeError('CUDA evaluation prefetch is enabled without CUDA')
-        self.cuda_eval_copy_stream = (
-            torch.cuda.Stream(device=self.device)
-            if self.use_cuda_eval_prefetch else None)
+
+    def set_epoch(self, epoch):
+        """Set the one-indexed checkpoint epoch for scheduled scoring."""
+        epoch = int(epoch)
+        if epoch < 1:
+            raise ValueError('tester epoch must be at least 1')
+        self.current_epoch = epoch
+
+    def _active_quality_scoring(self):
+        if (self.quality_score_activation_epoch is not None
+                and self.current_epoch is not None
+                and self.current_epoch < self.quality_score_activation_epoch):
+            return (
+                self.pre_activation_quality_score_specs,
+                self.pre_activation_primary_quality_score)
+        return self.quality_score_specs, self.primary_quality_score
 
     def test(self):
         assert self.cfg['mode'] in ['single', 'all']
@@ -172,11 +222,14 @@ class Tester(object):
             else:
                 checkpoint_path = os.path.join(self.output_dir, "checkpoint_best.pth")
             assert os.path.exists(checkpoint_path)
-            load_checkpoint(model=self.model,
-                            optimizer=None,
-                            filename=checkpoint_path,
-                            map_location=self.device,
-                            logger=self.logger)
+            checkpoint_epoch, _, _ = load_checkpoint(
+                model=self.model,
+                optimizer=None,
+                filename=checkpoint_path,
+                map_location=self.device,
+                logger=self.logger)
+            if checkpoint_epoch >= 1:
+                self.set_epoch(checkpoint_epoch)
             self.model.to(self.device)
             results = self.inference(
                 collect_diagnostics=not primary_only,
@@ -200,11 +253,14 @@ class Tester(object):
             checkpoints_list.sort(key=os.path.getmtime)
 
             for checkpoint in checkpoints_list:
-                load_checkpoint(model=self.model,
-                                optimizer=None,
-                                filename=checkpoint,
-                                map_location=self.device,
-                                logger=self.logger)
+                checkpoint_epoch, _, _ = load_checkpoint(
+                    model=self.model,
+                    optimizer=None,
+                    filename=checkpoint,
+                    map_location=self.device,
+                    logger=self.logger)
+                if checkpoint_epoch >= 1:
+                    self.set_epoch(checkpoint_epoch)
                 self.model.to(self.device)
                 results = self.inference(
                     collect_diagnostics=not primary_only,
@@ -225,11 +281,13 @@ class Tester(object):
             self.criterion.eval()
 
         results = {}
-        active_quality_score_specs = self.quality_score_specs
+        active_quality_score_specs, active_primary_quality_score = (
+            self._active_quality_scoring())
+        self.last_primary_quality_score = active_primary_quality_score
         if primary_only and active_quality_score_specs:
             active_quality_score_specs = tuple(
                 spec for spec in active_quality_score_specs
-                if spec['name'] == self.primary_quality_score)
+                if spec['name'] == active_primary_quality_score)
             if len(active_quality_score_specs) != 1:
                 raise RuntimeError(
                     'lightweight validation could not resolve the primary '
@@ -359,7 +417,7 @@ class Tester(object):
                             for image_id, predictions in decoded.items()
                         }
                         variant_results[spec['name']].update(decoded)
-                    results = variant_results[self.primary_quality_score]
+                    results = variant_results[active_primary_quality_score]
                 else:
                     dets = extract_dets_from_outputs(
                         outputs=outputs, K=self.max_objs,

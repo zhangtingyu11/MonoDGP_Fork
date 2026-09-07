@@ -648,6 +648,12 @@ class SetCriterion(nn.Module):
         quality_cfg = iou_quality_head or {}
         self.iou_quality_head_enabled = bool(
             quality_cfg.get('enabled', False))
+        self.iou_quality_training_start_epoch = int(
+            quality_cfg.get('training_start_epoch', 1))
+        self.current_training_epoch = 1
+        if self.iou_quality_training_start_epoch < 1:
+            raise ValueError(
+                'quality training_start_epoch must be at least 1')
         iou_classification_cfg = iou_classification or {}
         self.iou_classification_enabled = bool(
             iou_classification_cfg.get('enabled', False))
@@ -723,6 +729,13 @@ class SetCriterion(nn.Module):
                 'the IoU quality head requires exact 3D-IoU matching')
         self.last_final_iou3d_matrix = None
         self.collect_mixup_target_monitoring = False
+
+    def set_epoch(self, epoch):
+        """Set the one-indexed epoch used by scheduled loss activation."""
+        epoch = int(epoch)
+        if epoch < 1:
+            raise ValueError('criterion epoch must be at least 1')
+        self.current_training_epoch = epoch
 
     @torch.no_grad()
     def _classification_query_weights(self, src_logits, indices,
@@ -1233,6 +1246,17 @@ class SetCriterion(nn.Module):
         """
         if 'pred_quality' not in outputs:
             raise KeyError('quality loss requires pred_quality')
+        if self.current_training_epoch < self.iou_quality_training_start_epoch:
+            # Keep the head present from initialization, but exclude its
+            # outputs from the loss graph so its parameters receive grad=None
+            # and AdamW cannot update them (including via weight decay).
+            zero = outputs['pred_logits'].new_zeros(())
+            if self.iou_quality_supervision == 'all_query_same_gt_ranking':
+                return {
+                    'loss_quality_point': zero,
+                    'loss_quality_rank': zero,
+                }
+            return {'loss_quality': zero}
         iou3d = getattr(self.matcher, 'last_iou3d_matrix', None)
         if iou3d is None:
             raise RuntimeError('matcher did not expose exact 3D-IoU targets')

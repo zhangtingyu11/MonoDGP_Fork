@@ -661,9 +661,9 @@
       <h1>实验总览 v2</h1>
       <p>实验总账的可视化索引。每项实验单独记录目的、对比条件、执行过程和客观结果，方便后续持续追加。</p>
       <div class="hero-meta">
-        <span class="pill"><span class="status-dot"></span>45 项实验已记录</span>
+        <span class="pill"><span class="status-dot"></span>58 项实验已记录</span>
         <span class="pill">数据来源：实验总账v2</span>
-        <span class="pill">更新日期：2026-08-26</span>
+        <span class="pill">更新日期：2026-09-07</span>
       </div>
     </header>
 
@@ -881,6 +881,19 @@
           <span class="nav-index">45</span>
           <span class="nav-copy"><strong>Exp30方法复现与确定性基线</strong><small>250轮完成·E174 best</small></span>
         </button>
+        <button class="nav-button" data-target="exp46" type="button"><span class="nav-index">46</span><span class="nav-copy"><strong>确定性优化新基线</strong><small>已完成</small></span></button>
+        <button class="nav-button" data-target="exp47" type="button"><span class="nav-index">47</span><span class="nav-copy"><strong>去除独立3D质量头</strong><small>已完成</small></span></button>
+        <button class="nav-button" data-target="exp48" type="button"><span class="nav-index">48</span><span class="nav-copy"><strong>全Query IoU分类乘深度</strong><small>已完成</small></span></button>
+        <button class="nav-button" data-target="exp49" type="button"><span class="nav-index">49</span><span class="nav-copy"><strong>全样本虚拟焦距</strong><small>已完成</small></span></button>
+        <button class="nav-button" data-target="exp50" type="button"><span class="nav-index">50</span><span class="nav-copy"><strong>成功MixUp样本虚拟焦距</strong><small>已完成</small></span></button>
+        <button class="nav-button" data-target="exp51" type="button"><span class="nav-index">51</span><span class="nav-copy"><strong>延迟训练质量头</strong><small>已完成</small></span></button>
+        <button class="nav-button" data-target="exp52" type="button"><span class="nav-index">52</span><span class="nav-copy"><strong>10轮warmup与cosine学习率</strong><small>已完成</small></span></button>
+        <button class="nav-button" data-target="exp53" type="button"><span class="nav-index">53</span><span class="nav-copy"><strong>冻结TP可靠性探针</strong><small>已完成</small></span></button>
+        <button class="nav-button" data-target="exp54" type="button"><span class="nav-index">54</span><span class="nav-copy"><strong>冻结基线锚定排序探针</strong><small>已完成</small></span></button>
+        <button class="nav-button" data-target="exp55" type="button"><span class="nav-index">55</span><span class="nav-copy"><strong>MixUp概率0.3</strong><small>已完成</small></span></button>
+        <button class="nav-button" data-target="exp56" type="button"><span class="nav-index">56</span><span class="nav-copy"><strong>MixUp概率0.2</strong><small>已完成</small></span></button>
+        <button class="nav-button" data-target="exp57" type="button"><span class="nav-index">57</span><span class="nav-copy"><strong>MixUp概率0.1</strong><small>已完成</small></span></button>
+        <button class="nav-button" data-target="exp58" type="button"><span class="nav-index">58</span><span class="nav-copy"><strong>完全关闭MixUp</strong><small>已完成</small></span></button>
       </nav>
 
       <div>
@@ -1023,6 +1036,19 @@
               <div class="truth"><span class="number">43</span><h3>几何上限、评分与冻结线性头</h3><p>冻结实验42 E191与实验30 E222完成GT oracle、IoU分布和评分诊断；跨0.7方案在全NMS阈值上优于控制。后续四臂梯度等强消融进一步定位：删除低—低配对的Moderate AP主效应为<code>+0.1528</code>，删除高—高仅<code>+0.0009</code>。</p></div>
               <div class="truth"><span class="number">44</span><h3>跨0.7排序Loss全模型训练</h3><p>把实验43冻结线性头中的跨0.7排序范围用于完整模型训练；到E129仍明显低于实验30，用户停止该方向，不作为后续baseline。</p></div>
               <div class="truth"><span class="number">45</span><h3>Exp30方法复现与确定性新基线</h3><p>方法严格回到实验30，不启用跨焦距或额外排序Loss；250轮复现完成，并把等价提速与严格确定性执行合同固化为后续baseline。</p></div>
+              <div class="truth"><span class="number">46</span><h3>确定性优化新基线</h3><p>Best E199：32.0393 / 24.0656 / 20.9540</p></div>
+              <div class="truth"><span class="number">47</span><h3>去除独立3D质量头</h3><p>Best E247：31.8857 / 24.2354 / 21.2122</p></div>
+              <div class="truth"><span class="number">48</span><h3>全Query IoU分类乘深度</h3><p>Best E121：20.1372 / 16.0218 / 13.7965</p></div>
+              <div class="truth"><span class="number">49</span><h3>全样本虚拟焦距</h3><p>Best E236：31.1110 / 23.6752 / 21.1039</p></div>
+              <div class="truth"><span class="number">50</span><h3>成功MixUp样本虚拟焦距</h3><p>Best E166：30.9140 / 23.5286 / 20.6976</p></div>
+              <div class="truth"><span class="number">51</span><h3>延迟训练质量头</h3><p>Best E247：30.9815 / 23.8798 / 20.9640</p></div>
+              <div class="truth"><span class="number">52</span><h3>10轮warmup与cosine学习率</h3><p>Best E184：31.4140 / 23.8295 / 21.0699</p></div>
+              <div class="truth"><span class="number">53</span><h3>冻结TP可靠性探针</h3><p>三种子：Moderate：22.6244 / 22.7085 / 22.3478（三种子）</p></div>
+              <div class="truth"><span class="number">54</span><h3>冻结基线锚定排序探针</h3><p>三种子：Moderate：21.5983 / 20.5812 / 20.1708（三种子）</p></div>
+              <div class="truth"><span class="number">55</span><h3>MixUp概率0.3</h3><p>Best E214：32.5488 / 24.4284 / 21.3127</p></div>
+              <div class="truth"><span class="number">56</span><h3>MixUp概率0.2</h3><p>Best E238：30.7112 / 23.1529 / 20.3289</p></div>
+              <div class="truth"><span class="number">57</span><h3>MixUp概率0.1</h3><p>Best E218：32.5886 / 23.9701 / 20.6427</p></div>
+              <div class="truth"><span class="number">58</span><h3>完全关闭MixUp</h3><p>Best E143：30.0380 / 21.5781 / 18.3415</p></div>
             </div>
           </article>
 
@@ -4135,10 +4161,23 @@
             <div class="callout"><h4>执行与复核</h4><p>250轮run在CUDA 12.9栈完成，SwanLab ID为<code>jrg8fguf</code>。仓库内确定性CUDA源码与两轮测试使用的v7源码SHA256同为<code>211a8d86…f9cc473</code>；新旧扩展在small float64与Exp45 encoder B16上三类梯度逐bit相同。完整B16训练step的总Loss、全部分项Loss、梯度和更新参数重复全等，稳态约<code>0.597s</code>。E174 checkpoint在组合后代码上再次完整验证，Moderate 3D AP_R40仍精确为<code>24.164683873540987</code>。</p></div>
           </article>
         </section>
+        <section id="exp46" class="content-panel" aria-labelledby="exp46-title"><article class="section-card"><h2 id="exp46-title">实验46：确定性优化新基线</h2><p>继承Exp45方法，启用严格确定性及训练/验证优化，保留独立3D质量头。</p><h3>Best E199 · 无NMS Car 3D AP_R40@0.7</h3><p>32.0393 / 24.0656 / 20.9540</p><p>完整训练结果为原正式无NMS Car 3D AP_R40@0.7（简单/中等/困难），按Moderate选best。Exp48–52基于Exp47，从头250轮、BS16、seed444；E10–110每10轮验证，E120起逐轮验证，Exp51在E121切换质量评分。Exp53/54为冻结探针，缓存复评基线24.2528与Exp47正式日志24.2354分开报告，前者不是笔误。MixUp曲线不单调，各概率仅一次完整训练，0.3目前中等/困难最高，不能据此断言显著收益。</p><p>来源：outputs中对应实验的train_console.log及status.tsv；Exp53/54为result.json。2026-09-07核对。</p></article></section>
+        <section id="exp47" class="content-panel" aria-labelledby="exp47-title"><article class="section-card"><h2 id="exp47-title">实验47：去除独立3D质量头</h2><p>基于Exp46去除独立质量头，恢复分类×深度评分；后续48–52以此为共同基线。</p><h3>Best E247 · 无NMS Car 3D AP_R40@0.7</h3><p>31.8857 / 24.2354 / 21.2122</p><p>完整训练结果为原正式无NMS Car 3D AP_R40@0.7（简单/中等/困难），按Moderate选best。Exp48–52基于Exp47，从头250轮、BS16、seed444；E10–110每10轮验证，E120起逐轮验证，Exp51在E121切换质量评分。Exp53/54为冻结探针，缓存复评基线24.2528与Exp47正式日志24.2354分开报告，前者不是笔误。MixUp曲线不单调，各概率仅一次完整训练，0.3目前中等/困难最高，不能据此断言显著收益。</p><p>来源：outputs中对应实验的train_console.log及status.tsv；Exp53/54为result.json。2026-09-07核对。</p></article></section>
+        <section id="exp48" class="content-panel" aria-labelledby="exp48-title"><article class="section-card"><h2 id="exp48-title">实验48：全Query IoU分类乘深度</h2><p>基于Exp47，分类头用QFL预测每个Query与同图GT的最大3D IoU；评分仍乘深度置信度。当前完整实现未改善AP，不能仅凭结果断言失败原因。</p><h3>Best E121 · 无NMS Car 3D AP_R40@0.7</h3><p>20.1372 / 16.0218 / 13.7965</p><p>完整训练结果为原正式无NMS Car 3D AP_R40@0.7（简单/中等/困难），按Moderate选best。Exp48–52基于Exp47，从头250轮、BS16、seed444；E10–110每10轮验证，E120起逐轮验证，Exp51在E121切换质量评分。Exp53/54为冻结探针，缓存复评基线24.2528与Exp47正式日志24.2354分开报告，前者不是笔误。MixUp曲线不单调，各概率仅一次完整训练，0.3目前中等/困难最高，不能据此断言显著收益。</p><p>来源：outputs中对应实验的train_console.log及status.tsv；Exp53/54为result.json。2026-09-07核对。</p></article></section>
+        <section id="exp49" class="content-panel" aria-labelledby="exp49-title"><article class="section-card"><h2 id="exp49-title">实验49：全样本虚拟焦距</h2><p>基于Exp47，所有样本应用0.9/1.0/1.1确定性虚拟焦距；同步完整P2和标签，新增画布截车时回退1.0。</p><h3>Best E236 · 无NMS Car 3D AP_R40@0.7</h3><p>31.1110 / 23.6752 / 21.1039</p><p>完整训练结果为原正式无NMS Car 3D AP_R40@0.7（简单/中等/困难），按Moderate选best。Exp48–52基于Exp47，从头250轮、BS16、seed444；E10–110每10轮验证，E120起逐轮验证，Exp51在E121切换质量评分。Exp53/54为冻结探针，缓存复评基线24.2528与Exp47正式日志24.2354分开报告，前者不是笔误。MixUp曲线不单调，各概率仅一次完整训练，0.3目前中等/困难最高，不能据此断言显著收益。</p><p>来源：outputs中对应实验的train_console.log及status.tsv；Exp53/54为result.json。2026-09-07核对。</p></article></section>
+        <section id="exp50" class="content-panel" aria-labelledby="exp50-title"><article class="section-card"><h2 id="exp50-title">实验50：成功MixUp样本虚拟焦距</h2><p>基于Exp47，仅对成功的同P2 MixUp样本应用虚拟焦距；供体失败回退，其他规则继承Exp49。</p><h3>Best E166 · 无NMS Car 3D AP_R40@0.7</h3><p>30.9140 / 23.5286 / 20.6976</p><p>完整训练结果为原正式无NMS Car 3D AP_R40@0.7（简单/中等/困难），按Moderate选best。Exp48–52基于Exp47，从头250轮、BS16、seed444；E10–110每10轮验证，E120起逐轮验证，Exp51在E121切换质量评分。Exp53/54为冻结探针，缓存复评基线24.2528与Exp47正式日志24.2354分开报告，前者不是笔误。MixUp曲线不单调，各概率仅一次完整训练，0.3目前中等/困难最高，不能据此断言显著收益。</p><p>来源：outputs中对应实验的train_console.log及status.tsv；Exp53/54为result.json。2026-09-07核对。</p></article></section>
+        <section id="exp51" class="content-panel" aria-labelledby="exp51-title"><article class="section-card"><h2 id="exp51-title">实验51：延迟训练质量头</h2><p>从头训练，质量头从初始化存在但E1–120不参与Loss且不更新；E121起训练并完整回传共享特征，评分从分类×深度切换为分类×质量×深度。额外头初始化可能影响随机轨迹，不宣称前120轮与Exp47逐位一致。</p><h3>Best E247 · 无NMS Car 3D AP_R40@0.7</h3><p>30.9815 / 23.8798 / 20.9640</p><p>完整训练结果为原正式无NMS Car 3D AP_R40@0.7（简单/中等/困难），按Moderate选best。Exp48–52基于Exp47，从头250轮、BS16、seed444；E10–110每10轮验证，E120起逐轮验证，Exp51在E121切换质量评分。Exp53/54为冻结探针，缓存复评基线24.2528与Exp47正式日志24.2354分开报告，前者不是笔误。MixUp曲线不单调，各概率仅一次完整训练，0.3目前中等/困难最高，不能据此断言显著收益。</p><p>来源：outputs中对应实验的train_console.log及status.tsv；Exp53/54为result.json。2026-09-07核对。</p></article></section>
+        <section id="exp52" class="content-panel" aria-labelledby="exp52-title"><article class="section-card"><h2 id="exp52-title">实验52：10轮warmup与cosine学习率</h2><p>基于Exp47，仅改变学习率日程：10轮线性warmup，从1e-6升至2e-4，随后240轮cosine至1e-6。</p><h3>Best E184 · 无NMS Car 3D AP_R40@0.7</h3><p>31.4140 / 23.8295 / 21.0699</p><p>完整训练结果为原正式无NMS Car 3D AP_R40@0.7（简单/中等/困难），按Moderate选best。Exp48–52基于Exp47，从头250轮、BS16、seed444；E10–110每10轮验证，E120起逐轮验证，Exp51在E121切换质量评分。Exp53/54为冻结探针，缓存复评基线24.2528与Exp47正式日志24.2354分开报告，前者不是笔误。MixUp曲线不单调，各概率仅一次完整训练，0.3目前中等/困难最高，不能据此断言显著收益。</p><p>来源：outputs中对应实验的train_console.log及status.tsv；Exp53/54为result.json。2026-09-07核对。</p></article></section>
+        <section id="exp53" class="content-panel" aria-labelledby="exp53-title"><article class="section-card"><h2 id="exp53-title">实验53：冻结TP可靠性探针</h2><p>冻结Exp47 E247，Car-only 50 Query，硬TP@0.7标签与BCE训练可靠性探针。缓存复评基线为24.2528，三种子均未超过它；这是冻结探针证据，不能外推到所有端到端可靠性方案。</p><h3>冻结探针 · 三种子</h3><p>Moderate：22.6244 / 22.7085 / 22.3478（三种子）</p><p>完整训练结果为原正式无NMS Car 3D AP_R40@0.7（简单/中等/困难），按Moderate选best。Exp48–52基于Exp47，从头250轮、BS16、seed444；E10–110每10轮验证，E120起逐轮验证，Exp51在E121切换质量评分。Exp53/54为冻结探针，缓存复评基线24.2528与Exp47正式日志24.2354分开报告，前者不是笔误。MixUp曲线不单调，各概率仅一次完整训练，0.3目前中等/困难最高，不能据此断言显著收益。</p><p>来源：outputs中对应实验的train_console.log及status.tsv；Exp53/54为result.json。2026-09-07核对。</p></article></section>
+        <section id="exp54" class="content-panel" aria-labelledby="exp54-title"><article class="section-card"><h2 id="exp54-title">实验54：冻结基线锚定排序探针</h2><p>冻结检测器，评分为c×d×exp(delta)，困难配对softplus排序损失加delta平方惩罚；系数在训练内部划分选择。缓存复评基线24.2528，平均20.7834。</p><h3>冻结探针 · 三种子</h3><p>Moderate：21.5983 / 20.5812 / 20.1708（三种子）</p><p>完整训练结果为原正式无NMS Car 3D AP_R40@0.7（简单/中等/困难），按Moderate选best。Exp48–52基于Exp47，从头250轮、BS16、seed444；E10–110每10轮验证，E120起逐轮验证，Exp51在E121切换质量评分。Exp53/54为冻结探针，缓存复评基线24.2528与Exp47正式日志24.2354分开报告，前者不是笔误。MixUp曲线不单调，各概率仅一次完整训练，0.3目前中等/困难最高，不能据此断言显著收益。</p><p>来源：outputs中对应实验的train_console.log及status.tsv；Exp53/54为result.json。2026-09-07核对。</p></article></section>
+        <section id="exp55" class="content-panel" aria-labelledby="exp55-title"><article class="section-card"><h2 id="exp55-title">实验55：MixUp概率0.3</h2><p>基于Exp47只将同P2 MixUp触发概率降至0.3，混图权重各0.5。正式完成产物为Exp55R2；此前重启排障及Exp55R首批前KeyError不是有效完整实验。R2修复诊断字段读取后完成250轮。</p><h3>Best E214 · 无NMS Car 3D AP_R40@0.7</h3><p>32.5488 / 24.4284 / 21.3127</p><p>完整训练结果为原正式无NMS Car 3D AP_R40@0.7（简单/中等/困难），按Moderate选best。Exp48–52基于Exp47，从头250轮、BS16、seed444；E10–110每10轮验证，E120起逐轮验证，Exp51在E121切换质量评分。Exp53/54为冻结探针，缓存复评基线24.2528与Exp47正式日志24.2354分开报告，前者不是笔误。MixUp曲线不单调，各概率仅一次完整训练，0.3目前中等/困难最高，不能据此断言显著收益。</p><p>来源：outputs中对应实验的train_console.log及status.tsv；Exp53/54为result.json。2026-09-07核对。</p></article></section>
+        <section id="exp56" class="content-panel" aria-labelledby="exp56-title"><article class="section-card"><h2 id="exp56-title">实验56：MixUp概率0.2</h2><p>基于Exp47只将MixUp触发概率改为0.2。完整250轮完成。</p><h3>Best E238 · 无NMS Car 3D AP_R40@0.7</h3><p>30.7112 / 23.1529 / 20.3289</p><p>完整训练结果为原正式无NMS Car 3D AP_R40@0.7（简单/中等/困难），按Moderate选best。Exp48–52基于Exp47，从头250轮、BS16、seed444；E10–110每10轮验证，E120起逐轮验证，Exp51在E121切换质量评分。Exp53/54为冻结探针，缓存复评基线24.2528与Exp47正式日志24.2354分开报告，前者不是笔误。MixUp曲线不单调，各概率仅一次完整训练，0.3目前中等/困难最高，不能据此断言显著收益。</p><p>来源：outputs中对应实验的train_console.log及status.tsv；Exp53/54为result.json。2026-09-07核对。</p></article></section>
+        <section id="exp57" class="content-panel" aria-labelledby="exp57-title"><article class="section-card"><h2 id="exp57-title">实验57：MixUp概率0.1</h2><p>基于Exp47只将MixUp触发概率改为0.1。完整250轮完成。</p><h3>Best E218 · 无NMS Car 3D AP_R40@0.7</h3><p>32.5886 / 23.9701 / 20.6427</p><p>完整训练结果为原正式无NMS Car 3D AP_R40@0.7（简单/中等/困难），按Moderate选best。Exp48–52基于Exp47，从头250轮、BS16、seed444；E10–110每10轮验证，E120起逐轮验证，Exp51在E121切换质量评分。Exp53/54为冻结探针，缓存复评基线24.2528与Exp47正式日志24.2354分开报告，前者不是笔误。MixUp曲线不单调，各概率仅一次完整训练，0.3目前中等/困难最高，不能据此断言显著收益。</p><p>来源：outputs中对应实验的train_console.log及status.tsv；Exp53/54为result.json。2026-09-07核对。</p></article></section>
+        <section id="exp58" class="content-panel" aria-labelledby="exp58-title"><article class="section-card"><h2 id="exp58-title">实验58：完全关闭MixUp</h2><p>基于Exp47只将MixUp触发概率改为0。完整250轮完成；SwanLab收尾短暂SSL错误后恢复并完成上传。</p><h3>Best E143 · 无NMS Car 3D AP_R40@0.7</h3><p>30.0380 / 21.5781 / 18.3415</p><p>完整训练结果为原正式无NMS Car 3D AP_R40@0.7（简单/中等/困难），按Moderate选best。Exp48–52基于Exp47，从头250轮、BS16、seed444；E10–110每10轮验证，E120起逐轮验证，Exp51在E121切换质量评分。Exp53/54为冻结探针，缓存复评基线24.2528与Exp47正式日志24.2354分开报告，前者不是笔误。MixUp曲线不单调，各概率仅一次完整训练，0.3目前中等/困难最高，不能据此断言显著收益。</p><p>来源：outputs中对应实验的train_console.log及status.tsv；Exp53/54为result.json。2026-09-07核对。</p></article></section>
       </div>
     </div>
 
-    <footer class="footer">MonoDGP 实验总览 v2 · 序号01—45</footer>
+    <footer class="footer">MonoDGP 实验总览 v2 · 序号01—58</footer>
   </main>
 
   <script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js"></script>

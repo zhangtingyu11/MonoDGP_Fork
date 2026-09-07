@@ -111,11 +111,22 @@ def quality_score_components(outputs):
 
 
 def fused_quality_score(outputs, alpha=1.0, beta=1.0, gamma=1.0):
-    classification, quality, depth_precision = quality_score_components(
-        outputs)
-    return (classification.clamp_min(1e-12).pow(float(alpha))
-            * quality.clamp_min(1e-12).pow(float(beta))
-            * depth_precision.clamp_min(1e-12).pow(float(gamma)))
+    alpha, beta, gamma = float(alpha), float(beta), float(gamma)
+    if 'pred_quality' in outputs:
+        # Preserve the exact historical operation order for every existing
+        # quality-head experiment, including beta=0 diagnostic variants.
+        classification, quality, depth_precision = quality_score_components(
+            outputs)
+        return (classification.clamp_min(1e-12).pow(alpha)
+                * quality.clamp_min(1e-12).pow(beta)
+                * depth_precision.clamp_min(1e-12).pow(gamma))
+    if beta != 0.0:
+        raise KeyError('quality-aware scoring requires pred_quality')
+    classification = outputs['pred_logits'].sigmoid()
+    depth_precision = torch.exp(
+        -outputs['pred_depth'][:, :, 1:2]).clamp_min(0)
+    return (classification.clamp_min(1e-12).pow(alpha)
+            * depth_precision.clamp_min(1e-12).pow(gamma))
 
 
 def extract_dets_from_outputs(outputs, K=50, topk=50,

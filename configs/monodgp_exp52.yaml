@@ -1,0 +1,18 @@
+base_config: monodgp_exp47.yaml
+
+model_name: 'V2-0052_实验52_Cosine学习率'
+
+lr_scheduler:
+  type: cos
+  warmup: true
+  warmup_type: linear
+  warmup_epochs: 10
+  warmup_init_lr: 0.000001
+  t_max: 240
+  eta_min: 0.000001
+
+trainer:
+  swanlab:
+    experiment_name: '实验52_Cosine学习率'
+    description: '严格基于实验47从头训练，唯一变量是把[85,125,165,205]处乘0.5的step学习率改为10轮线性warmup加CosineAnnealing日程：E1训练LR为1e-6，E10结束升至初始AdamW峰值2e-4，随后用剩余240轮余弦下降，E250结束达到eta_min=1e-6。模型、数据、无独立质量头、c×d评分、全部Loss与Hungarian匹配、严格确定性优化和验证日程均继承实验47。'
+    tags: ['实验52', '实验47增量', 'CosineAnnealingLR', '线性warmup10轮', 'T_max240', 'eta_min1e-6']
