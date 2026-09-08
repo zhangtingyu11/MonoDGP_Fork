@@ -1,0 +1,9 @@
+base_config: monodgp_exp55r.yaml
+
+model_name: 'V2-0055R2_实验55_清理硬件后完整复跑'
+
+trainer:
+  swanlab:
+    experiment_name: '实验55R2_清理显卡内存后完整复跑'
+    description: '实验55R首次启动因诊断字段门控代码缺陷在首批训练前KeyError退出；修复仅限未启用诊断心跳时不读取诊断字段。本次为相同方法、数据、超参数、环境和250轮协议的第一次正确性重跑，恢复CUDA训练与验证预取，不启用诊断心跳。'
+    tags: ['实验55R2', '实验55复跑', '执行缺陷修复后正确性重跑', 'MixUp概率0.3', 'CUDA预取', '250轮']

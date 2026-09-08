@@ -1,0 +1,9 @@
+base_config: monodgp_exp55.yaml
+
+model_name: 'V2-0055R_实验55_清理硬件后完整复跑'
+
+trainer:
+  swanlab:
+    experiment_name: '实验55R_清理显卡内存后完整复跑'
+    description: '清理并重新插装显卡与内存后，从头完整复跑实验55。严格继承实验55：基于实验47、MixUp概率0.3、BS16、4 workers、pin_memory开启、CUDA训练与验证预取开启、严格确定性优化、250轮训练；E10至E110每10轮验证，E120起逐轮验证。诊断单轮已在关闭预取时完整通过，本次恢复正式预取路径且不启用逐批同步磁盘心跳。'
+    tags: ['实验55R', '实验55复跑', '硬件重新插装后', 'MixUp概率0.3', 'CUDA预取', '250轮']

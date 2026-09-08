@@ -1,0 +1,210 @@
+random_seed: 444
+dataset:
+  type: KITTI
+  root_dir: ../data/kitti
+  train_split: train
+  test_split: val
+  batch_size: 16
+  train_pin_memory: true
+  test_pin_memory: true
+  use_3d_center: true
+  class_merging: false
+  use_dontcare: false
+  bbox2d_type: anno
+  meanshape: false
+  writelist:
+  - Car
+  clip_2d: false
+  aug_pd: true
+  aug_crop: true
+  full_p2_projection: true
+  random_flip: 0.5
+  random_crop: 0.5
+  random_mixup3d: 0.3
+  cross_focal_mixup: false
+  mixup_valid_mask_threshold: 0.999
+  mixup_min_object_valid_ratio: 0.999
+  mixup_max_attempts: 50
+  scale: 0.05
+  shift: 0.05
+  depth_scale: normal
+model_name: V2-0059_实验59_MixUp概率0.3排除自身
+model:
+  num_classes: 3
+  return_intermediate_dec: true
+  device: cuda
+  backbone: resnet50
+  train_backbone: true
+  num_feature_levels: 4
+  dilation: false
+  position_embedding: sine
+  masks: false
+  mode: LID
+  num_depth_bins: 80
+  depth_min: 1e-3
+  depth_max: 60.0
+  use_vectorized_ddn_rasterization: true
+  with_box_refine: true
+  use_dn: false
+  init_box: false
+  enc_layers: 3
+  dec_layers: 3
+  hidden_dim: 256
+  dim_feedforward: 256
+  dropout: 0.1
+  nheads: 8
+  use_memory_efficient_mha: true
+  num_queries: 50
+  group_num: 11
+  decoder_group_num: 11
+  enc_n_points: 4
+  dec_n_points: 4
+  scalar: 5
+  label_noise_scale: 0.2
+  box_noise_scale: 0.4
+  num_patterns: 0
+  aux_loss: true
+  cls_loss_coef: 2
+  focal_alpha: 0.25
+  bbox_loss_coef: 5
+  giou_loss_coef: 2
+  use_aligned_giou_loss: true
+  use_post_match_cache: true
+  query_monitoring:
+    enabled: true
+    inference_topk: 50
+    score_threshold: 0.0
+    car_class_id: 1
+  geometry_interval_monitoring:
+    enabled: true
+    car_class_id: 1
+    iou_threshold: 0.7
+    decode_mean_sizes:
+    - - 0.0
+      - 0.0
+      - 0.0
+    - - 0.0
+      - 0.0
+      - 0.0
+    - - 0.0
+      - 0.0
+      - 0.0
+  3dcenter_loss_coef: 10
+  dim_loss_coef: 1
+  angle_loss_coef: 1
+  depth_loss_coef: 1
+  depth_map_loss_coef: 1
+  region_loss_coef: 1
+  depth_mean_gradient_clipping:
+    enabled: false
+    max_absolute_gradient: 0.03
+  set_cost_class: 2
+  set_cost_bbox: 5
+  set_cost_giou: 2
+  set_cost_3dcenter: 10
+  set_cost_iou3d: 5
+  iou3d_decode_mean_sizes:
+  - - 0.0
+    - 0.0
+    - 0.0
+  - - 0.0
+    - 0.0
+    - 0.0
+  - - 0.0
+    - 0.0
+    - 0.0
+  iou3d_matching_monitoring:
+    enabled: true
+  high_iou_unmatched_negative_weighting:
+    enabled: false
+    full_weight_below_iou: 0.5
+    zero_weight_at_iou: 0.7
+  use_batched_same_image_matcher_cost: true
+  iou_quality_head:
+    enabled: false
+    loss_coef: 1.0
+    target_encoding: cia_ssd
+    init_seed: 290029
+  use_batched_iou3d_match_cost: true
+optimizer:
+  type: adamw
+  lr: 0.0002
+  weight_decay: 0.0001
+  use_foreach_adamw: true
+lr_scheduler:
+  type: step
+  warmup: false
+  decay_rate: 0.5
+  decay_list:
+  - 85
+  - 125
+  - 165
+  - 205
+trainer:
+  max_epoch: 250
+  gpu_ids: '1'
+  log_frequency: 30
+  swanlab_batch_interval: 5
+  gradient_monitoring:
+    enabled: true
+    module_interval: 30
+  save_frequency: 1
+  validation_start_epoch: 120
+  early_validation_interval: 10
+  early_validation_updates_best: false
+  save_path: outputs/
+  save_all: false
+  use_cuda_batch_prefetch: true
+  use_cuda_eval_prefetch: true
+  use_dn: false
+  scalar: 5
+  label_noise_scale: 0.2
+  box_noise_scale: 0.4
+  num_patterns: 0
+  swanlab:
+    enabled: true
+    required: true
+    project: MonoDGP
+    workspace: Grapymage
+    experiment_name: 实验59_MixUp概率0.3排除自身
+    description: Exp47基础上MixUp触发概率0.3，修复legacy供体采样允许选中自身的问题：自供体占用一次尝试并重抽，最多50次。与Exp55方法配置相同，训练代码仅新增自供体拒绝；从头250轮、BS16、seed444、严格确定性、E10–110每10轮验证，E120起每轮验证。评测保留原始分数精度，几何仍两位小数；旧Exp55须按统一精度复评后比较。重抽改变后续随机增强序列，单次结果不能证明稳定AP收益。
+    group: 可行区间研究
+    projection_geometry_version: current
+    tags:
+    - 实验59
+    - Exp55对照
+    - MixUp概率0.3
+    - 排除自供体
+    - 原始分数精度
+    - 250轮
+    mode: online
+  strict_determinism: true
+  primary_ap_only_validation: true
+  fill_uninitialized_memory: false
+  deterministic_bilinear_backward: true
+tester:
+  type: KITTI
+  mode: single
+  checkpoint: 195
+  threshold: 0.0
+  topk: 50
+  export_predictions: false
+  best_refresh_bev_nms_thresholds:
+  - 0.1
+  - 0.2
+  - 0.3
+  - 0.4
+  - 0.5
+  - 0.6
+  - 0.7
+  - 0.8
+  - 0.9
+  primary_quality_score: current_cxd
+  quality_ranking_monitoring: false
+  quality_ranking_car_class_id: 1
+  quality_score_fusions:
+  - name: current_cxd
+    alpha: 1.0
+    beta: 0.0
+    gamma: 1.0
+    historical_topk: true

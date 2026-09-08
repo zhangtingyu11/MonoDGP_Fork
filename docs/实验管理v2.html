@@ -894,6 +894,7 @@
         <button class="nav-button" data-target="exp56" type="button"><span class="nav-index">56</span><span class="nav-copy"><strong>MixUp概率0.2</strong><small>已完成</small></span></button>
         <button class="nav-button" data-target="exp57" type="button"><span class="nav-index">57</span><span class="nav-copy"><strong>MixUp概率0.1</strong><small>已完成</small></span></button>
         <button class="nav-button" data-target="exp58" type="button"><span class="nav-index">58</span><span class="nav-copy"><strong>完全关闭MixUp</strong><small>已完成</small></span></button>
+        <button class="nav-button" data-target="exp59" type="button"><span class="nav-index">59</span><span class="nav-copy"><strong>MixUp 0.3排除自身</strong><small>已完成 · best E178</small></span></button>
       </nav>
 
       <div>
@@ -4174,10 +4175,22 @@
         <section id="exp56" class="content-panel" aria-labelledby="exp56-title"><article class="section-card"><h2 id="exp56-title">实验56：MixUp概率0.2</h2><p>基于Exp47只将MixUp触发概率改为0.2。完整250轮完成。</p><h3>Best E238 · 无NMS Car 3D AP_R40@0.7</h3><p>30.7112 / 23.1529 / 20.3289</p><p>完整训练结果为原正式无NMS Car 3D AP_R40@0.7（简单/中等/困难），按Moderate选best。Exp48–52基于Exp47，从头250轮、BS16、seed444；E10–110每10轮验证，E120起逐轮验证，Exp51在E121切换质量评分。Exp53/54为冻结探针，缓存复评基线24.2528与Exp47正式日志24.2354分开报告，前者不是笔误。MixUp曲线不单调，各概率仅一次完整训练，0.3目前中等/困难最高，不能据此断言显著收益。</p><p>来源：outputs中对应实验的train_console.log及status.tsv；Exp53/54为result.json。2026-09-07核对。</p></article></section>
         <section id="exp57" class="content-panel" aria-labelledby="exp57-title"><article class="section-card"><h2 id="exp57-title">实验57：MixUp概率0.1</h2><p>基于Exp47只将MixUp触发概率改为0.1。完整250轮完成。</p><h3>Best E218 · 无NMS Car 3D AP_R40@0.7</h3><p>32.5886 / 23.9701 / 20.6427</p><p>完整训练结果为原正式无NMS Car 3D AP_R40@0.7（简单/中等/困难），按Moderate选best。Exp48–52基于Exp47，从头250轮、BS16、seed444；E10–110每10轮验证，E120起逐轮验证，Exp51在E121切换质量评分。Exp53/54为冻结探针，缓存复评基线24.2528与Exp47正式日志24.2354分开报告，前者不是笔误。MixUp曲线不单调，各概率仅一次完整训练，0.3目前中等/困难最高，不能据此断言显著收益。</p><p>来源：outputs中对应实验的train_console.log及status.tsv；Exp53/54为result.json。2026-09-07核对。</p></article></section>
         <section id="exp58" class="content-panel" aria-labelledby="exp58-title"><article class="section-card"><h2 id="exp58-title">实验58：完全关闭MixUp</h2><p>基于Exp47只将MixUp触发概率改为0。完整250轮完成；SwanLab收尾短暂SSL错误后恢复并完成上传。</p><h3>Best E143 · 无NMS Car 3D AP_R40@0.7</h3><p>30.0380 / 21.5781 / 18.3415</p><p>完整训练结果为原正式无NMS Car 3D AP_R40@0.7（简单/中等/困难），按Moderate选best。Exp48–52基于Exp47，从头250轮、BS16、seed444；E10–110每10轮验证，E120起逐轮验证，Exp51在E121切换质量评分。Exp53/54为冻结探针，缓存复评基线24.2528与Exp47正式日志24.2354分开报告，前者不是笔误。MixUp曲线不单调，各概率仅一次完整训练，0.3目前中等/困难最高，不能据此断言显著收益。</p><p>来源：outputs中对应实验的train_console.log及status.tsv；Exp53/54为result.json。2026-09-07核对。</p></article></section>
+        <section id="exp59" class="content-panel" aria-labelledby="exp59-title">
+          <article class="section-card">
+            <h2 id="exp59-title">实验59：MixUp概率0.3，排除自身供体</h2>
+            <p>2026-09-07 16:07开始，2026-09-08 03:14完成250轮，约11小时07分。继承Exp47，MixUp触发概率0.3，与Exp55方法配置相同；legacy采样新增自身ID拒绝，自身供体占用一次尝试，仍最多重抽50次。其他混图、标签筛选与匹配规则不变。合成回归与相关测试41项通过。</p>
+            <h3>Best E178 · 无NMS Car 3D AP_R40@0.7</h3><p>33.2437 / 24.8539 / 21.4664（简单/中等/困难）。精确Moderate为24.853887981569496；结束后加载best复评一致。所有退出码为0，SwanLab最终报告994570条记录上传完成。训练期间有间歇SSL重试和终端日志跳过，训练未中断。</p>
+            <p>从头250轮，无实验checkpoint续训；沿用原backbone预训练初始化。BS16、seed444、严格确定性、CUDA 12.9栈。E10–110每10轮验证，E120–250每轮验证。tmux：<code>monodgp_exp59</code>；训练PID：<code>4180570</code>；SwanLab：<a href="https://swanlab.cn/@Grapymage/MonoDGP/runs/kddn6yf6">kddn6yf6</a>。初始化一次SSL重试后成功，未重启训练。</p>
+            <p>运行时代码基线<code>128e6b5</code>，分支<code>fix/mixup-exclude-self</code>，当时叠加未提交修复。配置：<code>configs/monodgp_exp59.yaml</code>。输出目录：<code>outputs/V2-0059_实验59_MixUp概率0.3排除自身/</code>，内含<code>run_manifest.txt</code>、<code>resolved_config.yaml</code>和<code>train_console.log</code>；结束状态由<code>status.tsv</code>记录。上述tmux和PID为历史标识，任务已退出。</p>
+            <p>命令：<code>/home/zhangtingyu/Project/Mono3D/MonoDGP/.venv-cu129/bin/python tools/train_val.py --config /home/zhangtingyu/Project/Mono3D/MonoDGP/configs/monodgp_exp59.yaml</code>。由tmux内<code>tools/run_exp55.sh</code>承载，使用<code>MONODGP_FORMAL_CONFIG</code>与<code>MONODGP_FORMAL_OUTPUT</code>明确指定Exp59；只运行本实验，无后续接力。</p>
+            <div class="callout warning"><h4>比较口径与限制</h4><p>评测分数保留原始精度，框几何仍两位小数；用户决定不复评Exp55，不能把旧日志差值称为严格单变量收益。排除自身会改变后续随机增强序列；自混合在0.3下仅预计0.83张/轮（包含无有效车辆的样本），一次训练结果不能证明稳定收益。</p></div>
+            <p>阶段归档：<a href="archive/2026-09-08/README.md">结果、执行记录与后续交接</a>。worker随机初始化候选完成两次短训练及两次完整一轮逐批哈希一致验证，但尚未合入正式代码；全轮平均loss均45.585532385727454，不上传SwanLab。</p>
+          </article>
+        </section>
       </div>
     </div>
 
-    <footer class="footer">MonoDGP 实验总览 v2 · 序号01—58</footer>
+    <footer class="footer">MonoDGP 实验总览 v2 · 序号01—59</footer>
   </main>
 
   <script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js"></script>

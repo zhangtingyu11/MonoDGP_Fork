@@ -1,0 +1,24 @@
+{
+  "checks": {
+    "initial_state": true,
+    "data": true,
+    "steps": true
+  },
+  "worker_states_equal": [
+    true,
+    true,
+    true,
+    true
+  ],
+  "batches_per_run": 232,
+  "samples_per_run": 3712,
+  "unique_samples_per_run": 3712,
+  "mean_loss": [
+    45.585532385727454,
+    45.585532385727454
+  ],
+  "seconds": [
+    366.51104497909546,
+    365.43740725517273
+  ]
+}

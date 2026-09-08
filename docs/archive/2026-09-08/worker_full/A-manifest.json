@@ -1,0 +1,264 @@
+{
+  "runtime": {
+    "executable": "/home/zhangtingyu/Project/Mono3D/MonoDGP/.venv-cu129/bin/python",
+    "python": "3.10.20",
+    "torch": "2.8.0+cu129",
+    "torchvision": "0.23.0+cu129",
+    "cuda": "12.9",
+    "cudnn": 91002,
+    "numba": "0.66.0",
+    "numba_cuda": "0.30.4"
+  },
+  "git": "128e6b59851131ba09846762cfcfe7502d76c894",
+  "tf32_matmul": true,
+  "tf32_cudnn": true,
+  "command": "/home/zhangtingyu/Project/Mono3D/MonoDGP/.venv-cu129/bin/python /tmp/monodgp-worker-full-TVvCQh/check.py A",
+  "config": {
+    "random_seed": 444,
+    "dataset": {
+      "type": "KITTI",
+      "root_dir": "../data/kitti",
+      "train_split": "train",
+      "test_split": "val",
+      "batch_size": 16,
+      "train_pin_memory": true,
+      "test_pin_memory": true,
+      "use_3d_center": true,
+      "class_merging": false,
+      "use_dontcare": false,
+      "bbox2d_type": "anno",
+      "meanshape": false,
+      "writelist": [
+        "Car"
+      ],
+      "clip_2d": false,
+      "aug_pd": true,
+      "aug_crop": true,
+      "full_p2_projection": true,
+      "random_flip": 0.5,
+      "random_crop": 0.5,
+      "random_mixup3d": 0.3,
+      "cross_focal_mixup": false,
+      "mixup_valid_mask_threshold": 0.999,
+      "mixup_min_object_valid_ratio": 0.999,
+      "mixup_max_attempts": 50,
+      "scale": 0.05,
+      "shift": 0.05,
+      "depth_scale": "normal"
+    },
+    "model_name": "V2-0059_\u5b9e\u9a8c59_MixUp\u6982\u73870.3\u6392\u9664\u81ea\u8eab",
+    "model": {
+      "num_classes": 3,
+      "return_intermediate_dec": true,
+      "device": "cuda",
+      "backbone": "resnet50",
+      "train_backbone": true,
+      "num_feature_levels": 4,
+      "dilation": false,
+      "position_embedding": "sine",
+      "masks": false,
+      "mode": "LID",
+      "num_depth_bins": 80,
+      "depth_min": "1e-3",
+      "depth_max": 60.0,
+      "use_vectorized_ddn_rasterization": true,
+      "with_box_refine": true,
+      "use_dn": false,
+      "init_box": false,
+      "enc_layers": 3,
+      "dec_layers": 3,
+      "hidden_dim": 256,
+      "dim_feedforward": 256,
+      "dropout": 0.1,
+      "nheads": 8,
+      "use_memory_efficient_mha": true,
+      "num_queries": 50,
+      "group_num": 11,
+      "decoder_group_num": 11,
+      "enc_n_points": 4,
+      "dec_n_points": 4,
+      "scalar": 5,
+      "label_noise_scale": 0.2,
+      "box_noise_scale": 0.4,
+      "num_patterns": 0,
+      "aux_loss": true,
+      "cls_loss_coef": 2,
+      "focal_alpha": 0.25,
+      "bbox_loss_coef": 5,
+      "giou_loss_coef": 2,
+      "use_aligned_giou_loss": true,
+      "use_post_match_cache": true,
+      "query_monitoring": {
+        "enabled": true,
+        "inference_topk": 50,
+        "score_threshold": 0.0,
+        "car_class_id": 1
+      },
+      "geometry_interval_monitoring": {
+        "enabled": true,
+        "car_class_id": 1,
+        "iou_threshold": 0.7,
+        "decode_mean_sizes": [
+          [
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.0,
+            0.0
+          ]
+        ]
+      },
+      "3dcenter_loss_coef": 10,
+      "dim_loss_coef": 1,
+      "angle_loss_coef": 1,
+      "depth_loss_coef": 1,
+      "depth_map_loss_coef": 1,
+      "region_loss_coef": 1,
+      "depth_mean_gradient_clipping": {
+        "enabled": false,
+        "max_absolute_gradient": 0.03
+      },
+      "set_cost_class": 2,
+      "set_cost_bbox": 5,
+      "set_cost_giou": 2,
+      "set_cost_3dcenter": 10,
+      "set_cost_iou3d": 5,
+      "iou3d_decode_mean_sizes": [
+        [
+          0.0,
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0,
+          0.0
+        ]
+      ],
+      "iou3d_matching_monitoring": {
+        "enabled": true
+      },
+      "high_iou_unmatched_negative_weighting": {
+        "enabled": false,
+        "full_weight_below_iou": 0.5,
+        "zero_weight_at_iou": 0.7
+      },
+      "use_batched_same_image_matcher_cost": true,
+      "iou_quality_head": {
+        "enabled": false,
+        "loss_coef": 1.0,
+        "target_encoding": "cia_ssd",
+        "init_seed": 290029
+      },
+      "use_batched_iou3d_match_cost": true
+    },
+    "optimizer": {
+      "type": "adamw",
+      "lr": 0.0002,
+      "weight_decay": 0.0001,
+      "use_foreach_adamw": true
+    },
+    "lr_scheduler": {
+      "type": "step",
+      "warmup": false,
+      "decay_rate": 0.5,
+      "decay_list": [
+        85,
+        125,
+        165,
+        205
+      ]
+    },
+    "trainer": {
+      "max_epoch": 1,
+      "gpu_ids": "1",
+      "log_frequency": 30,
+      "swanlab_batch_interval": 5,
+      "gradient_monitoring": {
+        "enabled": true,
+        "module_interval": 30
+      },
+      "save_frequency": 1,
+      "validation_start_epoch": 120,
+      "early_validation_interval": 10,
+      "early_validation_updates_best": false,
+      "save_path": "/tmp/monodgp-worker-full-TVvCQh",
+      "save_all": false,
+      "use_cuda_batch_prefetch": true,
+      "use_cuda_eval_prefetch": true,
+      "use_dn": false,
+      "scalar": 5,
+      "label_noise_scale": 0.2,
+      "box_noise_scale": 0.4,
+      "num_patterns": 0,
+      "swanlab": {
+        "enabled": false,
+        "required": true,
+        "project": "MonoDGP",
+        "workspace": "Grapymage",
+        "experiment_name": "\u5b9e\u9a8c59_MixUp\u6982\u73870.3\u6392\u9664\u81ea\u8eab",
+        "description": "Exp47\u57fa\u7840\u4e0aMixUp\u89e6\u53d1\u6982\u73870.3\uff0c\u4fee\u590dlegacy\u4f9b\u4f53\u91c7\u6837\u5141\u8bb8\u9009\u4e2d\u81ea\u8eab\u7684\u95ee\u9898\uff1a\u81ea\u4f9b\u4f53\u5360\u7528\u4e00\u6b21\u5c1d\u8bd5\u5e76\u91cd\u62bd\uff0c\u6700\u591a50\u6b21\u3002\u4e0eExp55\u65b9\u6cd5\u914d\u7f6e\u76f8\u540c\uff0c\u8bad\u7ec3\u4ee3\u7801\u4ec5\u65b0\u589e\u81ea\u4f9b\u4f53\u62d2\u7edd\uff1b\u4ece\u5934250\u8f6e\u3001BS16\u3001seed444\u3001\u4e25\u683c\u786e\u5b9a\u6027\u3001E10\u2013110\u6bcf10\u8f6e\u9a8c\u8bc1\uff0cE120\u8d77\u6bcf\u8f6e\u9a8c\u8bc1\u3002\u8bc4\u6d4b\u4fdd\u7559\u539f\u59cb\u5206\u6570\u7cbe\u5ea6\uff0c\u51e0\u4f55\u4ecd\u4e24\u4f4d\u5c0f\u6570\uff1b\u65e7Exp55\u987b\u6309\u7edf\u4e00\u7cbe\u5ea6\u590d\u8bc4\u540e\u6bd4\u8f83\u3002\u91cd\u62bd\u6539\u53d8\u540e\u7eed\u968f\u673a\u589e\u5f3a\u5e8f\u5217\uff0c\u5355\u6b21\u7ed3\u679c\u4e0d\u80fd\u8bc1\u660e\u7a33\u5b9aAP\u6536\u76ca\u3002",
+        "group": "\u53ef\u884c\u533a\u95f4\u7814\u7a76",
+        "projection_geometry_version": "current",
+        "tags": [
+          "\u5b9e\u9a8c59",
+          "Exp55\u5bf9\u7167",
+          "MixUp\u6982\u73870.3",
+          "\u6392\u9664\u81ea\u4f9b\u4f53",
+          "\u539f\u59cb\u5206\u6570\u7cbe\u5ea6",
+          "250\u8f6e"
+        ],
+        "mode": "online"
+      },
+      "strict_determinism": true,
+      "primary_ap_only_validation": true,
+      "fill_uninitialized_memory": false,
+      "deterministic_bilinear_backward": true
+    },
+    "tester": {
+      "type": "KITTI",
+      "mode": "single",
+      "checkpoint": 195,
+      "threshold": 0.0,
+      "topk": 50,
+      "export_predictions": false,
+      "best_refresh_bev_nms_thresholds": [
+        0.1,
+        0.2,
+        0.3,
+        0.4,
+        0.5,
+        0.6,
+        0.7,
+        0.8,
+        0.9
+      ],
+      "primary_quality_score": "current_cxd",
+      "quality_ranking_monitoring": false,
+      "quality_ranking_car_class_id": 1,
+      "quality_score_fusions": [
+        {
+          "name": "current_cxd",
+          "alpha": 1.0,
+          "beta": 0.0,
+          "gamma": 1.0,
+          "historical_topk": true
+        }
+      ]
+    }
+  },
+  "initial_state": "488b3d43e03f1164569455f5be2599559eb060997e208cc5f11b4fcbe7a27314"
+}

@@ -110,6 +110,55 @@ def _dataset_config(number, root, random_mixup):
     return cfg
 
 
+def test_legacy_mixup_self_only_exhausts_budget_without_duplicate_gt(tmp_path, monkeypatch):
+    root, _ = _synthetic_kitti_root(tmp_path)
+    dataset = KITTI_Dataset('train', _dataset_config(47, root, 1.0))
+    calls = []
+
+    def choose_self(values):
+        calls.append(1)
+        return '000000'
+
+    monkeypatch.setattr(np.random, 'choice', choose_self)
+    inputs, calib, targets, _ = dataset[0]
+    assert len(calls) == dataset.mixup_max_attempts
+    assert targets['mask_2d'].sum() == 1
+    assert not targets['mixup_is_donor'].any()
+    dataset.random_mixup3d = 0.0
+    baseline_inputs, baseline_calib, baseline_targets, _ = dataset[0]
+    np.testing.assert_array_equal(inputs, baseline_inputs)
+    np.testing.assert_array_equal(calib, baseline_calib)
+    for key in targets:
+        np.testing.assert_array_equal(targets[key], baseline_targets[key])
+
+
+def test_legacy_mixup_retries_self_then_preserves_nonself_result(tmp_path, monkeypatch):
+    root, _ = _synthetic_kitti_root(tmp_path, include_donor=True)
+    dataset = KITTI_Dataset('train', _dataset_config(47, root, 1.0))
+    choices = iter(['000000', '000001'])
+    monkeypatch.setattr(np.random, 'choice', lambda values: next(choices))
+    inputs, calib, targets, _ = dataset[0]
+    assert targets['mask_2d'].sum() == 2
+    assert targets['mixup_is_donor'].sum() == 1
+    monkeypatch.setattr(np.random, 'choice', lambda values: '000001')
+    direct_inputs, direct_calib, direct_targets, _ = dataset[0]
+    np.testing.assert_array_equal(inputs, direct_inputs)
+    np.testing.assert_array_equal(calib, direct_calib)
+    for key in targets:
+        np.testing.assert_array_equal(targets[key], direct_targets[key])
+
+
+def test_exp59_only_changes_mixup_probability_from_exp47():
+    baseline = _without_metadata(_config(47))
+    candidate = _without_metadata(_config(59))
+    assert candidate['dataset']['random_mixup3d'] == 0.3
+    baseline['dataset']['random_mixup3d'] = 0.3
+    assert candidate == baseline
+    assert candidate['trainer']['max_epoch'] == 250
+    assert candidate['dataset']['batch_size'] == 16
+    assert not candidate['trainer'].get('resume_model')
+
+
 def _assert_projected_center_matches_encoded_target(targets, slot=0):
     center = np.array([0.0, 0.75, 20.0, 1.0], dtype=np.float32)
     homogeneous = targets['calibs'][slot] @ center
@@ -316,16 +365,17 @@ def test_exp49_canvas_cut_fallback_and_validation_disable_augmentation(
     assert val_calib[0, 0] == pytest.approx(700.0, abs=1e-4)
 
 
-def test_exp50_successful_mixup_uses_same_canvas_cut_fallback(tmp_path):
+def test_exp50_successful_mixup_uses_same_canvas_cut_fallback(tmp_path, monkeypatch):
     boundary_label = (
         'Car 0 0 0 40 160 120 276.5 '
         '1.5 1.6 4.0 -16 1.5 20 0\n')
     root, source_image = _synthetic_kitti_root(
-        tmp_path, label=boundary_label)
+        tmp_path, label=boundary_label, include_donor=True)
     dataset = KITTI_Dataset(
         'train', _dataset_config(50, root, random_mixup=1.0))
     dataset.set_epoch(2)
     np.random.seed(13)
+    monkeypatch.setattr(np.random, 'choice', lambda values: '000001')
 
     inputs, model_calib, targets, _ = dataset[0]
 
@@ -336,9 +386,11 @@ def test_exp50_successful_mixup_uses_same_canvas_cut_fallback(tmp_path):
     assert targets['mixup_virtual_focal_cancelled'] == 1.0
     assert targets['mixup_virtual_focal_multiplier'] == 1.0
     assert model_calib[0, 0] == pytest.approx(700.0, abs=1e-4)
+    blended = np.asarray(Image.blend(
+        Image.fromarray(source_image), Image.fromarray(255 - source_image), 0.5))
     np.testing.assert_allclose(
         inputs,
-        _expected_virtual_focal_input(source_image, dataset, 1.0),
+        _expected_virtual_focal_input(blended, dataset, 1.0),
         rtol=0, atol=0)
 
 

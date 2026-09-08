@@ -483,6 +483,10 @@ class KITTI_Dataset(data.Dataset):
             while count_num < self.mixup_max_attempts:
                 count_num += 1
                 random_index = int(np.random.choice(self.idx_list))
+                # A self-donor duplicates GT without adding another scene.
+                # Count this rejection toward the existing bounded retry budget.
+                if random_index == index:
+                    continue
                 calib_temp = self.get_calib(random_index)
                 if (not self.cross_focal_mixup
                         and not self._mixup_calibrations_match(

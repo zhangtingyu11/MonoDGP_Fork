@@ -1,0 +1,15 @@
+base_config: monodgp_exp47.yaml
+
+model_name: 'V2-0058_实验58_Exp47_关闭MixUp'
+
+dataset:
+  random_mixup3d: 0.0
+
+trainer:
+  swanlab:
+    enabled: true
+    required: true
+    mode: online
+    experiment_name: '实验58_Exp47_关闭MixUp'
+    description: '严格基于实验47从头训练，唯一方法变量是把同P2 MixUp请求概率从0.5改为0，完全关闭MixUp。无三维IoU质量头、分类乘深度评分、完整P2几何、精确3D IoU Hungarian匹配、其他增强、seed444、BS16、CUDA预取、严格确定性执行、250轮及E10至E110每10轮验证和E120起逐轮验证全部保持不变。旧实验35基于实验33，不能替代本次当前执行版本的零概率对照。'
+    tags: ['实验58', '实验47单变量对照', '关闭MixUp', '无三维IoU质量头', '分类乘深度', '严格确定性']

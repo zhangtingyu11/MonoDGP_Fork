@@ -1,0 +1,162 @@
+{
+  "manifest": {
+    "runtime": {
+      "executable": "/home/zhangtingyu/Project/Mono3D/MonoDGP/.venv-cu129/bin/python",
+      "python": "3.10.20",
+      "torch": "2.8.0+cu129",
+      "torchvision": "0.23.0+cu129",
+      "cuda": "12.9",
+      "cudnn": 91002,
+      "numba": "0.66.0",
+      "numba_cuda": "0.30.4"
+    },
+    "command": "/home/zhangtingyu/Project/Mono3D/MonoDGP/.venv-cu129/bin/python /tmp/monodgp-car-only-GFRarh/audit.py",
+    "git_commit": "20b691ce7f9b64ebdd731c5ed6399a6946c84751",
+    "tf32_matmul": true,
+    "tf32_cudnn": true,
+    "checkpoint": "/home/zhangtingyu/Project/Mono3D/MonoDGP/outputs/V2-0047_实验47_去除三维IoU质量头/checkpoint_best.pth",
+    "config": "/home/zhangtingyu/Project/Mono3D/MonoDGP/outputs/V2-0047_实验47_去除三维IoU质量头/resolved_config.yaml",
+    "batch_size": 16,
+    "checkpoint_sha256": "55c5ba73722ebe185002346824bfd5975b5244c9c9ae5c39d528f8bc4c269f45",
+    "protocol": "one forward; historical class-flat top50 vs Car-channel top50; unchanged c*d and geometry; threshold0; original two-decimal evaluator; no NMS and BEV NMS0.8"
+  },
+  "epoch": 247,
+  "recorded_ap": 24.23544760548706,
+  "images": 3769,
+  "historical_class_counts": [
+    0,
+    188450,
+    0
+  ],
+  "affected_images": 0,
+  "added_car_count": 0,
+  "affected_details": [],
+  "common_car_predictions_bitwise_identical": true,
+  "forward_seconds": 67.50371503829956,
+  "extra_score_quantiles": [],
+  "evaluations": {
+    "historical": {
+      "no_nms": {
+        "selection_score": 24.23544760548706,
+        "metrics": {
+          "Car_aos_easy": 90.97383900324041,
+          "Car_aos_moderate": 79.62904345119667,
+          "Car_aos_hard": 75.04675326445484,
+          "Car_aos_easy_R40": 95.15924987786171,
+          "Car_aos_moderate_R40": 81.55606379871786,
+          "Car_aos_hard_R40": 75.96303694296222,
+          "Car_3d_easy": 34.63135460926529,
+          "Car_3d_moderate": 28.11059495106138,
+          "Car_3d_hard": 25.30817066625709,
+          "Car_bev_easy": 42.24365617619995,
+          "Car_bev_moderate": 33.64737638352537,
+          "Car_bev_hard": 31.14744991006472,
+          "Car_image_easy": 91.72264902453212,
+          "Car_image_moderate": 80.93683896762941,
+          "Car_image_hard": 76.99416403070815,
+          "Car_3d_easy_R40": 31.885657851185613,
+          "Car_3d_moderate_R40": 24.23544760548706,
+          "Car_3d_hard_R40": 21.21220333588985,
+          "Car_bev_easy_R40": 40.014199466756395,
+          "Car_bev_moderate_R40": 30.819669925869153,
+          "Car_bev_hard_R40": 27.582904260600504,
+          "Car_image_easy_R40": 96.00873182929006,
+          "Car_image_moderate_R40": 83.02197527914984,
+          "Car_image_hard_R40": 78.06164310933414
+        }
+      },
+      "nms080": {
+        "selection_score": 24.47757496170476,
+        "metrics": {
+          "Car_aos_easy": 91.43105387408113,
+          "Car_aos_moderate": 82.29361420248757,
+          "Car_aos_hard": 78.08730287365574,
+          "Car_aos_easy_R40": 95.78433956323789,
+          "Car_aos_moderate_R40": 84.5722987029856,
+          "Car_aos_hard_R40": 79.20471607865005,
+          "Car_3d_easy": 34.67415614264249,
+          "Car_3d_moderate": 28.185971256467468,
+          "Car_3d_hard": 25.66659747716878,
+          "Car_bev_easy": 42.410727882135475,
+          "Car_bev_moderate": 34.20321881554584,
+          "Car_bev_hard": 31.566157912097264,
+          "Car_image_easy": 92.18999952778083,
+          "Car_image_moderate": 83.68830453906,
+          "Car_image_hard": 80.19777631345914,
+          "Car_3d_easy_R40": 31.90380984870849,
+          "Car_3d_moderate_R40": 24.47757496170476,
+          "Car_3d_hard_R40": 21.565784920656085,
+          "Car_bev_easy_R40": 40.17777169735935,
+          "Car_bev_moderate_R40": 31.402539665951135,
+          "Car_bev_hard_R40": 28.21083343469593,
+          "Car_image_easy_R40": 96.64791852407501,
+          "Car_image_moderate_R40": 86.13715478621214,
+          "Car_image_hard_R40": 81.4730688837622
+        }
+      },
+      "nms_prediction_count": 172129
+    },
+    "car_only": {
+      "no_nms": {
+        "selection_score": 24.23544760548706,
+        "metrics": {
+          "Car_aos_easy": 90.97383900324041,
+          "Car_aos_moderate": 79.62904345119667,
+          "Car_aos_hard": 75.04675326445484,
+          "Car_aos_easy_R40": 95.15924987786171,
+          "Car_aos_moderate_R40": 81.55606379871786,
+          "Car_aos_hard_R40": 75.96303694296222,
+          "Car_3d_easy": 34.63135460926529,
+          "Car_3d_moderate": 28.11059495106138,
+          "Car_3d_hard": 25.30817066625709,
+          "Car_bev_easy": 42.24365617619995,
+          "Car_bev_moderate": 33.64737638352537,
+          "Car_bev_hard": 31.14744991006472,
+          "Car_image_easy": 91.72264902453212,
+          "Car_image_moderate": 80.93683896762941,
+          "Car_image_hard": 76.99416403070815,
+          "Car_3d_easy_R40": 31.885657851185613,
+          "Car_3d_moderate_R40": 24.23544760548706,
+          "Car_3d_hard_R40": 21.21220333588985,
+          "Car_bev_easy_R40": 40.014199466756395,
+          "Car_bev_moderate_R40": 30.819669925869153,
+          "Car_bev_hard_R40": 27.582904260600504,
+          "Car_image_easy_R40": 96.00873182929006,
+          "Car_image_moderate_R40": 83.02197527914984,
+          "Car_image_hard_R40": 78.06164310933414
+        }
+      },
+      "nms080": {
+        "selection_score": 24.47757496170476,
+        "metrics": {
+          "Car_aos_easy": 91.43105387408113,
+          "Car_aos_moderate": 82.29361420248757,
+          "Car_aos_hard": 78.08730287365574,
+          "Car_aos_easy_R40": 95.78433956323789,
+          "Car_aos_moderate_R40": 84.5722987029856,
+          "Car_aos_hard_R40": 79.20471607865005,
+          "Car_3d_easy": 34.67415614264249,
+          "Car_3d_moderate": 28.185971256467468,
+          "Car_3d_hard": 25.66659747716878,
+          "Car_bev_easy": 42.410727882135475,
+          "Car_bev_moderate": 34.20321881554584,
+          "Car_bev_hard": 31.566157912097264,
+          "Car_image_easy": 92.18999952778083,
+          "Car_image_moderate": 83.68830453906,
+          "Car_image_hard": 80.19777631345914,
+          "Car_3d_easy_R40": 31.90380984870849,
+          "Car_3d_moderate_R40": 24.47757496170476,
+          "Car_3d_hard_R40": 21.565784920656085,
+          "Car_bev_easy_R40": 40.17777169735935,
+          "Car_bev_moderate_R40": 31.402539665951135,
+          "Car_bev_hard_R40": 28.21083343469593,
+          "Car_image_easy_R40": 96.64791852407501,
+          "Car_image_moderate_R40": 86.13715478621214,
+          "Car_image_hard_R40": 81.4730688837622
+        }
+      },
+      "nms_prediction_count": 172129
+    }
+  },
+  "seconds": 118.45577692985535
+}

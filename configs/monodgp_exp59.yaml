@@ -1,0 +1,16 @@
+base_config: monodgp_exp47.yaml
+
+model_name: 'V2-0059_实验59_MixUp概率0.3排除自身'
+
+dataset:
+  random_mixup3d: 0.3
+
+trainer:
+  max_epoch: 250
+  swanlab:
+    enabled: true
+    required: true
+    mode: online
+    experiment_name: '实验59_MixUp概率0.3排除自身'
+    description: 'Exp47基础上MixUp触发概率0.3，修复legacy供体采样允许选中自身的问题：自供体占用一次尝试并重抽，最多50次。与Exp55方法配置相同，训练代码仅新增自供体拒绝；从头250轮、BS16、seed444、严格确定性、E10–110每10轮验证，E120起每轮验证。评测保留原始分数精度，几何仍两位小数；旧Exp55须按统一精度复评后比较。重抽改变后续随机增强序列，单次结果不能证明稳定AP收益。'
+    tags: ['实验59', 'Exp55对照', 'MixUp概率0.3', '排除自供体', '原始分数精度', '250轮']

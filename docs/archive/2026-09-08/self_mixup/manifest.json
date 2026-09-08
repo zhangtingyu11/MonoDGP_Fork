@@ -1,0 +1,38 @@
+{
+  "executable": "/home/zhangtingyu/Project/Mono3D/MonoDGP/.venv-cu129/bin/python",
+  "torch": "2.8.0+cu129",
+  "git": "128e6b59851131ba09846762cfcfe7502d76c894",
+  "command": "/tmp/monodgp-self-mixup-6tqGHJ/audit.py",
+  "dataset": {
+    "type": "KITTI",
+    "root_dir": "../data/kitti",
+    "train_split": "train",
+    "test_split": "val",
+    "batch_size": 16,
+    "train_pin_memory": true,
+    "test_pin_memory": true,
+    "use_3d_center": true,
+    "class_merging": false,
+    "use_dontcare": false,
+    "bbox2d_type": "anno",
+    "meanshape": false,
+    "writelist": [
+      "Car"
+    ],
+    "clip_2d": false,
+    "aug_pd": true,
+    "aug_crop": true,
+    "full_p2_projection": true,
+    "random_flip": 0.5,
+    "random_crop": 0.5,
+    "random_mixup3d": 0.5,
+    "cross_focal_mixup": false,
+    "mixup_valid_mask_threshold": 0.999,
+    "mixup_min_object_valid_ratio": 0.999,
+    "mixup_max_attempts": 50,
+    "scale": 0.05,
+    "shift": 0.05,
+    "depth_scale": "normal"
+  },
+  "uses_cuda": false
+}

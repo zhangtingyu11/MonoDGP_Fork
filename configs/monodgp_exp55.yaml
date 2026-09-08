@@ -1,0 +1,17 @@
+base_config: monodgp_exp47.yaml
+
+model_name: 'V2-0055_实验55_Exp47_MixUp概率0.3'
+
+dataset:
+  # The only method variable from Exp47: reduce the probability of the
+  # existing same-P2 MixUp path from 0.5 to 0.3.
+  random_mixup3d: 0.3
+
+trainer:
+  swanlab:
+    enabled: true
+    required: true
+    mode: online
+    experiment_name: '实验55_Exp47_MixUp概率0.3'
+    description: '严格基于实验47从头训练，唯一方法变量是把既有同P2 MixUp概率从0.5降到0.3。去除独立三维IoU质量头、分类乘深度置信度推理、完整P2几何、精确3D IoU Hungarian匹配、其他数据增强、seed444、严格确定性执行优化、250轮训练、E10至E110每10轮验证以及E120起逐轮验证全部继承实验47。'
+    tags: ['实验55', '实验47单变量对照', 'MixUp概率0.3', '无三维IoU质量头', '分类乘深度', '严格确定性']

@@ -1,0 +1,91 @@
+实验：实验59_MixUp概率0.3排除自身
+启动时间：2026-09-07T16:06:59+08:00
+代码分支：fix/mixup-exclude-self
+代码基线提交：128e6b59851131ba09846762cfcfe7502d76c894
+已跟踪未提交差异SHA256：9b2a8c0a8a108ab558869b9fdd3c405370a155420d8c20010f18ec41d16bbed6
+解释器：/home/zhangtingyu/Project/Mono3D/MonoDGP/.venv-cu129/bin/python
+Python：3.10.20
+PyTorch：2.8.0+cu129
+torchvision：0.23.0+cu129
+CUDA：12.9
+cuDNN：91002
+Numba：0.66.0
+Numba-CUDA：0.30.4
+CUDA_VISIBLE_DEVICES：0
+TF32 matmul（调用set_random_seed后）：True
+TF32 cuDNN（调用set_random_seed后）：True
+随机种子：444
+批大小：16
+验证起始轮次：120
+正式验证前轻量AP诊断间隔：10
+早期AP刷新参与best并计算NMS：False
+主要best选择：无NMS Car_3d_moderate_R40；排序分数=current_cxd
+验证置信度门槛：0.0
+跨焦距供体目标最小有效覆盖率：0.999
+MixUp绑定虚拟焦距：False
+MixUp虚拟焦距倍率：
+虚拟焦距适用范围：successful_mixup
+best刷新时BEV NMS阈值：0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9
+命令：/home/zhangtingyu/Project/Mono3D/MonoDGP/.venv-cu129/bin/python tools/train_val.py --config /home/zhangtingyu/Project/Mono3D/MonoDGP/configs/monodgp_exp59.yaml
+SHA256 monodgp_exp59.yaml：c4cdcabd4f80e493039e4c1e85f34a23f7681113e65f546c8a021429160cca77
+SHA256 resolved_config.yaml：5d92b00961ac9e28a35ecd5aa49e625b4c3afeba02dfe0d73dde93e477eb7607
+SHA256 monodgp.py：079f452801c534530c6f326eb6971785b23ccbf47a4f6c0acd1c25706289ee69
+SHA256 matcher.py：1ef37f27e42279c46248f5ca432fea77ac84ab1b9bea889c1afa6a5c2b7c7a4b
+SHA256 focal_loss.py：282b5a0efdbc29ef9e917cf71b52fc13b165981313c269daf0865ff12f1282bc
+SHA256 bev_nms_helper.py：b65433d7d5e8cfeee59164ef11f82260a1b9f5ee77f7948d9e3d4a0519059569
+SHA256 kitti_dataset.py：fad4a9bbdcc9500f83c6d148a4f8c343ead4c726b92239445f9a22a13ff21bfa
+SHA256 kitti_utils.py：54216ccf4586c56f47b84971d13f6c26b81c90dc977e222a71cd4aa9fa6511e6
+SHA256 mixup_geometry.py：85a48ddfd0a99a10c8c99c4bb9ef42bbbddf9c56c833c6d58e2c8d70c7983f85
+SHA256 decode_helper.py：b223534801cd75314238f814d8f39ebb837a658e69e61ff15fe2f11721157d1e
+SHA256 scheduler_helper.py：f791900f56c6183f08188ed3e46026884acb22bf1ce619f7a77807ae1cbd697e
+SHA256 save_helper.py：30f594d5ecd7f1e9874aaec98f211c3ca9b478f03428feb0162d80bc0f43670d
+SHA256 tester_helper.py：6b9eac898d9cd8abf678f1e44cc0fa24819de7c0e00c4ff494065830a2ff3500
+SHA256 trainer_helper.py：8f673ab12029b0c291ed26653ea0c31204991b36b8a3020a253f13d5ca632c9d
+SHA256 quality_ranking_monitor.py：3eeee37c9838cc21c705acc7b267f785caf0a412cf1061f6b3a9b3b34e9079c6
+SHA256 nms_best_query_monitor.py：62d6f2771ea48850565e4c5debb0f18d73e8bf0bad5d1b07896c2f5568b4c373
+SHA256 swanlab_helper.py：f9eff0f279429058c39603a105fac9b0bd7d1bb29d1a11d0338f850a50d0fcef
+SHA256 gradient_monitor.py：fe0ef7df00280d9c9fd5ff2f495a99a046b7c7242df2eb159c81d00353fb3cb1
+SHA256 asymmetric_interval_depth_loss.py：1583f3d8b9a2f099a1e87fe1d01e28f4e1203cccaf087d92431b87c5855fd848
+SHA256 query_quality_ranking_loss.py：e3ed53d00daed77502680d627f0cf8487f9d456659465a258f26c35ab44ff327
+SHA256 nms_aware_iou_ranking_loss.py：9ab5ce223444496a53d4d74be5446f00f3cad3e23eb0a9dbd8215a6f916fbc2b
+SHA256 iou3d_match_cost.py：717a28ac61ddd65ba03a5a47f8abdac121e1ce07873fdb0829aa7c7be9800216
+SHA256 仓库内确定性MSDA msda_deterministic_backward.cu：6938f63d38e6e2a8062bae669ebc18db88b30c5f9efbc172f03442dfc0b4f94e
+SHA256 仓库内确定性MSDA MonoDGPDeterministicMSDA.cpython-310-x86_64-linux-gnu.so：c65ac181c91fc7c7bb8356f9d2f30b9ae4c76bf3b8d078eff5e1ce724d0d5d5a
+严格确定性算法：True
+严格模式填充未初始化内存：False
+确定性双线性index backward：True
+确定性MSDA backward：True
+批量精确三维IoU匹配：True
+仅主AP验证：True
+高IoU未匹配负分类软减弱：False
+负分类完整权重截止IoU：0.5
+负分类零权重起始IoU：0.7
+三维IoU质量头：False
+全query分类拟合三维IoU：False
+IoU分类Quality Focal beta：未配置
+触发NMS候选对排序：False
+NMS排序Loss系数：未配置
+NMS排序预测框BEV IoU阈值：未配置
+NMS排序最小真实3D IoU差：未配置
+NMS排序策略：all_conflicting_pairs
+NMS排序仅最终Decoder层：False
+每轮NMS独立选优：False
+每轮NMS独立选优阈值：未配置
+每轮NMS对照阈值：
+质量Loss权重：1.0
+质量监督模式：hungarian_positive
+全query点式Loss系数：未配置
+同GT排序Loss系数：未配置
+排序query对最小IoU差：未配置
+低IoU点式监督阈值/权重：未配置/未配置
+点式监督达到满权重的IoU：未配置
+质量目标编码：cia_ssd
+质量头独立初始化种子：290029
+质量头训练启用轮次：1
+主排序分数：current_cxd
+排序分数切换轮次：未配置
+切换前主排序分数：未配置
+预注册排序组合：current_cxd(alpha=1.0,beta=0.0,gamma=1.0,historical_topk=True,classification_only=False)
+学习率调度：step
+Cosine T_max：未配置
+Cosine eta_min：未配置

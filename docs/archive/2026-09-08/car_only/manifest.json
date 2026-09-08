@@ -1,0 +1,21 @@
+{
+  "runtime": {
+    "executable": "/home/zhangtingyu/Project/Mono3D/MonoDGP/.venv-cu129/bin/python",
+    "python": "3.10.20",
+    "torch": "2.8.0+cu129",
+    "torchvision": "0.23.0+cu129",
+    "cuda": "12.9",
+    "cudnn": 91002,
+    "numba": "0.66.0",
+    "numba_cuda": "0.30.4"
+  },
+  "command": "/home/zhangtingyu/Project/Mono3D/MonoDGP/.venv-cu129/bin/python /tmp/monodgp-car-only-GFRarh/audit.py",
+  "git_commit": "20b691ce7f9b64ebdd731c5ed6399a6946c84751",
+  "tf32_matmul": true,
+  "tf32_cudnn": true,
+  "checkpoint": "/home/zhangtingyu/Project/Mono3D/MonoDGP/outputs/V2-0047_实验47_去除三维IoU质量头/checkpoint_best.pth",
+  "config": "/home/zhangtingyu/Project/Mono3D/MonoDGP/outputs/V2-0047_实验47_去除三维IoU质量头/resolved_config.yaml",
+  "batch_size": 16,
+  "checkpoint_sha256": "55c5ba73722ebe185002346824bfd5975b5244c9c9ae5c39d528f8bc4c269f45",
+  "protocol": "one forward; historical class-flat top50 vs Car-channel top50; unchanged c*d and geometry; threshold0; original two-decimal evaluator; no NMS and BEV NMS0.8"
+}

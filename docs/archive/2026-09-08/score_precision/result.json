@@ -1,0 +1,187 @@
+{
+  "manifest": {
+    "runtime": {
+      "executable": "/home/zhangtingyu/Project/Mono3D/MonoDGP/.venv-cu129/bin/python",
+      "python": "3.10.20",
+      "torch": "2.8.0+cu129",
+      "torchvision": "0.23.0+cu129",
+      "cuda": "12.9",
+      "cudnn": 91002,
+      "numba": "0.66.0",
+      "numba_cuda": "0.30.4"
+    },
+    "command": "/home/zhangtingyu/Project/Mono3D/MonoDGP/.venv-cu129/bin/python /tmp/monodgp-score-precision-ZvlC1G/audit.py",
+    "git_commit": "20b691ce7f9b64ebdd731c5ed6399a6946c84751",
+    "tf32_matmul": true,
+    "tf32_cudnn": true,
+    "deterministic_algorithms": true,
+    "checkpoint": "/home/zhangtingyu/Project/Mono3D/MonoDGP/outputs/V2-0047_实验47_去除三维IoU质量头/checkpoint_best.pth",
+    "checkpoint_sha256": "55c5ba73722ebe185002346824bfd5975b5244c9c9ae5c39d528f8bc4c269f45",
+    "config": "/home/zhangtingyu/Project/Mono3D/MonoDGP/outputs/V2-0047_实验47_去除三维IoU质量头/resolved_config.yaml",
+    "batch_size": 16,
+    "protocol": "one forward, historical top50 c*d threshold0; all geometry unchanged at two-decimal precision; only evaluator score changes; NMS0.8 survivors computed ONCE with original full scores"
+  },
+  "epoch": 247,
+  "recorded_ap": 24.23544760548706,
+  "images": 3769,
+  "forward_seconds": 58.54659605026245,
+  "evaluations": {
+    "no_nms": {
+      "two_decimals": {
+        "selection_score": 24.23544760548706,
+        "metrics": {
+          "Car_aos_easy": 90.97383900324041,
+          "Car_aos_moderate": 79.62904345119667,
+          "Car_aos_hard": 75.04675326445484,
+          "Car_aos_easy_R40": 95.15924987786171,
+          "Car_aos_moderate_R40": 81.55606379871786,
+          "Car_aos_hard_R40": 75.96303694296222,
+          "Car_3d_easy": 34.63135460926529,
+          "Car_3d_moderate": 28.11059495106138,
+          "Car_3d_hard": 25.30817066625709,
+          "Car_bev_easy": 42.24365617619995,
+          "Car_bev_moderate": 33.64737638352537,
+          "Car_bev_hard": 31.14744991006472,
+          "Car_image_easy": 91.72264902453212,
+          "Car_image_moderate": 80.93683896762941,
+          "Car_image_hard": 76.99416403070815,
+          "Car_3d_easy_R40": 31.885657851185613,
+          "Car_3d_moderate_R40": 24.23544760548706,
+          "Car_3d_hard_R40": 21.21220333588985,
+          "Car_bev_easy_R40": 40.014199466756395,
+          "Car_bev_moderate_R40": 30.819669925869153,
+          "Car_bev_hard_R40": 27.582904260600504,
+          "Car_image_easy_R40": 96.00873182929006,
+          "Car_image_moderate_R40": 83.02197527914984,
+          "Car_image_hard_R40": 78.06164310933414
+        }
+      },
+      "original": {
+        "selection_score": 24.306297728071424,
+        "metrics": {
+          "Car_aos_easy": 91.01867304752713,
+          "Car_aos_moderate": 79.69120883424847,
+          "Car_aos_hard": 75.06818873735891,
+          "Car_aos_easy_R40": 95.18734152978527,
+          "Car_aos_moderate_R40": 81.66364780745926,
+          "Car_aos_hard_R40": 76.08178933291182,
+          "Car_3d_easy": 34.636259378386484,
+          "Car_3d_moderate": 28.264370711798875,
+          "Car_3d_hard": 25.32904227563893,
+          "Car_bev_easy": 42.24960523341456,
+          "Car_bev_moderate": 33.66532991536306,
+          "Car_bev_hard": 31.19301249179275,
+          "Car_image_easy": 91.76891753126657,
+          "Car_image_moderate": 81.0010682077627,
+          "Car_image_hard": 77.017319806234,
+          "Car_3d_easy_R40": 31.932828517856954,
+          "Car_3d_moderate_R40": 24.306297728071424,
+          "Car_3d_hard_R40": 21.27470944489219,
+          "Car_bev_easy_R40": 40.10177534750359,
+          "Car_bev_moderate_R40": 30.862976777699497,
+          "Car_bev_hard_R40": 27.643595576779006,
+          "Car_image_easy_R40": 96.0380829714967,
+          "Car_image_moderate_R40": 83.13340277995387,
+          "Car_image_hard_R40": 78.1875039217033
+        }
+      }
+    },
+    "nms080": {
+      "two_decimals": {
+        "selection_score": 24.47757496170476,
+        "metrics": {
+          "Car_aos_easy": 91.43105387408113,
+          "Car_aos_moderate": 82.29361420248757,
+          "Car_aos_hard": 78.08730287365574,
+          "Car_aos_easy_R40": 95.78433956323789,
+          "Car_aos_moderate_R40": 84.5722987029856,
+          "Car_aos_hard_R40": 79.20471607865005,
+          "Car_3d_easy": 34.67415614264249,
+          "Car_3d_moderate": 28.185971256467468,
+          "Car_3d_hard": 25.66659747716878,
+          "Car_bev_easy": 42.410727882135475,
+          "Car_bev_moderate": 34.20321881554584,
+          "Car_bev_hard": 31.566157912097264,
+          "Car_image_easy": 92.18999952778083,
+          "Car_image_moderate": 83.68830453906,
+          "Car_image_hard": 80.19777631345914,
+          "Car_3d_easy_R40": 31.90380984870849,
+          "Car_3d_moderate_R40": 24.47757496170476,
+          "Car_3d_hard_R40": 21.565784920656085,
+          "Car_bev_easy_R40": 40.17777169735935,
+          "Car_bev_moderate_R40": 31.402539665951135,
+          "Car_bev_hard_R40": 28.21083343469593,
+          "Car_image_easy_R40": 96.64791852407501,
+          "Car_image_moderate_R40": 86.13715478621214,
+          "Car_image_hard_R40": 81.4730688837622
+        }
+      },
+      "original": {
+        "selection_score": 24.544725840561043,
+        "metrics": {
+          "Car_aos_easy": 91.49214174276672,
+          "Car_aos_moderate": 82.34730559009465,
+          "Car_aos_hard": 78.13177758014947,
+          "Car_aos_easy_R40": 95.8150339220911,
+          "Car_aos_moderate_R40": 84.72148963324969,
+          "Car_aos_hard_R40": 79.35810276013369,
+          "Car_3d_easy": 34.6819947800816,
+          "Car_3d_moderate": 28.200349296133982,
+          "Car_3d_hard": 25.718444247049536,
+          "Car_bev_easy": 42.40950207099129,
+          "Car_bev_moderate": 34.23205376381522,
+          "Car_bev_hard": 31.633231006110545,
+          "Car_image_easy": 92.2529478819256,
+          "Car_image_moderate": 83.74363850366021,
+          "Car_image_hard": 80.24850730951727,
+          "Car_3d_easy_R40": 31.99032106386316,
+          "Car_3d_moderate_R40": 24.544725840561043,
+          "Car_3d_hard_R40": 21.647827810434205,
+          "Car_bev_easy_R40": 40.29192325424611,
+          "Car_bev_moderate_R40": 31.468787228920007,
+          "Car_bev_hard_R40": 28.287022205457575,
+          "Car_image_easy_R40": 96.6799605047842,
+          "Car_image_moderate_R40": 86.29309784846285,
+          "Car_image_hard_R40": 81.63941956067575
+        }
+      }
+    }
+  },
+  "stats": {
+    "no_nms": {
+      "predictions": 188450,
+      "geometry_and_order_identical": true,
+      "raw_unique_scores": 188203,
+      "rounded_unique_scores": 1795,
+      "rounded_zero_count": 89044,
+      "raw_zero_count": 0,
+      "max_tie_group": 89044,
+      "raw_score_quantiles": [
+        0.00012464268365874887,
+        0.000869197683641687,
+        0.0062414915300905704,
+        0.7004419982433321,
+        9.151726655960097,
+        26.14056396484375
+      ]
+    },
+    "nms080": {
+      "predictions": 172129,
+      "geometry_and_order_identical": true,
+      "raw_unique_scores": 171903,
+      "rounded_unique_scores": 1795,
+      "rounded_zero_count": 88123,
+      "raw_zero_count": 0,
+      "max_tie_group": 88123,
+      "raw_score_quantiles": [
+        0.00012464268365874887,
+        0.0008371111121959985,
+        0.00460366765037179,
+        0.59932211637497,
+        9.678789978027345,
+        26.14056396484375
+      ]
+    }
+  },
+  "seconds": 93.32071685791016
+}
