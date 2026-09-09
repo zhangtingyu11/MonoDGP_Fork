@@ -661,7 +661,7 @@
       <h1>实验总览 v2</h1>
       <p>实验总账的可视化索引。每项实验单独记录目的、对比条件、执行过程和客观结果，方便后续持续追加。</p>
       <div class="hero-meta">
-        <span class="pill"><span class="status-dot"></span>58 项实验已记录</span>
+        <span class="pill"><span class="status-dot"></span>60 项实验已记录</span>
         <span class="pill">数据来源：实验总账v2</span>
         <span class="pill">更新日期：2026-09-07</span>
       </div>
@@ -895,6 +895,7 @@
         <button class="nav-button" data-target="exp57" type="button"><span class="nav-index">57</span><span class="nav-copy"><strong>MixUp概率0.1</strong><small>已完成</small></span></button>
         <button class="nav-button" data-target="exp58" type="button"><span class="nav-index">58</span><span class="nav-copy"><strong>完全关闭MixUp</strong><small>已完成</small></span></button>
         <button class="nav-button" data-target="exp59" type="button"><span class="nav-index">59</span><span class="nav-copy"><strong>MixUp 0.3排除自身</strong><small>已完成 · best E178</small></span></button>
+        <button class="nav-button" data-target="exp60" type="button"><span class="nav-index">60</span><span class="nav-copy"><strong>worker随机种子修复</strong><small>已完成 · 已回退 · best E144</small></span></button>
       </nav>
 
       <div>
@@ -1050,6 +1051,8 @@
               <div class="truth"><span class="number">56</span><h3>MixUp概率0.2</h3><p>Best E238：30.7112 / 23.1529 / 20.3289</p></div>
               <div class="truth"><span class="number">57</span><h3>MixUp概率0.1</h3><p>Best E218：32.5886 / 23.9701 / 20.6427</p></div>
               <div class="truth"><span class="number">58</span><h3>完全关闭MixUp</h3><p>Best E143：30.0380 / 21.5781 / 18.3415</p></div>
+              <div class="truth"><span class="number">59</span><h3>MixUp 0.3排除自身</h3><p>Best E178：33.2437 / 24.8539 / 21.4664</p></div>
+              <div class="truth"><span class="number">60</span><h3>worker随机种子修复（已回退）</h3><p>Best E144：32.3657 / 24.6255 / 21.4097</p></div>
             </div>
           </article>
 
@@ -4187,10 +4190,18 @@
             <p>阶段归档：<a href="archive/2026-09-08/README.md">结果、执行记录与后续交接</a>。worker随机初始化候选完成两次短训练及两次完整一轮逐批哈希一致验证，但尚未合入正式代码；全轮平均loss均45.585532385727454，不上传SwanLab。</p>
           </article>
         </section>
+        <section id="exp60" class="content-panel" aria-labelledby="exp60-title"><article class="section-card">
+          <h2 id="exp60-title">实验60：保留PyTorch原生worker随机种子（完成，已回退）</h2>
+          <div class="callout warning"><h4>2026-09-09 用户决定回退</h4><p>250轮完整结果未提升，正式代码已恢复Exp59的worker重复设种子行为；分数精度和MixUp排除自身修复保留。单次结果不能证明修复稳定降低AP。历史配置保留，但当前代码仅运行该配置不能复现Exp60候选。</p></div>
+          <p>严格基于Exp59，仅取消worker回调覆盖NumPy随机状态。MixUp0.3、排除自身、BS16、4 workers、seed444、严格确定性、CUDA预取和验证节奏不变，从头250轮。</p>
+          <p>最终运行09-08 18:50开始，09-09 06:00正常结束。Best E144无NMS Car 3D AP_R40@0.7：<strong>32.3657 / 24.6255 / 21.4097</strong>，结束后加载best复评一致。Moderate比Exp59的24.8539低0.2284个百分点。四项退出码均0，SwanLab上传完成。</p>
+          <p><a href="https://swanlab.cn/@Grapymage/MonoDGP/runs/13dlsyik">最终SwanLab 13dlsyik</a>；tmux <code>monodgp_exp60_250</code>，训练PID77282（已结束）。输出：<code>outputs/V2-0060_实验60_从头250轮_20260908重跑/</code>。此前7g4bla89、cbzh7e9r及其他中断尝试不是最终结果，重启原因未确定。</p>
+          <p>本地归档（不上传Git）：<code>docs/archive/2026-09-09/exp60/README.md</code>，保存准确命令、运行环境、候选源码和结果证据。原始日志及checkpoint保留。</p>
+        </article></section>
       </div>
     </div>
 
-    <footer class="footer">MonoDGP 实验总览 v2 · 序号01—59</footer>
+    <footer class="footer">MonoDGP 实验总览 v2 · 序号01—60</footer>
   </main>
 
   <script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js"></script>

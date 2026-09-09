@@ -159,6 +159,16 @@ def test_exp59_only_changes_mixup_probability_from_exp47():
     assert not candidate['trainer'].get('resume_model')
 
 
+def test_exp60_preserves_exp59_method_and_training_config():
+    assert _without_metadata(_config(60)) == _without_metadata(_config(59))
+    cfg = _config(60)
+    assert cfg['trainer']['max_epoch'] == 250
+    assert not cfg['trainer'].get('resume_model')
+    assert not cfg['trainer'].get('pretrain_model')
+    assert cfg['trainer']['swanlab']['enabled']
+    assert cfg['trainer']['swanlab']['mode'] == 'online'
+
+
 def _assert_projected_center_matches_encoded_target(targets, slot=0):
     center = np.array([0.0, 0.75, 20.0, 1.0], dtype=np.float32)
     homogeneous = targets['calibs'][slot] @ center

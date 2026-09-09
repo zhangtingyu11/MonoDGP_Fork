@@ -1,0 +1,15 @@
+# 历史实验配置：2026-09-09已回退worker修复。当前代码运行本配置不能复现Exp60候选。
+# 候选源码快照仅存本地 docs/archive/2026-09-09/exp60/README.md（不上传Git）；最终结果见 docs/实验总账v2.md。
+base_config: monodgp_exp59.yaml
+
+model_name: 'V2-0060_实验60_保留PyTorch原生worker随机种子'
+
+trainer:
+  max_epoch: 250
+  swanlab:
+    enabled: true
+    required: true
+    mode: online
+    experiment_name: '实验60_保留PyTorch原生worker随机种子'
+    description: '严格基于Exp59，仅取消worker初始化时覆盖NumPy种子，保留PyTorch按base_seed与worker_id生成的状态。候选已通过两次短训练及两次全量一轮逐批输入、GT、loss、梯度、模型与优化器状态字节哈希一致验证，不代表完整250轮保证。MixUp触发0.3、排除自身、混图权重各0.5、BS16、4workers、seed444、严格确定性、CUDA预取、原始评分精度均继承Exp59。从头250轮，E10–110每10轮验证，E120起每轮验证。'
+    tags: ['实验60', 'Exp59对照', 'worker随机种子修复', 'MixUp概率0.3', '严格确定性', '250轮']
