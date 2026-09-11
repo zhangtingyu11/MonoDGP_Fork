@@ -147,6 +147,7 @@ def main():
         ROOT_DIR / 'lib/helpers/save_helper.py',
         ROOT_DIR / 'lib/helpers/tester_helper.py',
         ROOT_DIR / 'lib/helpers/trainer_helper.py',
+        ROOT_DIR / 'lib/helpers/dimension_loss_audit.py',
         ROOT_DIR / 'lib/helpers/quality_ranking_monitor.py',
         ROOT_DIR / 'lib/helpers/nms_best_query_monitor.py',
         ROOT_DIR / 'lib/helpers/swanlab_helper.py',

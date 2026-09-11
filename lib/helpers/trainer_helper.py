@@ -15,6 +15,7 @@ from lib.helpers.swanlab_helper import chinese_grouped_monitoring
 from lib.helpers.swanlab_helper import scalar_values_to_floats
 from lib.helpers.gradient_monitor import GradientMonitor
 from lib.helpers.gradient_monitor import chinese_gradient_metrics
+from lib.helpers.dimension_loss_audit import DimensionLossAudit
 
 from utils import misc
 
@@ -1125,6 +1126,11 @@ class Trainer(object):
         self.model.train()
         self.detr_loss.train()
         batch_count = len(self.train_loader)
+        audit_cfg = self.cfg.get('dimension_loss_audit', {})
+        if audit_cfg.get('enabled', False) and not hasattr(self, 'dimension_loss_audit'):
+            self.dimension_loss_audit = DimensionLossAudit(
+                self.output_dir, audit_cfg['baseline_log'], self.logger)
+        dimension_audit = getattr(self, 'dimension_loss_audit', None)
         log_frequency = max(1, int(self.cfg.get('log_frequency', 30)))
         swanlab_interval = max(
             1, int(self.cfg.get('swanlab_batch_interval', 5)))
@@ -1204,6 +1210,11 @@ class Trainer(object):
                     if key in weight_dict).detach().item()
                 epoch_loss_sum += detr_losses_log
                 epoch_batch_count += 1
+                if dimension_audit is not None:
+                    dimension_audit.observe(
+                        epoch + 1, batch_idx + 1, detr_losses_dict,
+                        detr_losses_log, info.get('img_id', ()),
+                        [group['lr'] for group in self.optimizer.param_groups])
 
                 should_log = (
                     batch_idx % log_frequency == 0
@@ -1322,6 +1333,8 @@ class Trainer(object):
         gradient_summary = (
             gradient_monitor.finalize()
             if gradient_monitor is not None else {})
+        if dimension_audit is not None:
+            dimension_audit.save_summary(epoch + 1, epoch_batch_count)
         if depth_mean_clip_receipts:
             prediction_count = torch.stack(tuple(
                 receipt['depth_mean_clip_prediction_count']

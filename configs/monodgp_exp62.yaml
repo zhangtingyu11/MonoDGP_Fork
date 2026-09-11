@@ -1,0 +1,19 @@
+# 历史实验配置：2026-09-10已回退距离过滤候选，正式代码恢复Exp59。
+# 当前代码不读取下列深度上限开关，不能仅运行本配置复现Exp62；结果见docs/实验总账v2.md。
+base_config: monodgp_exp59.yaml
+
+model_name: 'V2-0062_实验62_主图供体取消65米上限'
+
+dataset:
+  primary_max_depth: null
+  legacy_mixup_max_depth: null
+
+trainer:
+  max_epoch: 250
+  swanlab:
+    enabled: true
+    required: true
+    mode: online
+    experiment_name: '实验62_主图供体取消65米上限'
+    description: '以Exp59为参照，主图和legacy MixUp供体均不设65米深度上限；相对Exp59仅主图取消上限，供体维持无上限。保留UnKnown、截断、遮挡、z<2及投影等现有检查。保留旧worker初始化、MixUp0.3、排除自身、BS16、4workers、seed444、严格确定性、CUDA预取、原始评分精度；从头250轮，无实验checkpoint续训，E10–110每10轮验证，E120起逐轮验证，AP范围不变。不改变60米深度图分箱，超范围深度沿用现有溢出bin。新增GT改变匹配及训练轨迹，单次结果不代表稳定收益。'
+    tags: ['实验62', 'Exp59对照', '取消65米上限', '保留难度筛选', '250轮']

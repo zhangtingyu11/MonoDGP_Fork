@@ -1183,14 +1183,29 @@ class SetCriterion(nn.Module):
             else torch.cat([t['size_3d'][i]
                             for t, (_, i) in zip(targets, indices)], dim=0))
 
+        if src_dims.numel() == 0:
+            return {
+                'loss_dim': src_dims.sum() * 0.0,
+                'monitor_dim_zero_guard': src_dims.new_zeros(()),
+                'monitor_dim_empty_guard': src_dims.new_ones(()),
+            }
+
         dimension = target_dims.clone().detach()
         dim_loss = torch.abs(src_dims - target_dims)
         dim_loss /= dimension
         with torch.no_grad():
-            compensation_weight = F.l1_loss(src_dims, target_dims) / dim_loss.mean()
+            mean_relative_error = dim_loss.mean()
+            zero_denominator = mean_relative_error == 0
+            safe_denominator = torch.where(
+                zero_denominator, torch.ones_like(mean_relative_error),
+                mean_relative_error)
+            compensation_weight = (
+                F.l1_loss(src_dims, target_dims) / safe_denominator)
         dim_loss *= compensation_weight
         losses = {}
         losses['loss_dim'] = dim_loss.sum() / num_boxes
+        losses['monitor_dim_zero_guard'] = zero_denominator.to(src_dims.dtype)
+        losses['monitor_dim_empty_guard'] = src_dims.new_zeros(())
         return losses
 
     def loss_angles(self, outputs, targets, indices, num_boxes,

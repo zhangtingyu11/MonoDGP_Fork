@@ -661,7 +661,7 @@
       <h1>实验总览 v2</h1>
       <p>实验总账的可视化索引。每项实验单独记录目的、对比条件、执行过程和客观结果，方便后续持续追加。</p>
       <div class="hero-meta">
-        <span class="pill"><span class="status-dot"></span>60 项实验已记录</span>
+        <span class="pill"><span class="status-dot"></span>63 项实验已记录</span>
         <span class="pill">数据来源：实验总账v2</span>
         <span class="pill">更新日期：2026-09-07</span>
       </div>
@@ -896,6 +896,9 @@
         <button class="nav-button" data-target="exp58" type="button"><span class="nav-index">58</span><span class="nav-copy"><strong>完全关闭MixUp</strong><small>已完成</small></span></button>
         <button class="nav-button" data-target="exp59" type="button"><span class="nav-index">59</span><span class="nav-copy"><strong>MixUp 0.3排除自身</strong><small>已完成 · best E178</small></span></button>
         <button class="nav-button" data-target="exp60" type="button"><span class="nav-index">60</span><span class="nav-copy"><strong>worker随机种子修复</strong><small>已完成 · 已回退 · best E144</small></span></button>
+        <button class="nav-button" data-target="exp61" type="button"><span class="nav-index">61</span><span class="nav-copy"><strong>主图供体统一65米过滤</strong><small>已完成 · 未采用 · best E229</small></span></button>
+        <button class="nav-button" data-target="exp62" type="button"><span class="nav-index">62</span><span class="nav-copy"><strong>主图供体取消65米上限</strong><small>已完成 · 已回退 · best E198</small></span></button>
+        <button class="nav-button" data-target="exp63" type="button"><span class="nav-index">63</span><span class="nav-copy"><strong>尺寸损失零分母保护</strong><small>已完成 · 零触发 · 复现Exp59</small></span></button>
       </nav>
 
       <div>
@@ -1053,6 +1056,9 @@
               <div class="truth"><span class="number">58</span><h3>完全关闭MixUp</h3><p>Best E143：30.0380 / 21.5781 / 18.3415</p></div>
               <div class="truth"><span class="number">59</span><h3>MixUp 0.3排除自身</h3><p>Best E178：33.2437 / 24.8539 / 21.4664</p></div>
               <div class="truth"><span class="number">60</span><h3>worker随机种子修复（已回退）</h3><p>Best E144：32.3657 / 24.6255 / 21.4097</p></div>
+              <div class="truth"><span class="number">61</span><h3>主图供体统一65米过滤（未采用）</h3><p>Best E229：31.4993 / 23.4459 / 20.1883</p></div>
+              <div class="truth"><span class="number">62</span><h3>主图供体取消65米上限（已回退）</h3><p>Best E198：31.7286 / 23.9948 / 20.8139</p></div>
+              <div class="truth"><span class="number">63</span><h3>尺寸损失零分母保护（已完成）</h3><p>Best E178：33.2437 / 24.8539 / 21.4664；保护零触发</p></div>
             </div>
           </article>
 
@@ -4190,6 +4196,39 @@
             <p>阶段归档：<a href="archive/2026-09-08/README.md">结果、执行记录与后续交接</a>。worker随机初始化候选完成两次短训练及两次完整一轮逐批哈希一致验证，但尚未合入正式代码；全轮平均loss均45.585532385727454，不上传SwanLab。</p>
           </article>
         </section>
+        <section id="exp63" class="content-panel" aria-labelledby="exp63-title"><article class="section-card">
+          <h2 id="exp63-title">实验63：尺寸损失零分母保护（已完成）</h2>
+          <p><strong>2026-09-11 10:06正常完成250轮，四项退出码均0，SwanLab上传994005条记录完成。Best E178无NMS Car 3D AP_R40@0.7：33.2437 / 24.8539 / 21.4664，加载best复评一致；Moderate精确24.853887981569496，与Exp59相同。</strong> <a href="https://swanlab.cn/@Grapymage/MonoDGP/runs/un3a9l8u">SwanLab un3a9l8u</a></p>
+          <div class="callout"><h4>全程保护零触发，日志对照无差异</h4><p>全部58000个训练批次，最终层、两个辅助层及只读group0的零分母和空匹配保护均为0次触发。Exp59的2250个历史日志批次全部对照通过：图片顺序、学习率、总loss及历史分项在日志打印精度下均无差异。支持此次未触发保护时复现Exp59的观察；未进行checkpoint参数逐位对比，不宣称参数逐位一致。</p></div>
+
+          <p>2026-09-10 22:58启动，从头250轮，以Exp59为对照。仅在尺寸相对误差均值恰为0时保护补偿系数分母，空匹配返回可反传零损失；不加epsilon，正常损失及其梯度公式不变。其余训练配置、数据过滤、随机初始化与验证协议沿用Exp59。</p>
+          <p>完整测试133通过、22跳过；主机GPU专项13通过，正常和接近零误差的损失/梯度逐位一致，全零与空匹配返回有限零梯度。</p>
+          <div class="callout"><h4>逐批记录是否触发</h4><p>dimension_loss_audit/batches.jsonl逐训练批记录最终层、辅助层和只读group0的零分母/空匹配保护；summary.json首批及每轮汇总调用数、触发数与首次触发。group0诊断与实际反传分别统计；不含验证loss调用。</p></div>
+          <p>对照Exp59的2250个历史日志批次，检查图片顺序、学习率、总loss及共同分项，记录首次差异。无触发且其他随机状态、数据与数值运算相同时应复现Exp59；仅触发为0不能证明完全相同，日志对照也仅限打印精度。</p>
+          <p>tmux <code>monodgp_exp63</code>；配置<code>configs/monodgp_exp63.yaml</code>；输出<code>outputs/V2-0063_实验63_尺寸损失零分母保护/</code>。批准CUDA12.9栈及TF32设置已核实，准确命令和源码哈希见run_manifest.txt。基线ca2123f加未提交修复，分支fix/dimension-loss-zero-guard。没有实验checkpoint续训。历史训练PID634289及tmux会话均已退出，训练产物和逐批审计记录保留。最后E250的AP为32.6352 / 24.3467 / 21.2529；它不是最佳checkpoint的结果。</p>
+        </article></section>
+        <section id="exp62" class="content-panel" aria-labelledby="exp62-title"><article class="section-card">
+          <h2 id="exp62-title">实验62：主图供体取消65米上限（完成，已回退）</h2>
+          <div class="callout warning"><h4>2026-09-10 用户选择继续采用Exp59</h4><p>Exp62未超过Exp59，已回退距离上限修改，恢复主图过滤z&gt;65m、legacy供体不设上限。Exp61供体过滤也未保留。旧worker初始化、MixUp排除自身、原始评分精度及其他筛选不变。各一次训练结果，不证明Exp59稳定最优。</p></div>
+          <p>09-10 09:34启动，20:41正常结束250轮。Best E198无NMS Car 3D AP_R40@0.7：<strong>31.7286 / 23.9948 / 20.8139</strong>，加载best复评一致；Moderate精确23.994830703130283。四项退出码均0，SwanLab上传完成。</p>
+          <div class="table-wrap"><table><thead><tr><th>实验</th><th>主图/供体上限</th><th>Best轮次</th><th>Easy</th><th>Moderate</th><th>Hard</th></tr></thead><tbody>
+          <tr><td>Exp59（继续采用）</td><td>有/无</td><td>178</td><td>33.2437</td><td>24.8539</td><td>21.4664</td></tr>
+          <tr><td>Exp61</td><td>有/有</td><td>229</td><td>31.4993</td><td>23.4459</td><td>20.1883</td></tr>
+          <tr><td>Exp62（已回退）</td><td>无/无</td><td>198</td><td>31.7286</td><td>23.9948</td><td>20.8139</td></tr>
+          </tbody></table></div>
+          <p>Exp62 Moderate比Exp59低0.8591个百分点，比Exp61高0.5489个百分点。该实验只取消主图和供体65米上限，保留难度、截断、遮挡及现有几何检查；相对Exp59只有主图取消上限，供体原本无上限。深度图分箱、AP评测及其他训练设置不变。</p>
+          <p><a href="https://swanlab.cn/@Grapymage/MonoDGP/runs/lwr3il00">SwanLab lwr3il00</a>已完成；历史tmux <code>monodgp_exp62</code>、PID2538528均已结束。日志、manifest、checkpoint保留在<code>outputs/V2-0062_实验62_主图供体取消65米上限/</code>。历史配置<code>configs/monodgp_exp62.yaml</code>不能直接在已回退代码上复现候选；回退前源码仅存本地diagnostics，不上传Git。未启动新实验。</p>
+        </article></section>
+        <section id="exp61" class="content-panel" aria-labelledby="exp61-title"><article class="section-card">
+          <h2 id="exp61-title">实验61：主图供体统一65米过滤（完成，未采用）</h2>
+          <p>09-10审阅Exp62后恢复Exp59，供体65米过滤未保留。历史配置仅作记录，不能在已回退代码上直接复现。</p>
+          <p><strong>09-09 22:38已完成250轮。Best E229：31.4993 / 23.4459 / 20.1883，加载best复评一致。Moderate较Exp59低1.4080个百分点，四项退出码均0，SwanLab上传完成。下方为启动时记录。</strong></p>
+          <p><a href="https://swanlab.cn/@Grapymage/MonoDGP/runs/8g8tfbfb">SwanLab 8g8tfbfb</a>已连接；E1首批loss 180.197937，启动检查已确认日志推进、梯度有限及GPU使用。</p>
+          <p>2026-09-09 11:29启动，从头250轮。基于Exp59，唯一训练改动：legacy MixUp供体也过滤相机深度z&gt;65m，主图规则不变；z=65保留。供体抽样、混图及重抽预算不变，AP评测范围不变。</p>
+          <p>保留MixUp0.3、排除自身、旧worker初始化、BS16、4 workers、seed444、严格确定性、CUDA预取和原始评分精度。E10–110每10轮验证，E120起逐轮验证。环境与TF32设置已核实，边界及相关测试38项通过。</p>
+          <div class="callout warning"><h4>解释边界</h4><p>此前只找到6个符合其余基本条件的远距离Car，尚不清楚实际AP影响。删除标签会改变GT和匹配，单次结果不能证明稳定收益。未加载实验checkpoint，尚无AP结果。</p></div>
+          <p>基线ca2123f加未提交修改，分支<code>fix/mixup-donor-depth-filter</code>；tmux <code>monodgp_exp61</code>；训练PID2997492。配置<code>configs/monodgp_exp61.yaml</code>；日志及manifest：<code>outputs/V2-0061_实验61_主图供体统一65米过滤/</code>。准确命令见实验总账；由tools/run_exp55.sh承载，只运行本实验。</p>
+        </article></section>
         <section id="exp60" class="content-panel" aria-labelledby="exp60-title"><article class="section-card">
           <h2 id="exp60-title">实验60：保留PyTorch原生worker随机种子（完成，已回退）</h2>
           <div class="callout warning"><h4>2026-09-09 用户决定回退</h4><p>250轮完整结果未提升，正式代码已恢复Exp59的worker重复设种子行为；分数精度和MixUp排除自身修复保留。单次结果不能证明修复稳定降低AP。历史配置保留，但当前代码仅运行该配置不能复现Exp60候选。</p></div>
@@ -4201,7 +4240,7 @@
       </div>
     </div>
 
-    <footer class="footer">MonoDGP 实验总览 v2 · 序号01—60</footer>
+    <footer class="footer">MonoDGP 实验总览 v2 · 序号01—63</footer>
   </main>
 
   <script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js"></script>

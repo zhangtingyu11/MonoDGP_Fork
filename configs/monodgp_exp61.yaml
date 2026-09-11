@@ -1,0 +1,20 @@
+# 历史实验配置：2026-09-10已回退距离过滤候选，正式代码恢复Exp59。
+# 当前代码不读取下列深度上限开关，不能仅运行本配置复现Exp61；结果见docs/实验总账v2.md。
+base_config: monodgp_exp59.yaml
+
+model_name: 'V2-0061_实验61_主图供体统一65米过滤'
+
+# Explicit equivalent of the cutoff used by the completed Exp61 run.
+dataset:
+  primary_max_depth: 65.0
+  legacy_mixup_max_depth: 65.0
+
+trainer:
+  max_epoch: 250
+  swanlab:
+    enabled: true
+    required: true
+    mode: online
+    experiment_name: '实验61_主图供体统一65米过滤'
+    description: '基于Exp59，唯一训练改动为legacy MixUp供体标签也过滤相机深度z>65m，和主图一致；z=65保留。供体抽样、混图和重抽预算不变，保留旧worker初始化、MixUp0.3、排除自身、BS16、4workers、seed444、严格确定性、CUDA预取及原始评分精度。从头250轮，E10–110每10轮验证，E120起逐轮验证；主AP评测不增加距离过滤。删除远目标改变GT和匹配，单次涨跌不代表稳定收益。'
+    tags: ['实验61', 'Exp59对照', '主图供体65米过滤', 'MixUp概率0.3', '250轮']

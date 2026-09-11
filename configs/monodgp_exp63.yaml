@@ -1,0 +1,16 @@
+base_config: monodgp_exp59.yaml
+
+model_name: 'V2-0063_实验63_尺寸损失零分母保护'
+
+trainer:
+  max_epoch: 250
+  dimension_loss_audit:
+    enabled: true
+    baseline_log: outputs/V2-0059_实验59_MixUp概率0.3排除自身/train_console.log
+  swanlab:
+    enabled: true
+    required: true
+    mode: online
+    experiment_name: '实验63_尺寸损失零分母保护'
+    description: 'Exp59基线，只修复尺寸loss全部零误差时补偿系数0/0及空匹配边界。正常分母不变，不加epsilon。逐训练批记录最终层/辅助层/只读group0保护触发数，比较Exp59已有日志的图片顺序、LR、总loss及共同分项（打印精度，不等于参数逐位证明）。旧worker、主图65米过滤/供体无上限、MixUp0.3、排除自身、BS16、4workers、seed444、严格确定性、CUDA预取、原始评分精度均不变。从头250轮，E10–110每10轮验证，E120起逐轮验证。'
+    tags: ['实验63', 'Exp59对照', '尺寸损失零分母保护', '触发统计', '250轮']
