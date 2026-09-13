@@ -1,0 +1,15 @@
+# Development candidate only. No formal training run has been approved/launched.
+base_config: monodgp_exp59.yaml
+model_name: DEV_geometry_depth_gradient_gate
+model:
+  geometry_depth_gate:
+    enabled: true
+    iou_start: 0.70
+    iou_full: 0.75
+    minimum_gradient: 0.50
+    car_class_id: 1
+    decode_mean_sizes: [[0, 0, 0], [0, 0, 0], [0, 0, 0]]
+trainer:
+  swanlab:
+    enabled: false
+    required: false

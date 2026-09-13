@@ -1,0 +1,21 @@
+# User approved implementation recheck then formal sequence 64 -> 65 on 2026-09-11.
+base_config: monodgp_exp59.yaml
+model_name: V2-0064_实验64_几何合格度深度减力
+model:
+  geometry_depth_gate:
+    enabled: true
+    mode: geometry
+    iou_start: 0.70
+    iou_full: 0.75
+    minimum_gradient: 0.50
+    car_class_id: 1
+    decode_mean_sizes: [[0, 0, 0], [0, 0, 0], [0, 0, 0]]
+trainer:
+  max_epoch: 250
+  swanlab:
+    enabled: true
+    required: true
+    mode: online
+    experiment_name: 实验64_几何合格度深度减力
+    description: '已审阅方案。Exp59/63基线；仅最终层训练深度均值梯度按几何IoU从0.70至0.75连续减至0.5，GT深度点必须有支持。不改原生前向loss、不确定度直接监督、辅助层、模型结构和数据增强。从头250轮，seed444；对照Exp59/63及Exp65统一均值减力。'
+    tags: ['实验64', '已批准', '几何深度梯度', '250轮']

@@ -1,0 +1,11 @@
+# User approved implementation recheck then formal sequence 64 -> 65 on 2026-09-11.
+base_config: monodgp_exp64.yaml
+model_name: V2-0065_实验65_深度梯度统一均值减力对照
+model:
+  geometry_depth_gate:
+    mode: uniform_mean
+trainer:
+  swanlab:
+    experiment_name: 实验65_深度梯度统一均值减力对照
+    description: '已审阅机制对照。与Exp64同配方；每批计算自身几何q，但把所有匹配的最终深度均值梯度统一乘该批q均值。均值相同不代表梯度能量或参数更新相同；不改原生前向loss、不确定度直接监督或辅助层。从头250轮，seed444。'
+    tags: ['实验65', '已批准', '统一减力对照', '250轮']

@@ -20,6 +20,8 @@ from .depth_predictor.ddn_loss import DDNLoss
 from lib.losses.focal_loss import quality_focal_loss, sigmoid_focal_loss
 from lib.losses.asymmetric_interval_depth_loss import (
     asymmetric_interval_and_uncertainty_loss)
+from lib.losses.geometry_depth_gate import (
+    depth_gradient_proxy, matched_geometry_depth_weights, validate_gate_config)
 from lib.losses.query_quality_ranking_loss import (
     all_query_quality_ranking_loss)
 from lib.losses.nms_aware_iou_ranking_loss import (
@@ -573,6 +575,7 @@ class SetCriterion(nn.Module):
     def __init__(self, num_classes, matcher, weight_dict, focal_alpha, losses,
                  inter_losses, group_num=11,
                  geometry_interval_monitoring=None,
+                 geometry_depth_gate=None,
                  query_monitoring=None,
                  iou3d_matching_monitoring=None,
                  high_iou_unmatched_negative_weighting=None,
@@ -616,6 +619,12 @@ class SetCriterion(nn.Module):
             for row in monitor_cfg.get(
                 'decode_mean_sizes', ((0.0, 0.0, 0.0),) * 3))
         self.geometry_conditioned_interval_depth_receipts = {}
+        self.geometry_depth_gate_config = geometry_depth_gate or {}
+        self.geometry_depth_gate_enabled = bool(
+            self.geometry_depth_gate_config.get('enabled', False))
+        if self.geometry_depth_gate_enabled:
+            validate_gate_config(self.geometry_depth_gate_config)
+        self.geometry_depth_gate_receipt = None
         query_monitor_cfg = query_monitoring or {}
         self.query_monitoring_enabled = bool(
             query_monitor_cfg.get('enabled', True))
@@ -1077,7 +1086,7 @@ class SetCriterion(nn.Module):
         return losses
 
     def loss_depths(self, outputs, targets, indices, num_boxes,
-                    matched_cache=None):
+                    matched_cache=None, depth_gradient_weights=None):
 
         idx = (matched_cache['source_index'] if matched_cache is not None
                else self._get_src_permutation_idx(indices))
@@ -1091,6 +1100,8 @@ class SetCriterion(nn.Module):
             ).squeeze()
          
         depth_input, depth_log_variance = src_depths[:, 0], src_depths[:, 1] 
+        if depth_gradient_weights is not None:
+            depth_input = depth_gradient_proxy(depth_input, depth_gradient_weights)
         absolute_error = torch.abs(depth_input - target_depths)
         weighted_absolute = (
             1.4142 * torch.exp(-depth_log_variance) * absolute_error)
@@ -1580,10 +1591,25 @@ class SetCriterion(nn.Module):
                 self.matcher, iou3d_matching_receipts)
         matched_cache = self._post_match_cache(
             outputs, targets, indices, self.losses)
+        self.geometry_depth_gate_receipt = None
+        depth_gradient_weights = None
+        if self.training and self.geometry_depth_gate_enabled:
+            depth_gradient_weights, self.geometry_depth_gate_receipt = (
+                matched_geometry_depth_weights(
+                    outputs_without_aux, targets, indices,
+                    self.geometry_depth_gate_config))
         for loss in self.losses:
+            gate_kwargs = ({'depth_gradient_weights': depth_gradient_weights}
+                           if loss == 'depths' else {})
             losses.update(self.get_loss(
                 loss, outputs, targets, indices, num_boxes,
-                matched_cache=matched_cache))
+                matched_cache=matched_cache, **gate_kwargs))
+        if depth_gradient_weights is not None:
+            receipt = self.geometry_depth_gate_receipt
+            count = max(depth_gradient_weights.numel(), 1)
+            losses['monitor_depth_gate_mean_weight'] = depth_gradient_weights.sum() / count
+            losses['monitor_depth_gate_active_fraction'] = (depth_gradient_weights < 1).sum() / count
+            losses['monitor_depth_gate_supported_fraction'] = receipt['supported'].sum() / count
         if self.training and self.collect_mixup_target_monitoring:
             losses.update(self._mixup_target_metrics(
                 outputs_without_aux, targets, indices, matched_cache))
@@ -1756,6 +1782,7 @@ def build(cfg):
         group_num=cfg['group_num'],
         geometry_interval_monitoring=cfg.get(
             'geometry_interval_monitoring'),
+        geometry_depth_gate=cfg.get('geometry_depth_gate'),
         query_monitoring=cfg.get('query_monitoring'),
         iou3d_matching_monitoring=cfg.get(
             'iou3d_matching_monitoring'),
