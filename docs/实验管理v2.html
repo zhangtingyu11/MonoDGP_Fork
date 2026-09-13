@@ -899,6 +899,8 @@
         <button class="nav-button" data-target="exp61" type="button"><span class="nav-index">61</span><span class="nav-copy"><strong>主图供体统一65米过滤</strong><small>已完成 · 未采用 · best E229</small></span></button>
         <button class="nav-button" data-target="exp62" type="button"><span class="nav-index">62</span><span class="nav-copy"><strong>主图供体取消65米上限</strong><small>已完成 · 已回退 · best E198</small></span></button>
         <button class="nav-button" data-target="exp63" type="button"><span class="nav-index">63</span><span class="nav-copy"><strong>尺寸损失零分母保护</strong><small>已完成 · 零触发 · 复现Exp59</small></span></button>
+        <button class="nav-button" data-target="exp64" type="button"><span class="nav-index">64</span><span class="nav-copy"><strong>几何合格度深度减力</strong><small>已完成 · 归档 · best E242</small></span></button>
+        <button class="nav-button" data-target="exp65" type="button"><span class="nav-index">65</span><span class="nav-copy"><strong>深度梯度统一均值对照</strong><small>已完成 · 归档 · best E177</small></span></button>
       </nav>
 
       <div>
@@ -4196,6 +4198,20 @@
             <p>阶段归档：<a href="archive/2026-09-08/README.md">结果、执行记录与后续交接</a>。worker随机初始化候选完成两次短训练及两次完整一轮逐批哈希一致验证，但尚未合入正式代码；全轮平均loss均45.585532385727454，不上传SwanLab。</p>
           </article>
         </section>
+        <section id="exp64" class="content-panel" aria-labelledby="exp64-title"><article class="section-card">
+<h2 id="exp64-title">实验64：几何合格度深度减力（已完成，暂不采用）</h2>
+<p>2026-09-11用户批准，12:47启动。基于Exp59/63，仅最终层训练深度均值梯度按当前3D IoU调节：≤0.70保留原梯度，0.70–0.75连续降低，≥0.75保留一半。须GT深度点IoU≥0.70且满足有效几何条件；不满足时保持原梯度。原生前向loss、不确定度直接监督及辅助层保持原样。</p>
+<p>从头250轮，seed444、BS16、4workers、MixUp0.3和评测协议沿用基线。门控专项11项通过，含CUDA。2026-09-12 00:03完成，四项退出码0。Best E242：32.6879 / 24.8970 / 21.8376；E250：31.9007 / 24.2775 / 21.5209。Best复评一致，SwanLab e1f0g0ch上传996232条完成。最佳Moderate比59高0.0431，但未证明稳定收益。</p>
+<p>tmux <code>monodgp_depth_gate_pair</code>，训练PID3001208；配置<code>configs/monodgp_exp64.yaml</code>；日志与环境凭证在<code>outputs/V2-0064_实验64_几何合格度深度减力/</code>。顺序64→65，非零退出停止。</p>
+<p>训练会话已结束。源码和配置保存在 <a href="https://github.com/zhangtingyu11/MonoDGP_Fork/tree/archive/exp64-65">归档 tag archive/exp64-65</a>；main训练源码保持59/63基线。<a href="几何深度梯度实验64-65结果分析.md">完整结果分析</a>。</p>
+</article></section>
+        <section id="exp65" class="content-panel" aria-labelledby="exp65-title"><article class="section-card">
+<h2 id="exp65-title">实验65：深度梯度统一均值减力对照（已完成，暂不采用）</h2>
+<p>64成功退出后自动开始，现已完成从头250轮。与64仅门控mode不同：每批计算自身几何权重q，再将所有最终层匹配深度均值梯度统一乘q均值，用于区分几何分配和整体减力的作用。</p>
+<p>两条训练轨迹分化后q均值不保证相同，也不保证梯度能量或参数更新相同；单种子结果不能证明稳定收益。2026-09-12 11:19完成，四项退出码0。Best E177：33.1731 / 24.6802 / 21.4566；E250：31.2511 / 23.8491 / 21.0035。Best复评一致，SwanLab pdh7icrz上传994352条完成。</p>
+<p>配置<code>configs/monodgp_exp65.yaml</code>；输出<code>outputs/V2-0065_实验65_深度梯度统一均值减力对照/</code>。方法与开发证据见<a href="区间深度梯度候选开发记录.md">开发记录</a>。</p>
+<p>训练会话已结束。源码和配置保存在 <a href="https://github.com/zhangtingyu11/MonoDGP_Fork/tree/archive/exp64-65">归档 tag archive/exp64-65</a>；main训练源码保持59/63基线。<a href="几何深度梯度实验64-65结果分析.md">完整结果分析</a>。</p>
+</article></section>
         <section id="exp63" class="content-panel" aria-labelledby="exp63-title"><article class="section-card">
           <h2 id="exp63-title">实验63：尺寸损失零分母保护（已完成）</h2>
           <p><strong>2026-09-11 10:06正常完成250轮，四项退出码均0，SwanLab上传994005条记录完成。Best E178无NMS Car 3D AP_R40@0.7：33.2437 / 24.8539 / 21.4664，加载best复评一致；Moderate精确24.853887981569496，与Exp59相同。</strong> <a href="https://swanlab.cn/@Grapymage/MonoDGP/runs/un3a9l8u">SwanLab un3a9l8u</a></p>
@@ -4240,7 +4256,7 @@
       </div>
     </div>
 
-    <footer class="footer">MonoDGP 实验总览 v2 · 序号01—63</footer>
+    <footer class="footer">MonoDGP 实验总览 v2 · 序号01—65</footer>
   </main>
 
   <script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js"></script>
