@@ -661,7 +661,7 @@
       <h1>实验总览 v2</h1>
       <p>实验总账的可视化索引。每项实验单独记录目的、对比条件、执行过程和客观结果，方便后续持续追加。</p>
       <div class="hero-meta">
-        <span class="pill"><span class="status-dot"></span>63 项实验已记录</span>
+        <span class="pill"><span class="status-dot"></span>67 项实验已记录</span>
         <span class="pill">数据来源：实验总账v2</span>
         <span class="pill">更新日期：2026-09-07</span>
       </div>
@@ -693,6 +693,7 @@
     <div class="workspace">
       <nav class="sidebar" aria-label="页面导航">
         <div class="nav-title">快速切换</div>
+<button class="nav-button" data-target="baseline-audit" type="button"><span class="nav-index">分析</span><span class="nav-copy"><strong>Exp59 基线诊断</strong><small>统计与历史分析归档</small></span></button>
         <button class="nav-button active" data-target="overview" type="button">
           <span class="nav-index">总</span>
           <span class="nav-copy"><strong>实验索引</strong><small>全部记录</small></span>
@@ -901,6 +902,8 @@
         <button class="nav-button" data-target="exp63" type="button"><span class="nav-index">63</span><span class="nav-copy"><strong>尺寸损失零分母保护</strong><small>已完成 · 零触发 · 复现Exp59</small></span></button>
         <button class="nav-button" data-target="exp64" type="button"><span class="nav-index">64</span><span class="nav-copy"><strong>几何合格度深度减力</strong><small>已完成 · 归档 · best E242</small></span></button>
         <button class="nav-button" data-target="exp65" type="button"><span class="nav-index">65</span><span class="nav-copy"><strong>深度梯度统一均值对照</strong><small>已完成 · 归档 · best E177</small></span></button>
+        <button class="nav-button" data-target="exp66" type="button"><span class="nav-index">66</span><span class="nav-copy"><strong>属性覆盖引导MixUp</strong><small>已回退 · 保留实验记录</small></span></button>
+        <button class="nav-button" data-target="exp67" type="button"><span class="nav-index">67</span><span class="nav-copy"><strong>增强黑边补全</strong><small>已撤销 · 代码回退 · 结果归档</small></span></button>
       </nav>
 
       <div>
@@ -1061,6 +1064,10 @@
               <div class="truth"><span class="number">61</span><h3>主图供体统一65米过滤（未采用）</h3><p>Best E229：31.4993 / 23.4459 / 20.1883</p></div>
               <div class="truth"><span class="number">62</span><h3>主图供体取消65米上限（已回退）</h3><p>Best E198：31.7286 / 23.9948 / 20.8139</p></div>
               <div class="truth"><span class="number">63</span><h3>尺寸损失零分母保护（已完成）</h3><p>Best E178：33.2437 / 24.8539 / 21.4664；保护零触发</p></div>
+<div class="truth"><span class="number">64</span><h3>几何合格度深度减力（已归档）</h3><p>完成250轮，Best E242；点击查看完整结果。</p></div>
+<div class="truth"><span class="number">65</span><h3>深度梯度统一均值对照（已归档）</h3><p>完成250轮，Best E177；点击查看完整结果。</p></div>
+<div class="truth"><span class="number">66</span><h3>属性覆盖引导MixUp（已回退）</h3><p>Best E204 Moderate AP 23.6166；低于基线1.2373点。</p></div>
+<div class="truth"><span class="number">67</span><h3>增强黑边补全（已回退）</h3><p>Best E187 Moderate AP 24.2003；低于基线0.6536点。</p></div>
             </div>
           </article>
 
@@ -4186,6 +4193,83 @@
         <section id="exp56" class="content-panel" aria-labelledby="exp56-title"><article class="section-card"><h2 id="exp56-title">实验56：MixUp概率0.2</h2><p>基于Exp47只将MixUp触发概率改为0.2。完整250轮完成。</p><h3>Best E238 · 无NMS Car 3D AP_R40@0.7</h3><p>30.7112 / 23.1529 / 20.3289</p><p>完整训练结果为原正式无NMS Car 3D AP_R40@0.7（简单/中等/困难），按Moderate选best。Exp48–52基于Exp47，从头250轮、BS16、seed444；E10–110每10轮验证，E120起逐轮验证，Exp51在E121切换质量评分。Exp53/54为冻结探针，缓存复评基线24.2528与Exp47正式日志24.2354分开报告，前者不是笔误。MixUp曲线不单调，各概率仅一次完整训练，0.3目前中等/困难最高，不能据此断言显著收益。</p><p>来源：outputs中对应实验的train_console.log及status.tsv；Exp53/54为result.json。2026-09-07核对。</p></article></section>
         <section id="exp57" class="content-panel" aria-labelledby="exp57-title"><article class="section-card"><h2 id="exp57-title">实验57：MixUp概率0.1</h2><p>基于Exp47只将MixUp触发概率改为0.1。完整250轮完成。</p><h3>Best E218 · 无NMS Car 3D AP_R40@0.7</h3><p>32.5886 / 23.9701 / 20.6427</p><p>完整训练结果为原正式无NMS Car 3D AP_R40@0.7（简单/中等/困难），按Moderate选best。Exp48–52基于Exp47，从头250轮、BS16、seed444；E10–110每10轮验证，E120起逐轮验证，Exp51在E121切换质量评分。Exp53/54为冻结探针，缓存复评基线24.2528与Exp47正式日志24.2354分开报告，前者不是笔误。MixUp曲线不单调，各概率仅一次完整训练，0.3目前中等/困难最高，不能据此断言显著收益。</p><p>来源：outputs中对应实验的train_console.log及status.tsv；Exp53/54为result.json。2026-09-07核对。</p></article></section>
         <section id="exp58" class="content-panel" aria-labelledby="exp58-title"><article class="section-card"><h2 id="exp58-title">实验58：完全关闭MixUp</h2><p>基于Exp47只将MixUp触发概率改为0。完整250轮完成；SwanLab收尾短暂SSL错误后恢复并完成上传。</p><h3>Best E143 · 无NMS Car 3D AP_R40@0.7</h3><p>30.0380 / 21.5781 / 18.3415</p><p>完整训练结果为原正式无NMS Car 3D AP_R40@0.7（简单/中等/困难），按Moderate选best。Exp48–52基于Exp47，从头250轮、BS16、seed444；E10–110每10轮验证，E120起逐轮验证，Exp51在E121切换质量评分。Exp53/54为冻结探针，缓存复评基线24.2528与Exp47正式日志24.2354分开报告，前者不是笔误。MixUp曲线不单调，各概率仅一次完整训练，0.3目前中等/困难最高，不能据此断言显著收益。</p><p>来源：outputs中对应实验的train_console.log及status.tsv；Exp53/54为result.json。2026-09-07核对。</p></article></section>
+
+<section id="baseline-audit" class="content-panel" aria-labelledby="baseline-audit-title"><article class="section-card">
+<h2 id="baseline-audit-title">Exp59 基线诊断与历史分析</h2><p><strong>2026-10-11 归档精简：</strong>展示图片已按用户要求删除；下文的图示说明为历史记录，保留统计、方法与结论，不再提供图片预览。</p><p>固定随机种子 444，从 3769 张验证图中不放回抽取 48 张，抽样不依赖预测。绿色 GT，橙色预测。每个 GT 展示与它 2D IoU 最大的 Car 候选；候选来自原生分类 top50，保留所有分数，无 NMS。排序仅用于浏览，非官方漏检/误检判定。</p><p>上：整图投影；下：原始裁剪、投影裁剪、相同尺度鸟瞰。展示 Easy/Moderate/Hard Car，全部 GT 和候选保存在 JSON。匹配可以重复使用预测；未执行官方忽略区/一对一 AP 匹配。这里的浮点几何未按官方导出保留两位小数，IoU 仅作诊断。样本不能代表全验证集频率，更不能由图直接证明训练原因。</p><p>来源与环境 · 逐目标数值 · 完整预测</p><section id="train-val-generalization" style="border:3px solid #e05d5d;padding:22px"><h2>新主问题：三维几何在未见行车序列上的泛化差距</h2>
+<p><b>结论：</b>Exp59不是在训练集和验证集上共同饱和，而是在训练图像上高度拟合、到不重叠的验证drive后三维几何显著失效。训练集与验证集的Moderate 3D AP_R40分别为80.492和24.854，差55.638个百分点；同一预测的Moderate 2D AP_R40只差4.608点。相比“高度误差缩小75%仅增加0.269点”，这是更有研究价值的主问题，但目前尚未定位到可直接训练的方法。</p>
+<h3>同checkpoint、同推理口径</h3>
+<table border="1" cellpadding="8"><tr><th>完整划分</th><th>图片数</th><th>2D AP_R40 E/M/H</th><th>BEV AP_R40 E/M/H</th><th>3D AP_R40 E/M/H</th></tr><tr><td>train，无增强</td><td>3712</td><td>97.947 / 89.316 / 86.496</td><td>96.949 / 82.863 / 77.704</td><td>96.451 / 80.492 / 74.968</td></tr><tr><td>val</td><td>3769</td><td>96.104 / 84.708 / 78.930</td><td>41.884 / 31.586 / 27.815</td><td>33.244 / 24.854 / 21.466</td></tr><tr><td>val − train</td><td>—</td><td>−1.844 / −4.608 / −7.567</td><td>−55.064 / −51.278 / −49.888</td><td>−63.207 / −55.638 / −53.502</td></tr></table>
+<p>冻结Exp59 E178 best，使用同一current_cxd分数、阈值0、每图top50、相同解码和官方KITTI评测。train推理显式关闭MixUp、翻转、裁剪等增强；模型和权重未更新。该结果测量的是训练样本记忆与当前验证划分之间的差距，不是部署域或其它数据集上的泛化结论。</p>
+<h3>差距不是由简单难度构成解释</h3>
+<p>对每个Car GT取top50中所有Car候选的最大3D IoU，作为分数无关的候选覆盖诊断。限制到2–65m、框高≥25px、遮挡≤2、截断≤0.5，并把训练集按验证集的“距离区间×遮挡×像素高度区间”比例重加权后，IoU&gt;0.7覆盖率仍为train 88.02%、val 41.46%，相差46.56个百分点。训练集原始合格范围覆盖率为87.05%，验证为41.43%。因此val更近、平均像素高度更大也不能解释失败。</p>
+<table border="1" cellpadding="8"><tr><th>GT描述量</th><th>train</th><th>val</th><th>解释</th></tr><tr><td>Car平均深度</td><td>29.35m</td><td>26.68m</td><td>val反而更近</td></tr><tr><td>Car平均像素高度</td><td>62.57px</td><td>69.67px</td><td>val反而更大</td></tr><tr><td>车高均值 / 中位数</td><td>1.530 / 1.500m</td><td>1.522 / 1.490m</td><td>尺寸分布接近</td></tr><tr><td>焦距fx均值±标准差</td><td>719.69±4.70</td><td>719.84±4.07</td><td>相机内参接近</td></tr></table>
+<h3>真正显著的数据差异：场景划分</h3>
+<p>用KITTI公开train_mapping还原原始序列后，train来自96个drive，val来自45个drive，二者共享drive为0。满足上述Car范围的目标分布在36个train drive和20个val drive中；按drive统计，train候选覆盖率中位数89.5%，val中位数41.9%。train没有一个drive低于50%，val有16/20个drive低于50%。这说明差距跨多个验证序列出现，不是一个坏序列造成；同时drive内部相邻帧高度相关，不能把每张图当独立样本。</p>
+<p>训练轨迹也符合验证饱和：Moderate从E160的24.175升到E178最佳24.854，此后至E250在23.076–24.844间波动，E250为24.347。只有当前best的完整train AP，尚未逐epoch测train AP，不能声称从哪一轮开始过拟合。</p>
+<h3>目前支持与不支持的解释</h3>
+<p><b>支持：</b>主要泛化缺口位于BEV/3D几何而非二维检测；现有候选池本身在val大幅变差，单纯重排现有框不足以弥补。验证drive完全未在train出现，是明确的场景分布边界。<b>尚不支持：</b>具体由背景记忆、地面/相机姿态、深度头、尺寸头、某类车辆外观或MixUp不足造成。drive不重叠与几何崩塌同时存在，但前者还不是后者的因果证明。</p>
+<p><b>下一步应验证的问题：</b>在GT条件相近的train成功框与val失败框之间，分别比较深度、朝向、尺寸、投影中心和地面接触位置误差，并按drive找稳定共性。只有定位到能从图像或标定直接观测的跨drive失效因素，才设计训练方法；泛化正则、更多增强或换loss目前都只是候选词，不是方案。</p>
+<p><b>运行记录：</b>首次启动在第一个前向批次因漏设CUBLAS_WORKSPACE_CONFIG，被确定性检查拒绝，未产生结果；补齐与Exp59一致的<code>:4096:8</code>后按同一协议正确性重跑1次，退出0。完整逐目标结果 · 冻结协议与环境 · 复现代码 · 首次失败日志</p></section>
+<section id="partial-height-benefit" style="border:3px solid #f5bb62;padding:22px"><h2>部分修正高度：实际潜在收益有多大？</h2>
+<p><b>结论：</b>本次敏感性分析中，单独修正车高的净收益接近零；把高度变化传入原深度公式后，缩小50%的高度误差，Car Moderate 3D AP_R40增加0.095个百分点；缩小75%增加0.269个百分点。高度偏差确实存在，但当前证据不支持“仅修正高度就有较大净收益”。</p>
+<p>固定Exp59在768张验证图上的原生预测，只修改160个GT车高≥1.75m且满足既定筛选条件的原匹配Car框，其余预测保持不变。基线Easy / Moderate / Hard为35.995 / 26.335 / 22.958。以下均是这768张图的全体Car AP变化，不能直接加到完整验证集成绩上。</p>
+<p>修正比例指<strong>消除原高度误差的比例</strong>：H′=H+r(Hgt−H)，并非把车高增加r。包括高估和低估目标，没有测试完全修正。</p>
+<table border="1" cellpadding="8"><tr><th>高度误差缩小</th><th>仅改高度：ΔModerate AP</th><th>联动深度：ΔModerate AP</th><th>联动深度：ΔEasy / Hard AP</th><th>联动后候选覆盖：新增 / 丢失目标数</th></tr><tr><td>10%</td><td>+0.000</td><td>-0.003</td><td>-0.138 / +0.003</td><td>5 / 2</td></tr><tr><td>25%</td><td>-0.027</td><td>+0.055</td><td>-0.047 / +0.145</td><td>8 / 5</td></tr><tr><td>50%</td><td>+0.015</td><td>+0.095</td><td>+0.277 / +0.224</td><td>13 / 9</td></tr><tr><td>75%</td><td>+0.015</td><td>+0.269</td><td>+0.710 / +0.366</td><td>18 / 9</td></tr></table>
+<p>“候选覆盖”指160个目标中是否至少有一个Car预测的3D IoU&gt;0.7，不是官方TP/FN计数。75%联动修正新增18个、丢失9个，覆盖从32/160变为41/160。官方AP同时受排序、匹配及难度筛选影响，不能用这些计数直接换算。</p>
+<h3>两条修正路径的控制变量</h3><ul><li>仅改高度：固定预测三维几何中心XYZ，修改H，并按KITTI底面中心约定调整Ybottom。</li><li>联动深度：保持预测二维框像素高度h与深度残差不变，Z′=Z+fy·ΔH/h；固定投影三维中心，用完整P2更新XYZ，再更新底面中心。保持alpha不变并按原解码规则重新计算yaw。</li><li>两者均固定分数、top50身份、二维框、宽长及其他预测框。基线零修正通过数值一致性断言；输出按原评估路径保留两位几何精度，分数保留原精度。</li></ul>
+<h3>具体badcase：高度更准不保证三维框更准</h3><table border="1" cellpadding="8"><tr><th>图片 / 原始label行号（0-based）</th><th>原框3D IoU</th><th>联动10%</th><th>联动25%</th><th>联动50%</th><th>联动75%</th></tr><tr><td>000512 / 1</td><td>0.000</td><td>0.000</td><td>0.000</td><td>0.000</td><td>0.100</td></tr><tr><td>005086 / 11</td><td>0.000</td><td>0.000</td><td>0.064</td><td>0.323</td><td>0.669</td></tr><tr><td>002225 / 5</td><td>0.603</td><td>0.604</td><td>0.478</td><td>0.200</td><td>0.027</td></tr><tr><td>005315 / 2</td><td>0.827</td><td>0.832</td><td>0.828</td><td>0.820</td><td>0.810</td></tr></table>
+<p>005086逐渐改善，但75%修正后仍未达到0.7；000512仍然严重失败。002225原来存在高度误差与二维框高度误差的抵消，单独改善高度并传入深度后，IoU反而从0.603降至0.027。这是对固定预测的反事实干预结果，不代表训练后其他分支也会固定。</p>
+<p><b>解释边界：</b>修正对象和修正方向借用了GT，只能说明这组固定预测的敏感性，不是可实现模型收益，也不是严格上界。只覆盖一个checkpoint和768张图；没有估计AP增量置信区间，不声称统计显著或独立场景泛化。尚未设计能识别并准确修正这些目标的实际方法。本轮没有改动训练代码或启动训练。</p>
+<p>完整结果与逐目标IoU · 运行环境与干预协议 · 复现代码</p></section>
+<section id="established-height-problem" style="border:3px solid #7cb3ff;padding:22px"><h2>本轮确认的问题：高车身 Car 的高度低估与三维候选失败</h2><p><b>问题陈述：</b>在Exp59、当前KITTI验证集及既定筛选范围内，标注车高≥1.75m的Car，相比1.45–1.60m的Car，存在稳定的车高负偏差。这在未参与发现的新图片上复现，限制到二维定位较准的目标后仍存在，也不由单一行车序列驱动。部分实例同时出现明显深度偏近，而且整个原生候选池没有合格三维框。这是已观察到的检测弱点，<b>尚未查明训练根因，也没有验证任何改法</b>。</p>
+<h3>具体 badcase 与成功对照</h3><p>以下编号均为原始label文件的0-based行号，避免与旧页面Car序号混淆。配对规则：同遮挡等级、距离差≤5m、标注车高差≤0.12m、像素高度比的绝对log≤0.3；未控制车型、姿态、背景和照明，因此这些是近似条件对照，不是因果实验。</p>
+<table border="1" cellpadding="8"><tr><th>角色/图片/label</th><th>车高 GT→预测/m</th><th>深度 GT→预测/m</th><th>二维IoU</th><th>该框/最佳候选三维IoU</th></tr>
+<tr><td>失败 000512 / 1</td><td>1.84→1.545</td><td>43.52→36.12</td><td>0.887</td><td>0.000 / 0.076</td></tr>
+<tr><td>成功 005315 / 2</td><td>1.79→1.787</td><td>41.00→41.24</td><td>0.951</td><td>0.830 / 0.827</td></tr>
+<tr><td>失败 005086 / 11</td><td>1.82→1.564</td><td>48.39→43.29</td><td>0.828</td><td>0.000 / 0.081</td></tr>
+<tr><td>成功 004128 / 3</td><td>1.76→1.682</td><td>48.92→48.85</td><td>0.846</td><td>0.792 / 0.794</td></tr>
+<tr><td>反例式失败 002225 / 5</td><td>1.77→1.533</td><td>43.78→43.29</td><td>0.777</td><td>0.604 / 0.603</td></tr></table>
+<p>人工看图：000512是对向车道无遮挡车辆，005315是街边车辆；前者投影仍贴近车身，但BEV位置偏近。005086是街道远处车辆，004128是类似距离的成功对照。002225高度偏矮但深度接近正确，是不能忽略的反例。002815与002366为遮挡等级2的近距离对照：两者车高均有误差，后者仍有合格3D框。不能把“高车”“遮挡”或“高度低估”分别等同于必然失败。</p>
+
+<h3>独立复核结果与场景相关性</h3><p>发现数据为原48帧及384帧；复核为预先冻结seed20260919抽取的768张未参与发现图片，二者不重叠。官方mapping确认不同图片仍可来自相同drive。完全未见drive只有2个符合条件Car，无法支撑新场景复核；因此本报告只声称新图片复核、跨多个既有drive稳健，<b>不声称未见场景泛化</b>。</p>
+<table border="1" cellpadding="8"><tr><th>复核组</th><th>目标数</th><th>H平均偏差/m</th><th>H中位偏差/m</th><th>H MAE/m</th><th>候选池无合格框</th></tr><tr><td>Hgt≥1.75m</td><td>160</td><td>−0.203</td><td>−0.151</td><td>0.216</td><td>128/160（80.0%）</td></tr><tr><td>1.45≤Hgt&lt;1.60m</td><td>1003</td><td>+0.006</td><td>约0.000</td><td>0.051</td><td>533/1003（53.1%）</td></tr><tr><td>高车且匹配2D IoU≥0.7</td><td>115</td><td>−0.127</td><td>−0.104</td><td>0.145</td><td>83/115（72.2%）</td></tr></table>
+<p>高车身160个目标来自11个drive，10个drive内误差中位数为负；0095为正（约+0.019m），是明确反证。以drive为重采样单位做2000次bootstrap，高车H平均误差95%区间[−0.286,−0.119]m；二维IoU≥0.7子集为[−0.192,−0.052]m。逐一删除任一高车drive，剩余H平均误差为−0.221至−0.179m，方向不变。drive也不等于独立路线/物体，但比按图独立假设更保守。</p>
+<p>按距离、遮挡等级、像素高度联合分层，在10个共同分层中覆盖141/160高车和697/1003对照。固定分层权重后，高车H偏差相对对照低0.162m；匹配三维框不合格率高23.8个百分点；候选池无合格框率高26.0个百分点。序列bootstrap中240/2000次出现空分层，所给区间仅基于1760个有效重采样，应谨慎使用，不能当作完整控制混杂的证据。另列后验敏感性：采用正的随机序列权重避免空分层，三个差异的区间方向保持一致；这不是预注册主分析。</p>
+<p>后验稳健性检查：去掉Hgt&gt;2m极端目标，剩127个的平均偏差−0.123m，序列区间[−0.152,−0.077]；去掉先前反复出现的0071街景后，146个平均偏差−0.188m。结果不只由那辆2.11m高车辆或极端车高驱动。</p>
+<h3>候选与评估口径核查</h3><p>限定Car、原始标注框高&gt;25px、遮挡≤2、截断≤0.5、2≤Z≤65m。前四项对应Hard评估相关边界，距离范围是当前模型加载器筛选，不是KITTI所有目标。原Hungarian匹配用于描述已匹配预测，其IoU未经导出舍入；候选池为原生分类top50中的全部Car（保留所有分数），按正式导出几何两位小数、分数全精度，用原生精确3D IoU检查。表中“该框”IoU略大于“最佳候选”可能来自这项舍入差异。160个高车与1003个对照的原匹配框均在导出候选中找到。</p><p>“候选池没有IoU&gt;0.7框”是分数无关的可达性检查，不是官方AP或完整一对一FN统计。它能说明这些GT无法只靠调分/挑选现有框变成合格框，不能说明应该怎么修复，更不是用GT替换获得的改善量。</p>
+<h3>代码事实与不能越过的因果边界</h3><p>当前monodgp.py明确计算 Z=f_y·H/h+r，H来自尺寸头；decode_helper.py把预测H作为3D尺寸并用于底部中心位置转换。车高误差因此既影响盒子尺寸，也进入几何深度路径。对000512的现有输出进行对称代数分解，约−7.395m深度误差由H差异项−6.429、框高差异项−0.446、修正项差异−0.519相加；005086则为−6.504、+1.141、+0.263。002225的H项−5.841被框高项+5.301显著抵消，解释为什么它虽估矮但深度接近正确。</p><p>这些仅为已固定输出的代数分解，不是独立可干预贡献；修改H后其它输出和共享特征可能变化。按GT高度分组也会显露预测向常见值收缩的现象，不能据此归因于训练样本不足、某种loss、梯度冲突或某个特征模块。车型/外形、朝向、照明、标注误差和序列重复均是剩余解释。当前证据不能证明问题容易解决，也不能推广到其它checkpoint/数据集。</p>
+<h3>接受与否决的结论</h3><p><b>接受：</b>在明确范围内，高车身Car存在经新图片复核、序列敏感性检查及具体badcase支持的高度低估弱点；部分失败缺乏合格候选，单纯排序不足以解决。<b>不接受：</b>所有高车都失败、车高低估必然造成深度错误、某训练机制已被证明、或某种方法必定提升AP。现阶段的下一研究问题应是“哪些可见外形/尺度线索没有被正确用于高度估计”，而非立即更换loss。此前梯度冲突方案继续保持撤回。</p>
+<p>证据：冻结协议 · 完整分层/序列统计 · 逐候选核查 · 配对实例与代数分解 · 官方序列映射来源。基线权重和训练代码保留，本轮没有训练或参数更新。</p></section>
+<section id="scene-confirmation-progress" style="border:2px solid #6ba9ff;padding:18px"><h2>场景核查与新样本复核（尚未形成最终问题结论）</h2><p>从KITTI公开devkit取得train_rand与train_mapping，按说明采用1-based映射，并核对示例000000→2011_09_28 drive0106 frame48。000727/002725/006070/006937确实同属2011_09_29_drive_0071_sync。映射只证明同序列，不提供车辆track identity。来源、压缩包SHA和全部映射。</p><p>已有432帧覆盖验证集45段原始序列中的32段。剩余13段83帧只有2个符合Car筛选条件的目标，没有高车身目标，因此不足以做全新场景复核。保留这一失败的验证设计记录，不把它当作确认结果。</p><p>冻结新协议后，seed20260919从未参与发现的图片中抽取768帧，保持Exp59不变。此为新图片复核，<b>不是新场景验证</b>。原生Hungarian匹配共2212个Car，筛选像素高度&gt;25、遮挡≤2、截断≤0.5、2≤Z≤65后，高车身Hgt≥1.75m共160个，H误差中位数−0.15094m；对照1.45≤Hgt&lt;1.60m共1003个，中位数−0.00035m。高车身中二维IoU≥0.7的115个，中位数−0.10410m。高车身分布于11段序列，10段序列内中位数为负，0095为正向反例。</p><p>上述是初步描述性结果。仍待：按序列bootstrap、逐序列排除、距离/遮挡/像素高度共同支撑域比较、真实候选覆盖核验、代表性失败与成功可视化。尤其不能把按GT高度分组产生的回归收缩直接解释成某个训练缺陷。</p><p>推理前冻结的协议 · 新图片预测与匹配 · 只读推理代码。命令和环境在记录中，tmux monodgp_height_replication已正常退出，未训练。</p></section>
+<section id="new-problem-goal" style="border:2px solid #6ba9ff;padding:20px"><h2>问题发现阶段记录（最终结论见上方）</h2><p>本次完成条件为：明确问题、具体badcase、同条件成功对照、代码证据、未参与发现的样本复核、场景相关性与关键混杂检查、反证和适用范围。提出方法或统计到常见现象不算完成。训练代码和权重保持不变。</p><p>当前发现阶段：既有384帧中，按标注车高分组的误差有差异，但这是探索性统计，不是确认性发现。人工查看后发现000727/002725/006070/006937的街景与2.11m高车辆外观高度相似，可能属于同一车辆/场景，不能当作四个独立证据。006803和003667呈现不同场景，仍需对照与独立复核。下图是原图/裁剪观察，不包含新推理或因果结论。</p><p>本地数据文件检索未找到原始序列映射；下一步优先补充场景关联信息，否则保守合并疑似同场景案例并报告局限。不得沿用按图片bootstrap就宣称场景独立。</p></section>
+<section id="replication-withdrawal" style="border:3px solid #ed8569;padding:22px"><h2>独立样本复核：撤回“阻断冲突梯度”的推荐</h2><p><b>结论：梯度方向冲突不是个例，但现有证据不支持把它视为 badcase 的有害机制。此前把候选收敛并标记研究目标完成过早；该候选现已撤回，不启动训练。</b></p><p>预先保存抽样和分析口径后，以 seed 20260916 在验证集中排除原48帧，再抽取384帧。334帧存在本次符合数据加载器条件的匹配Car，共1206个；其余50帧仍计入按图片重采样框架。冲突定义由原代码的正焦距、正框高及正尺寸损失系数推导：ΔH·ΔZ&lt;0，与此前autograd符号核验一致。错误定义是原Hungarian匹配框的native 3D IoU&lt;0.7，<b>不是官方FP/FN或AP</b>。</p><table border="1" cellpadding="8"><tr><th>组别</th><th>目标数</th><th>几何错误数</th><th>错误率</th></tr><tr><td>方向冲突</td><td>440</td><td>234</td><td>53.18%</td></tr><tr><td>无方向冲突</td><td>766</td><td>558</td><td>72.85%</td></tr></table><p>原始风险差（冲突−非冲突）为−19.66个百分点，按384帧进行2000次cluster bootstrap，95%区间[−25.58, −13.47]个百分点。按GT距离[0,20,40,65,∞)、原始像素高度[0,40,80,∞)、遮挡0/1/2联合分层，各组至少5个目标的15个共同分层覆盖全部1206个目标；固定分层权重后的风险差−19.73个百分点，95%区间[−25.52, −13.90]。2000次中1次有分层分母为0而被剔除，1999次有效。</p><p>距离分层方向一致：0–20m为−19.88个百分点，20–40m为−19.15，40–65m为−11.72；最远组区间包含0，不能声称每组显著。按照分析前确定的“正向且稳定的调整后关联才考虑推进”标准，候选没有通过，结果反向。</p><h3>原训练模式核查</h3><p>另用seed 20260917抽取32张训练图，开启原数据增强与MixUp、model.train、11组查询、最终层及两层辅助解码器；诊断batch_size=8（不声称完全复现历史BS16训练轨迹）。只有冻结权重前向，没有optimizer或参数更新。25张主图产生94个加载后匹配目标；每层1034条组内匹配是94×11，不是1034个独立物体。车高符号冲突分别为aux0 486/1034（47.0%）、aux1 462/1034（44.7%）、final 495/1034（47.9%）。这支持现象在训练模式存在，不支持它造成过去训练的失败。</p><h3>解释边界与纠正</h3><p>符号冲突本身由预测误差构造；几何项与修正项的误差抵消、匹配选择、已训练到的状态等都可能产生当前关联。不能反过来宣称“冲突有益”，也不能用本次观察证明任何梯度干预一定有害。图片抽样彼此不重叠，但KITTI相邻场景可能仍有关联；图片bootstrap没有解决序列相关性，联合分层也不等于消除全部混杂。这里只能否定此前把“冲突频繁”作为阻断它的充分推荐依据。</p><p>此前报告的“55/144冲突”与局部接线正确性仍是有效记录，但不足以认定值得训练。以下旧方案保留作为已撤回的审计记录，不再是当前建议。下一步不能只换一种loss继续试；应重新寻找独立样本可复现的具体可见错误模式。</p><p>可复核产物：结果产生前保存的协议及样本ID · 逐匹配记录 · 分层统计和置信区间 · 冻结推理脚本 · 统计脚本。退出码0，checkpoint SHA256与原基线一致；lib/configs/tools未改。</p></section>
+<section id="converged-proposal" style="border:2px solid #6ba9ff;padding:20px"><h2>已撤回的初筛方案（由上方独立复核结论取代）</h2>
+<p><b>建议只保留一个候选：在训练时保护车高监督，阻断与它方向冲突的“深度→车高”反传路径。</b>其优势是变量小、无需新传感器或额外标注、前向与部署成本不变，能先做无参数更新的检查。可实施不等于会提升 AP，也不等于已证明创新性。</p>
+<h3>问题从哪里来</h3><p>000117 / Car g6：图中车辆被邻车遮挡，车高标注1.78m、预测1.533m，深度标注24.99m、预测25.897m。原Hungarian将该目标配给query22。车高已经偏小，尺寸监督要求增大；但为了缩小偏大的深度，几何公式 Z=fH/h+r 会把深度梯度传给H，要求它继续减小。原损失及其权重下，对H的梯度为 +1.79048（深度）和 −0.06846（尺寸）。梯度下降减去梯度，因此这两条路径确实方向相反。005919 / g0近处高车身车辆也有同类现象。</p>
+<p><b>已完成低成本验证：</b>冻结Exp59、48帧、eval模式、final layer、group_num=1、原Hungarian及当前损失，144个匹配Car中55个H方向冲突，且55个局部深度梯度均强于尺寸梯度，中位绝对值比47.25。采用事后描述阈值 |ΔH|&gt;0.05m且|ΔZ|&gt;0.5m筛选后为40个目标，其中9个冲突；该阈值不用于候选方法或调参。另有54个框坐标局部梯度冲突，暂不同时修改，避免扩大变量。</p>
+<p>新前向解码结果与原48帧缓存最大差为0；没有optimizer、参数更新或checkpoint写入。最后一个8帧批次的独立输出张量验证表明：选择性detach车高后前向逐元素相同，屏蔽与保留路径梯度满足解析预期。该验证只证明局部接线可行，不是完整训练集性能实验。匹配目标、梯度和环境证据 · 诊断源码。</p>
+<h3>成功对照和反证</h3><p>006568 / g4（query46）三维IoU约0.894、深度只差+0.016m，却同样有H梯度方向冲突。它是必须保护的成功对照，直接说明“冲突=失败”不成立。004895的严重车高低估在原匹配下并没有此方向冲突，说明候选不能解释或解决所有车高错误。局部输出梯度不等于共享参数总梯度；其它loss、辅助层、11组训练匹配、增强和学习历程均可能改变结论。现在不能宣称过去的训练正是被该路径破坏。</p>
+<h3>候选精确定义</h3><p>仅对有GT匹配的Car和该层的车高H，计算当前原生深度损失与尺寸损失对H的梯度方向。若二者乘积&lt;0，则在深度几何计算中使用 stop_gradient(H)，否则使用H。数值仍是 Z=fH/h+r。尺寸监督继续作用于H；深度对修正项r、对数不确定性及框高h的梯度保持原路径。匹配按未改动的前向计算，判定掩码不反传。不改变推理分数、候选数量、NMS、图像输入或模型参数规模。</p>
+<p>这是训练期间利用现有H和Z标注来规定梯度方向，不在推理时读取GT。由于特征共享，不能宣称“完全隔离深度与尺寸任务”；仅隔离明确的几何H支路。要实施还需为各辅助层和训练组分别匹配、按对应GT构造掩码，不能把最终层掩码广播套用。</p>
+<h3>最小验证与否决条件（设计，未启动）</h3><ol>
+<li><b>原训练设置只读复核：</b>先在预先固定的训练图批次上启用原增强、原训练group与各辅助层，仅前向/反向、不step。记录方向冲突、相对量级及共享特征梯度；同时检查当前已找到的失败和成功对照。若冲突仅在eval单组诊断出现，或在完整参数梯度中影响可忽略，就否决此机制，不开完整训练。</li>
+<li><b>接线控制：</b>原基线与候选同输入、同初始化，前向、匹配及全部loss数值必须相同；只允许被判定冲突的H几何支路改变梯度。r、h、uncertainty的局部梯度须保持。未匹配目标及无冲突目标原路径不动；保存逐层/分组核验。</li>
+<li><b>之后若开展效果验证：</b>从同一已确认训练状态做原基线/候选配对短程试验，使用完全相同的数据次序、增强随机数、优化器状态、步数和评估时间点。短程只作筛选，不替代完整250轮和不同种子的复核。数据划分和判断阈值在看结果前固定；不在当前48帧上调参。指标同时看车高误差、深度误差、官方全验证集Car 3D AP、候选可达召回与预先固定的成功对照。</li>
+<li><b>机制鉴别：</b>若第一对照有改善，再加同等数量但不按冲突方向屏蔽的控制，以区分“方向保护”与简单降低深度训练强度。历史Exp23统一深度均值梯度裁剪并未改善其基线，不能把本候选包装成已验证结论。</li>
+<li><b>明确否决：</b>接线不满足不变量则视为实现失败；若车高变准而深度/官方AP变差、成功对照明显恶化、只在这48帧改善，或不优于同量随机屏蔽，就放弃该候选，不继续堆系数或模块。若方向在训练组中不稳定，也不直接扩展到h或全部参数。</li></ol>
+<h3>为什么暂不选其它方向</h3><p>高分FP多数具有Car二维重叠，简单去重只对应少数合格重复框；原始标签投影中心越界扫描为0；已有质量/排序探针和统一深度梯度裁剪有失败记录。无证据支持全局车高补偿、固定深度偏移、再次训练通用质量头。对于完全被遮挡或像素不足的实例，现有图像是否足以恢复精确深度仍未知，本候选不承诺突破这种信息限制。</p>
+<h3>已有研究与新颖性边界</h3><ul>
+<li><a href="https://arxiv.org/abs/2410.19590">MonoDGP</a>已使用几何误差修正；保留该前向定义，候选改的是局部训练路径。</li>
+<li><a href="https://arxiv.org/abs/2107.13774">GUPNet</a>已研究高度误差放大及分层任务学习，故高度误差放大不是新发现。</li>
+<li><a href="https://arxiv.org/abs/1905.12365">Disentangling Monocular 3D Object Detection</a>已有损失解耦思想。</li>
+<li><a href="https://arxiv.org/abs/2001.06782">Gradient Surgery for Multi-Task Learning</a>已有冲突梯度处理。这里是明确几何H输出支路上的非对称方向保护，不能据这一差异声称论文创新；需要全文及实现检索与实验证明。</li></ul><p>本轮核验了上述作者公开摘要；未完成系统性全文新颖性审查。候选的证据等级是“现象和局部接线已验证，训练收益和因果解释未验证”。</p>
+<h3>本轮交付边界</h3><p>已完成问题筛查、原图检查、成功对照、官方匹配重放、代码机制核验及局部梯度正确性诊断；收敛为上述一个可审阅候选及否决流程。未修改训练代码、未启动候选训练、未承诺AP收益。所有产物集中在本目录，实验管理页保留单一入口。</p></section>
+<section><h2>首轮人工看图：观察与待验证问题</h2><p>已人工检查下列 8 个目标，其余面板供继续浏览。共 48 帧、144 个 Easy/Moderate/Hard Car 面板。本轮是基线视觉审计，没有训练或方法改动。</p><ul><li>000869 g1：无遮挡、小尺度车，二维 IoU 0.969，但距离 30.81 → 32.46m，三维 IoU 0.344。投影接近而鸟瞰前后错开。原生 top50 中也没有更好的 Car 框。</li><li>005927 g4：街边排列车辆，局部可见遮挡。二维 IoU 0.959，距离 42.49 → 44.68m，三维 IoU 0.232；全部 Car 候选最好也只有 0.265。</li><li>002879 g2：远处侧向车辆，距离 42.49 → 37.83m，全部 Car 候选三维 IoU 为 0。误差方向与前两例相反，不支持直接加一个固定深度偏移。</li><li>004895 g2：侧向车被竖杆遮挡、邻近坡道/台阶，二维 IoU 0.908，但距离 23.55 → 19.82m，全部 Car 候选三维 IoU 为 0。是否与接地点线索有关尚未证明。</li><li>001514 g9：拥堵车流中车辆重叠，二维配对候选距离 31.10 → 24.63m，全部 Car 候选三维 IoU 为 0。该候选也可能对应邻车，不应强行称其为目标的深度预测。</li><li>005919 g0：近处高车身车辆（标注类别 Car），最好 Car 候选三维 IoU 仅 0.056，分数 0.017。外形、类别得分与几何可能同时有关，不能归入单纯低分漏检。</li><li>006267 g0：二维最贴合的框三维 IoU 仅 0.121，但另一个候选达到 0.682。提醒：二维最佳配对不等于模型最好的三维候选。</li><li>006568 g4（成功对照）：遮挡等级 2 的侧向车辆，三维 IoU 0.894，深度 21.24 → 21.26m。遮挡本身不足以解释失败。</li></ul><p><b>当前问题收敛：</b>优先追查“二维定位较准、三维位置仍错”的目标，分别核对小尺度、侧向姿态、接地点可见性、邻车干扰，并找同条件成功对照。目前这些是可观察的失败形态和待检验解释，还不是已证实的训练机制问题。单纯调分不能恢复上述 top50 内不存在的合格框；这句话仅限列出的候选集合。</p><p>此页尚未完成全验证集统计或官方逐检测 FP/FN 归因；也没有证明应该修改哪个模型部件。score 为分类概率乘深度精度，可大于 1，并非概率。</p></section>
+<section id="feasibility-goal"><h2>当前 Goal：寻找可验证、可修复的问题</h2><p>保留 Exp59 基线，先发现问题，再收敛 1–2 个方案。本阶段不启动训练。完成标准：真实案例和成功对照、明确适用子集、可用推理线索、代码机制证据、低成本验证、否决条件及相关原始文献。不得把 GT 替换上限当作可实现收益。</p><p>已核查：144 个可视化目标中，62 个在原生 Car 候选中存在 IoU≥0.7 的框，二维最佳配对仅 31 个达到该阈值。另有 26 个二维 IoU≥0.9 但所有 Car 候选三维 IoU&lt;0.7。均为独立逐 GT 描述性计数，可重复使用候选，不是官方召回/AP，也不证明存在 31 个排序漏检。</p><p>优先检查：① 重做候选分析时使用实际分数和一对一/忽略规则，避免把二维配对错误误认为检测器问题；② 从图像检查截断、遮挡、特殊车身是否破坏几何框高线索，分析几何项与修正量；③ 对可见车体边界或接地线索充分的失败，找同条件成功对照，才考虑针对性补充线索。</p><p>否决与约束：历史 Exp48、51、53、54 未优于对应基线，因此不直接重试通用质量头/排序头；不把所有深度误差统一校正；不凭相关性断言训练因果；不以这个小样本挑超参数后宣称泛化收益。</p><p>文献入口（初筛，尚未完成方案验证）：<a href="https://openaccess.thecvf.com/content/CVPR2025/html/Pu_MonoDGP_Monocular_3D_Object_Detection_with_Decoupled-Query_and_Geometry-Error_Priors_CVPR_2025_paper.html">MonoDGP</a> 已包含几何误差修正，因此“增加几何修正”本身不构成新方案；<a href="https://arxiv.org/abs/2104.02323">MonoFlex</a> 涉及截断与多组关键点深度；<a href="https://openaccess.thecvf.com/content/CVPR2024/html/Yan_MonoCD_Monocular_3D_Object_Detection_with_Complementary_Depths_CVPR_2024_paper.html">MonoCD</a> 可用于后续检查互补深度证据。</p></section>
+<section id="geometry-audit"><h2>第二轮：先排除误判，再定位可修复因素</h2><p>重读当前代码确认：meanshape=False、full_p2_projection=True，深度 Z=f_y·H/h+residual。验证集图像仿射缩放同时作用于焦距和框高，故可从保存的原图坐标恢复几何项。新增 逐目标分解，脚本 analyze.py 不修改预测、不使用 oracle 替换。</p><p><b>配对陷阱：</b>此前 31 个“二维配对不合格、另有合格框”的目标中，14 个合格候选本来得分更高。不能将 31 个算作排序失败；其余 17 个也必须检查真实的一对一匹配与忽略规则，才能解释其 AP 影响。</p><table border="1" cellpadding="8"><tr><th>目标</th><th>标注→预测车高/m</th><th>深度误差/m</th><th>车高项 / 框高项 / 修正项差异/m</th></tr><tr><td>000869 g1</td><td>1.39→1.470</td><td>+1.65</td><td>+1.64 / −0.38 / +0.39</td></tr><tr><td>004895 g2</td><td>1.77→1.435</td><td>−3.73</td><td>−4.20 / +0.94 / −0.47</td></tr><tr><td>006267 g0</td><td>1.41→1.527</td><td>+1.68</td><td>+2.81 / −0.07 / −1.05</td></tr><tr><td>006568 g4（成功）</td><td>1.80→1.781</td><td>+0.02</td><td>−0.20 / +0.04 / +0.18</td></tr></table><p>上述是 H/h 的对称代数分解，三项加和严格复现当前目标深度误差，不代表独立可干预原因。GT 几何修正项也不是“真实物理修正标签”：它依赖标注框高。共享特征、误差抵消和配对歧义均可能混杂。</p><p>追加人工查看 000117 g5/g6、003938 g3/g4、006669 g0 的原图裁剪和投影。003938 g3 车高 1.73→1.54m、三维 IoU 0.301；同帧 g4 为 1.78→1.75m、IoU 0.757，是候选成功对照，但姿态和可见范围不同，并非控制实验。遮挡严重的 006669 g0 仍达 IoU 0.862。</p><p><b>目前不能推出“所有高车被回归到均值”：</b>二维 IoU≥0.7 的 131 个目标中，按标注高度分组，&lt;1.5m（65 个）、1.5–1.7m（50 个）、≥1.7m（16 个）的车高误差中位数分别 +0.037、−0.046、−0.035m。高车组没有整体严重低估的证据。优先继续核实的是具体外形/局部可见性与车高误差，而不是全局修改车高或统一加深度补偿。</p><p>未完成：候选矩阵和官方规则下的排序归因、可见线索与误差的稳定对应、独立样本验证。Goal 继续保持进行中。</p></section>
+<section id="official-match-audit"><h2>第三轮：官方规则重放与排除项</h2><p>使用保存的48帧预测、当前原生3D IoU、官方两位小数几何和完整分数，调用 clean_data / compute_statistics_jit；类别 Car、3D IoU&gt;0.7。权重和预测不变。矩阵与环境记录；逐FP归因。</p><table border="1" cellpadding="8"><tr><th>Moderate 显示阈值</th><th>TP</th><th>FP</th><th>FN</th></tr><tr><td>0（全部候选）</td><td>44</td><td>2216</td><td>58</td></tr><tr><td>0.1</td><td>42</td><td>508</td><td>60</td></tr><tr><td>0.5</td><td>37</td><td>225</td><td>65</td></tr><tr><td>1</td><td>31</td><td>124</td><td>71</td></tr><tr><td>2</td><td>23</td><td>53</td><td>79</td></tr></table><p>阈值仅为描述，不做验证集选参或AP宣称。逐框复刻阈值1的官方匹配，TP/FP/FN与原函数精确一致：124个FP中，108个与某Car二维IoU≥0.5但不属于对有效GT的合格重复框，3个是对有效GT三维IoU&gt;0.7的剩余重复框，13个不满足Car二维重叠阈值。后者不能直接称为背景幻觉，仍可能有忽略类或标注边界问题。这些数值不支持把“简单删重复框”作为当前主方向。</p><p>运行记录：原生重放 tmux monodgp_match_audit，退出0；逐框归因首次在默认沙箱导入原生评估器时CUDA不可见，未产生结果。切到主机可见环境运行同一脚本一次，退出0并通过精确计数核验。未改方法、预测或阈值。</p><p><b>排除投影中心越界标签问题：</b>训练集11011个、验证集11178个Car（当前难度/2–65m筛选、未做图像增强）中，投影3D中心在原始2D框外均为0。当前clip_2d=False，不存在这些原始样本被此条件丢弃的证据。该检查不覆盖增强裁剪把中心移出画布的情况。标签扫描记录。</p><p><b>文献初筛：</b><a href="https://arxiv.org/abs/2107.13774">GUPNet</a> 已明确讨论车高误差经几何投影放大，故该现象不是新的研究发现。“加一个不确定性头”也不能直接算新方案。官方CVF搜索摘要可检索，但本轮直接打开三个CVF摘要页返回403；尚未以全文核查具体机制与差异。</p><p>继续收敛：几何错误相关的候选占当前高分FP多数；需要从可见车体线索与现有几何/损失路径中找出可检验的修复机制，不能以更好的GT排序上限替代方案。</p></section>
+<article><h3>001943 / GT 2 / Moderate — 3D IoU 0.616</h3><p>2D IoU=0.983; best 3D IoU among Car top50=0.752; score=1.148</p></article><article><h3>001102 / GT 2 / Hard — 3D IoU 0.456</h3><p>2D IoU=0.976; best 3D IoU among Car top50=0.704; score=0.897</p></article><article><h3>002387 / GT 1 / Easy — 3D IoU 0.651</h3><p>2D IoU=0.972; best 3D IoU among Car top50=0.651; score=4.335</p></article><article><h3>006267 / GT 0 / Moderate — 3D IoU 0.121</h3><p>2D IoU=0.969; best 3D IoU among Car top50=0.682; score=1.122</p></article><article><h3>000869 / GT 1 / Moderate — 3D IoU 0.344</h3><p>2D IoU=0.969; best 3D IoU among Car top50=0.344; score=2.551</p></article><article><h3>005927 / GT 4 / Moderate — 3D IoU 0.232</h3><p>2D IoU=0.959; best 3D IoU among Car top50=0.265; score=0.551</p></article><article><h3>001497 / GT 3 / Moderate — 3D IoU 0.240</h3><p>2D IoU=0.951; best 3D IoU among Car top50=0.627; score=0.042</p></article><article><h3>000558 / GT 0 / Moderate — 3D IoU 0.597</h3><p>2D IoU=0.949; best 3D IoU among Car top50=0.780; score=0.292</p></article><article><h3>000658 / GT 1 / Moderate — 3D IoU 0.652</h3><p>2D IoU=0.948; best 3D IoU among Car top50=0.777; score=0.102</p></article><article><h3>000117 / GT 2 / Hard — 3D IoU 0.646</h3><p>2D IoU=0.943; best 3D IoU among Car top50=0.712; score=5.037</p></article><article><h3>001102 / GT 0 / Moderate — 3D IoU 0.671</h3><p>2D IoU=0.940; best 3D IoU among Car top50=0.671; score=5.355</p></article><article><h3>000345 / GT 0 / Easy — 3D IoU 0.496</h3><p>2D IoU=0.940; best 3D IoU among Car top50=0.496; score=5.693</p></article><article><h3>005227 / GT 1 / Easy — 3D IoU 0.542</h3><p>2D IoU=0.938; best 3D IoU among Car top50=0.782; score=0.793</p></article><article><h3>003938 / GT 2 / Easy — 3D IoU 0.662</h3><p>2D IoU=0.938; best 3D IoU among Car top50=0.662; score=4.839</p></article><article><h3>005927 / GT 3 / Hard — 3D IoU 0.561</h3><p>2D IoU=0.933; best 3D IoU among Car top50=0.561; score=1.322</p></article><article><h3>001592 / GT 1 / Easy — 3D IoU 0.695</h3><p>2D IoU=0.933; best 3D IoU among Car top50=0.695; score=10.984</p></article><article><h3>002387 / GT 0 / Easy — 3D IoU 0.419</h3><p>2D IoU=0.933; best 3D IoU among Car top50=0.419; score=4.354</p></article><article><h3>005103 / GT 5 / Moderate — 3D IoU 0.090</h3><p>2D IoU=0.932; best 3D IoU among Car top50=0.509; score=0.978</p></article><article><h3>001514 / GT 3 / Hard — 3D IoU 0.424</h3><p>2D IoU=0.931; best 3D IoU among Car top50=0.424; score=1.463</p></article><article><h3>000558 / GT 5 / Hard — 3D IoU 0.652</h3><p>2D IoU=0.931; best 3D IoU among Car top50=0.848; score=4.713</p></article><article><h3>005919 / GT 6 / Hard — 3D IoU 0.491</h3><p>2D IoU=0.929; best 3D IoU among Car top50=0.541; score=4.850</p></article><article><h3>005919 / GT 5 / Hard — 3D IoU 0.458</h3><p>2D IoU=0.927; best 3D IoU among Car top50=0.647; score=6.723</p></article><article><h3>001740 / GT 2 / Easy — 3D IoU 0.616</h3><p>2D IoU=0.925; best 3D IoU among Car top50=0.616; score=11.814</p></article><article><h3>000967 / GT 1 / Moderate — 3D IoU 0.148</h3><p>2D IoU=0.925; best 3D IoU among Car top50=0.461; score=0.092</p></article><article><h3>005103 / GT 4 / Hard — 3D IoU 0.627</h3><p>2D IoU=0.923; best 3D IoU among Car top50=0.758; score=0.862</p></article><article><h3>000810 / GT 0 / Easy — 3D IoU 0.573</h3><p>2D IoU=0.923; best 3D IoU among Car top50=0.573; score=6.280</p></article><article><h3>006899 / GT 1 / Moderate — 3D IoU 0.251</h3><p>2D IoU=0.920; best 3D IoU among Car top50=0.507; score=0.437</p></article><article><h3>005927 / GT 5 / Moderate — 3D IoU 0.000</h3><p>2D IoU=0.918; best 3D IoU among Car top50=0.331; score=0.131</p></article><article><h3>000117 / GT 7 / Moderate — 3D IoU 0.006</h3><p>2D IoU=0.916; best 3D IoU among Car top50=0.009; score=0.268</p></article><article><h3>001740 / GT 4 / Moderate — 3D IoU 0.475</h3><p>2D IoU=0.916; best 3D IoU among Car top50=0.681; score=1.534</p></article><article><h3>004275 / GT 7 / Hard — 3D IoU 0.584</h3><p>2D IoU=0.914; best 3D IoU among Car top50=0.584; score=0.659</p></article><article><h3>001740 / GT 3 / Moderate — 3D IoU 0.684</h3><p>2D IoU=0.912; best 3D IoU among Car top50=0.805; score=6.204</p></article><article><h3>002091 / GT 0 / Moderate — 3D IoU 0.534</h3><p>2D IoU=0.911; best 3D IoU among Car top50=0.804; score=0.128</p></article><article><h3>004895 / GT 1 / Moderate — 3D IoU 0.297</h3><p>2D IoU=0.911; best 3D IoU among Car top50=0.734; score=0.900</p></article><article><h3>006568 / GT 6 / Hard — 3D IoU 0.000</h3><p>2D IoU=0.909; best 3D IoU among Car top50=0.601; score=0.736</p></article><article><h3>004895 / GT 2 / Moderate — 3D IoU 0.000</h3><p>2D IoU=0.908; best 3D IoU among Car top50=0.000; score=1.299</p></article><article><h3>002879 / GT 1 / Hard — 3D IoU 0.509</h3><p>2D IoU=0.907; best 3D IoU among Car top50=0.712; score=0.246</p></article><article><h3>001932 / GT 0 / Easy — 3D IoU 0.669</h3><p>2D IoU=0.904; best 3D IoU among Car top50=0.793; score=6.099</p></article><article><h3>001102 / GT 3 / Moderate — 3D IoU 0.453</h3><p>2D IoU=0.902; best 3D IoU among Car top50=0.735; score=0.882</p></article><article><h3>002746 / GT 2 / Moderate — 3D IoU 0.618</h3><p>2D IoU=0.901; best 3D IoU among Car top50=0.618; score=5.349</p></article><article><h3>005227 / GT 0 / Easy — 3D IoU 0.559</h3><p>2D IoU=0.900; best 3D IoU among Car top50=0.763; score=0.339</p></article><article><h3>002947 / GT 0 / Moderate — 3D IoU 0.627</h3><p>2D IoU=0.900; best 3D IoU among Car top50=0.627; score=3.816</p></article><article><h3>001102 / GT 1 / Moderate — 3D IoU 0.465</h3><p>2D IoU=0.897; best 3D IoU among Car top50=0.741; score=0.532</p></article><article><h3>006568 / GT 0 / Easy — 3D IoU 0.462</h3><p>2D IoU=0.897; best 3D IoU among Car top50=0.470; score=6.342</p></article><article><h3>000869 / GT 0 / Moderate — 3D IoU 0.253</h3><p>2D IoU=0.896; best 3D IoU among Car top50=0.527; score=1.260</p></article><article><h3>003938 / GT 3 / Moderate — 3D IoU 0.301</h3><p>2D IoU=0.896; best 3D IoU among Car top50=0.541; score=4.963</p></article><article><h3>001650 / GT 0 / Moderate — 3D IoU 0.378</h3><p>2D IoU=0.893; best 3D IoU among Car top50=0.378; score=1.156</p></article><article><h3>006669 / GT 3 / Moderate — 3D IoU 0.018</h3><p>2D IoU=0.892; best 3D IoU among Car top50=0.452; score=0.794</p></article><article><h3>005919 / GT 4 / Hard — 3D IoU 0.370</h3><p>2D IoU=0.889; best 3D IoU among Car top50=0.668; score=0.012</p></article><article><h3>005919 / GT 1 / Moderate — 3D IoU 0.582</h3><p>2D IoU=0.886; best 3D IoU among Car top50=0.582; score=11.418</p></article><article><h3>005927 / GT 1 / Moderate — 3D IoU 0.655</h3><p>2D IoU=0.886; best 3D IoU among Car top50=0.655; score=3.008</p></article><article><h3>005103 / GT 0 / Moderate — 3D IoU 0.609</h3><p>2D IoU=0.885; best 3D IoU among Car top50=0.756; score=0.354</p></article><article><h3>004275 / GT 3 / Hard — 3D IoU 0.398</h3><p>2D IoU=0.882; best 3D IoU among Car top50=0.398; score=0.467</p></article><article><h3>003938 / GT 5 / Hard — 3D IoU 0.425</h3><p>2D IoU=0.880; best 3D IoU among Car top50=0.713; score=0.277</p></article><article><h3>004275 / GT 0 / Moderate — 3D IoU 0.657</h3><p>2D IoU=0.876; best 3D IoU among Car top50=0.787; score=1.124</p></article><article><h3>002387 / GT 3 / Moderate — 3D IoU 0.302</h3><p>2D IoU=0.876; best 3D IoU among Car top50=0.749; score=1.360</p></article><article><h3>001884 / GT 0 / Moderate — 3D IoU 0.217</h3><p>2D IoU=0.873; best 3D IoU among Car top50=0.222; score=0.183</p></article><article><h3>003204 / GT 1 / Easy — 3D IoU 0.658</h3><p>2D IoU=0.873; best 3D IoU among Car top50=0.658; score=0.451</p></article><article><h3>004362 / GT 1 / Moderate — 3D IoU 0.626</h3><p>2D IoU=0.871; best 3D IoU among Car top50=0.626; score=2.569</p></article><article><h3>003456 / GT 0 / Moderate — 3D IoU 0.044</h3><p>2D IoU=0.868; best 3D IoU among Car top50=0.724; score=0.067</p></article><article><h3>002746 / GT 1 / Easy — 3D IoU 0.666</h3><p>2D IoU=0.868; best 3D IoU among Car top50=0.666; score=7.000</p></article><article><h3>002879 / GT 0 / Moderate — 3D IoU 0.601</h3><p>2D IoU=0.867; best 3D IoU among Car top50=0.601; score=7.028</p></article><article><h3>001514 / GT 0 / Moderate — 3D IoU 0.283</h3><p>2D IoU=0.867; best 3D IoU among Car top50=0.770; score=2.775</p></article><article><h3>001497 / GT 2 / Hard — 3D IoU 0.673</h3><p>2D IoU=0.863; best 3D IoU among Car top50=0.731; score=3.423</p></article><article><h3>005919 / GT 3 / Easy — 3D IoU 0.380</h3><p>2D IoU=0.858; best 3D IoU among Car top50=0.380; score=3.633</p></article><article><h3>001102 / GT 7 / Moderate — 3D IoU 0.014</h3><p>2D IoU=0.858; best 3D IoU among Car top50=0.393; score=0.453</p></article><article><h3>005927 / GT 2 / Moderate — 3D IoU 0.523</h3><p>2D IoU=0.857; best 3D IoU among Car top50=0.833; score=0.521</p></article><article><h3>000967 / GT 0 / Moderate — 3D IoU 0.405</h3><p>2D IoU=0.848; best 3D IoU among Car top50=0.723; score=2.727</p></article><article><h3>002775 / GT 0 / Moderate — 3D IoU 0.000</h3><p>2D IoU=0.843; best 3D IoU among Car top50=0.757; score=0.039</p></article><article><h3>001592 / GT 4 / Moderate — 3D IoU 0.615</h3><p>2D IoU=0.842; best 3D IoU among Car top50=0.758; score=0.111</p></article><article><h3>000560 / GT 0 / Easy — 3D IoU 0.512</h3><p>2D IoU=0.837; best 3D IoU among Car top50=0.512; score=9.901</p></article><article><h3>002746 / GT 4 / Moderate — 3D IoU 0.353</h3><p>2D IoU=0.837; best 3D IoU among Car top50=0.420; score=0.430</p></article><article><h3>000139 / GT 0 / Moderate — 3D IoU 0.275</h3><p>2D IoU=0.835; best 3D IoU among Car top50=0.454; score=0.188</p></article><article><h3>003938 / GT 1 / Moderate — 3D IoU 0.675</h3><p>2D IoU=0.835; best 3D IoU among Car top50=0.675; score=7.496</p></article><article><h3>000869 / GT 2 / Hard — 3D IoU 0.447</h3><p>2D IoU=0.834; best 3D IoU among Car top50=0.666; score=0.132</p></article><article><h3>002879 / GT 2 / Moderate — 3D IoU 0.000</h3><p>2D IoU=0.827; best 3D IoU among Car top50=0.000; score=0.811</p></article><article><h3>004275 / GT 5 / Moderate — 3D IoU 0.457</h3><p>2D IoU=0.824; best 3D IoU among Car top50=0.734; score=0.672</p></article><article><h3>004422 / GT 1 / Easy — 3D IoU 0.340</h3><p>2D IoU=0.824; best 3D IoU among Car top50=0.340; score=2.368</p></article><article><h3>004362 / GT 0 / Hard — 3D IoU 0.438</h3><p>2D IoU=0.823; best 3D IoU among Car top50=0.857; score=0.130</p></article><article><h3>002746 / GT 5 / Moderate — 3D IoU 0.316</h3><p>2D IoU=0.822; best 3D IoU among Car top50=0.316; score=1.144</p></article><article><h3>002746 / GT 3 / Moderate — 3D IoU 0.521</h3><p>2D IoU=0.821; best 3D IoU among Car top50=0.521; score=3.537</p></article><article><h3>005103 / GT 3 / Hard — 3D IoU 0.380</h3><p>2D IoU=0.815; best 3D IoU among Car top50=0.484; score=1.010</p></article><article><h3>001255 / GT 1 / Moderate — 3D IoU 0.330</h3><p>2D IoU=0.811; best 3D IoU among Car top50=0.330; score=0.360</p></article><article><h3>002947 / GT 5 / Hard — 3D IoU 0.456</h3><p>2D IoU=0.809; best 3D IoU among Car top50=0.709; score=0.292</p></article><article><h3>004188 / GT 1 / Moderate — 3D IoU 0.646</h3><p>2D IoU=0.809; best 3D IoU among Car top50=0.646; score=0.177</p></article><article><h3>001514 / GT 4 / Moderate — 3D IoU 0.663</h3><p>2D IoU=0.807; best 3D IoU among Car top50=0.663; score=2.709</p></article><article><h3>006568 / GT 5 / Hard — 3D IoU 0.001</h3><p>2D IoU=0.806; best 3D IoU among Car top50=0.481; score=0.887</p></article><article><h3>006669 / GT 1 / Easy — 3D IoU 0.047</h3><p>2D IoU=0.799; best 3D IoU among Car top50=0.567; score=1.533</p></article><article><h3>001592 / GT 5 / Moderate — 3D IoU 0.509</h3><p>2D IoU=0.793; best 3D IoU among Car top50=0.509; score=0.425</p></article><article><h3>002947 / GT 3 / Hard — 3D IoU 0.206</h3><p>2D IoU=0.793; best 3D IoU among Car top50=0.567; score=0.162</p></article><article><h3>001102 / GT 6 / Hard — 3D IoU 0.125</h3><p>2D IoU=0.783; best 3D IoU among Car top50=0.652; score=0.156</p></article><article><h3>001592 / GT 6 / Moderate — 3D IoU 0.414</h3><p>2D IoU=0.778; best 3D IoU among Car top50=0.626; score=0.792</p></article><article><h3>005927 / GT 8 / Hard — 3D IoU 0.634</h3><p>2D IoU=0.776; best 3D IoU among Car top50=0.634; score=0.273</p></article><article><h3>000117 / GT 5 / Hard — 3D IoU 0.237</h3><p>2D IoU=0.774; best 3D IoU among Car top50=0.593; score=1.441</p></article><article><h3>002387 / GT 2 / Moderate — 3D IoU 0.212</h3><p>2D IoU=0.764; best 3D IoU among Car top50=0.452; score=0.617</p></article><article><h3>002947 / GT 6 / Hard — 3D IoU 0.302</h3><p>2D IoU=0.760; best 3D IoU among Car top50=0.700; score=0.118</p></article><article><h3>000117 / GT 6 / Hard — 3D IoU 0.236</h3><p>2D IoU=0.752; best 3D IoU among Car top50=0.236; score=0.226</p></article><article><h3>004275 / GT 4 / Moderate — 3D IoU 0.607</h3><p>2D IoU=0.751; best 3D IoU among Car top50=0.607; score=0.282</p></article><article><h3>000117 / GT 3 / Hard — 3D IoU 0.614</h3><p>2D IoU=0.743; best 3D IoU among Car top50=0.614; score=0.192</p></article><article><h3>001514 / GT 9 / Moderate — 3D IoU 0.000</h3><p>2D IoU=0.730; best 3D IoU among Car top50=0.000; score=0.050</p></article><article><h3>001592 / GT 3 / Moderate — 3D IoU 0.265</h3><p>2D IoU=0.685; best 3D IoU among Car top50=0.265; score=0.012</p></article><article><h3>005927 / GT 6 / Hard — 3D IoU 0.106</h3><p>2D IoU=0.658; best 3D IoU among Car top50=0.115; score=0.201</p></article><article><h3>000345 / GT 2 / Moderate — 3D IoU 0.000</h3><p>2D IoU=0.658; best 3D IoU among Car top50=0.000; score=0.010</p></article><article><h3>000558 / GT 2 / Hard — 3D IoU 0.139</h3><p>2D IoU=0.648; best 3D IoU among Car top50=0.139; score=0.093</p></article><article><h3>005103 / GT 6 / Hard — 3D IoU 0.000</h3><p>2D IoU=0.615; best 3D IoU among Car top50=0.000; score=0.370</p></article><article><h3>002947 / GT 8 / Hard — 3D IoU 0.184</h3><p>2D IoU=0.586; best 3D IoU among Car top50=0.184; score=0.009</p></article><article><h3>006899 / GT 0 / Easy — 3D IoU 0.069</h3><p>2D IoU=0.560; best 3D IoU among Car top50=0.069; score=0.032</p></article><article><h3>001102 / GT 4 / Hard — 3D IoU 0.000</h3><p>2D IoU=0.411; best 3D IoU among Car top50=0.000; score=0.205</p></article><article><h3>005919 / GT 0 / Easy — 3D IoU 0.056</h3><p>2D IoU=0.409; best 3D IoU among Car top50=0.056; score=0.017</p></article><article><h3>002947 / GT 7 / Moderate — 3D IoU 0.159</h3><p>2D IoU=0.371; best 3D IoU among Car top50=0.159; score=0.008</p></article><article><h3>000345 / GT 3 / Hard — 3D IoU 0.000</h3><p>2D IoU=0.368; best 3D IoU among Car top50=0.058; score=0.012</p></article><article><h3>001514 / GT 8 / Hard — 3D IoU 0.000</h3><p>2D IoU=0.354; best 3D IoU among Car top50=0.000; score=0.011</p></article><article><h3>004362 / GT 2 / Moderate — 3D IoU 0.000</h3><p>2D IoU=0.305; best 3D IoU among Car top50=0.000; score=0.004</p></article><article><h3>006568 / GT 4 / Hard — 3D IoU 0.894</h3><p>2D IoU=0.963; best 3D IoU among Car top50=0.894; score=2.562</p></article><article><h3>002947 / GT 2 / Easy — 3D IoU 0.901</h3><p>2D IoU=0.945; best 3D IoU among Car top50=0.901; score=16.606</p></article><article><h3>001592 / GT 2 / Easy — 3D IoU 0.818</h3><p>2D IoU=0.938; best 3D IoU among Car top50=0.818; score=5.823</p></article><article><h3>000558 / GT 3 / Easy — 3D IoU 0.845</h3><p>2D IoU=0.937; best 3D IoU among Car top50=0.845; score=10.525</p></article><article><h3>000558 / GT 4 / Moderate — 3D IoU 0.754</h3><p>2D IoU=0.934; best 3D IoU among Car top50=0.754; score=0.569</p></article><article><h3>000345 / GT 1 / Hard — 3D IoU 0.864</h3><p>2D IoU=0.934; best 3D IoU among Car top50=0.864; score=9.909</p></article><article><h3>004188 / GT 3 / Easy — 3D IoU 0.858</h3><p>2D IoU=0.930; best 3D IoU among Car top50=0.858; score=14.482</p></article><article><h3>000117 / GT 0 / Easy — 3D IoU 0.776</h3><p>2D IoU=0.929; best 3D IoU among Car top50=0.776; score=10.178</p></article><article><h3>001497 / GT 0 / Easy — 3D IoU 0.899</h3><p>2D IoU=0.926; best 3D IoU among Car top50=0.899; score=14.484</p></article><article><h3>000117 / GT 4 / Hard — 3D IoU 0.837</h3><p>2D IoU=0.925; best 3D IoU among Car top50=0.837; score=3.248</p></article><article><h3>000347 / GT 0 / Easy — 3D IoU 0.723</h3><p>2D IoU=0.923; best 3D IoU among Car top50=0.723; score=2.022</p></article><article><h3>002746 / GT 0 / Easy — 3D IoU 0.824</h3><p>2D IoU=0.923; best 3D IoU among Car top50=0.824; score=16.180</p></article><article><h3>001514 / GT 5 / Easy — 3D IoU 0.709</h3><p>2D IoU=0.921; best 3D IoU among Car top50=0.709; score=5.104</p></article><article><h3>004275 / GT 2 / Easy — 3D IoU 0.850</h3><p>2D IoU=0.918; best 3D IoU among Car top50=0.850; score=11.178</p></article><article><h3>003938 / GT 4 / Moderate — 3D IoU 0.757</h3><p>2D IoU=0.912; best 3D IoU among Car top50=0.757; score=0.314</p></article><article><h3>006568 / GT 3 / Moderate — 3D IoU 0.731</h3><p>2D IoU=0.907; best 3D IoU among Car top50=0.731; score=0.626</p></article><article><h3>005103 / GT 2 / Moderate — 3D IoU 0.772</h3><p>2D IoU=0.905; best 3D IoU among Car top50=0.772; score=4.568</p></article><article><h3>006669 / GT 2 / Moderate — 3D IoU 0.736</h3><p>2D IoU=0.902; best 3D IoU among Car top50=0.736; score=1.166</p></article><article><h3>004188 / GT 0 / Easy — 3D IoU 0.813</h3><p>2D IoU=0.899; best 3D IoU among Car top50=0.813; score=13.038</p></article><article><h3>003938 / GT 0 / Easy — 3D IoU 0.868</h3><p>2D IoU=0.888; best 3D IoU among Car top50=0.868; score=15.767</p></article><article><h3>004895 / GT 0 / Easy — 3D IoU 0.780</h3><p>2D IoU=0.886; best 3D IoU among Car top50=0.780; score=2.918</p></article><article><h3>000558 / GT 1 / Easy — 3D IoU 0.814</h3><p>2D IoU=0.883; best 3D IoU among Car top50=0.814; score=16.730</p></article><article><h3>005103 / GT 1 / Easy — 3D IoU 0.804</h3><p>2D IoU=0.881; best 3D IoU among Car top50=0.804; score=11.347</p></article><article><h3>004275 / GT 1 / Hard — 3D IoU 0.787</h3><p>2D IoU=0.879; best 3D IoU among Car top50=0.787; score=3.250</p></article><article><h3>006441 / GT 0 / Easy — 3D IoU 0.804</h3><p>2D IoU=0.872; best 3D IoU among Car top50=0.804; score=13.418</p></article><article><h3>006669 / GT 0 / Hard — 3D IoU 0.862</h3><p>2D IoU=0.871; best 3D IoU among Car top50=0.862; score=5.100</p></article><article><h3>000117 / GT 1 / Moderate — 3D IoU 0.807</h3><p>2D IoU=0.866; best 3D IoU among Car top50=0.869; score=0.298</p></article><article><h3>005919 / GT 8 / Hard — 3D IoU 0.701</h3><p>2D IoU=0.863; best 3D IoU among Car top50=0.732; score=0.344</p></article><article><h3>005927 / GT 7 / Moderate — 3D IoU 0.772</h3><p>2D IoU=0.861; best 3D IoU among Car top50=0.772; score=1.306</p></article><article><h3>003204 / GT 0 / Hard — 3D IoU 0.783</h3><p>2D IoU=0.854; best 3D IoU among Car top50=0.783; score=11.069</p></article><article><h3>005919 / GT 7 / Hard — 3D IoU 0.735</h3><p>2D IoU=0.851; best 3D IoU among Car top50=0.828; score=0.181</p></article>
+</article></section>
         <section id="exp59" class="content-panel" aria-labelledby="exp59-title">
           <article class="section-card">
             <h2 id="exp59-title">实验59：MixUp概率0.3，排除自身供体</h2>
@@ -4198,6 +4282,471 @@
             <p>阶段归档：<a href="archive/2026-09-08/README.md">结果、执行记录与后续交接</a>。worker随机初始化候选完成两次短训练及两次完整一轮逐批哈希一致验证，但尚未合入正式代码；全轮平均loss均45.585532385727454，不上传SwanLab。</p>
           </article>
         </section>
+
+        <section id="exp67" class="content-panel" aria-labelledby="exp67-title"><article class="section-card">
+          <h2 id="exp67-title">实验67：增强黑边补全（已撤销并回退）</h2>
+<div id="exp67-method-diagram"><figure style="margin:20px 0;padding:16px;background:#f4f7fb;border:1px solid #cbd5e1;border-radius:12px;color:#152238"><svg viewBox="0 0 1080 430" role="img" aria-label="实验67：只在增强后的空缺区域填入补全像素" style="width:100%;height:auto;display:block" xmlns="http://www.w3.org/2000/svg"><title>实验67：只在增强后的空缺区域填入补全像素</title><rect width="1080" height="430" rx="12" fill="#f4f7fb"/><g font-family="sans-serif" fill="#152238"><text x="30" y="36" font-size="23" font-weight="bold">实验67：补增强产生的黑边，再同步二维框</text>
+<text x="30" y="66" font-size="16">原图与补全画布按同一仿射变换对齐；补全画布不作为整张输入缩小。</text><text x="30" y="100" font-size="19" font-weight="bold">① 原增强：边上产生空缺</text><rect x="30" y="120" width="310" height="180" fill="#111827"/><rect x="85" y="120" width="200" height="180" fill="#bfdbfe"/><rect x="85" y="230" width="200" height="70" fill="#94a3b8"/><rect x="85" y="211" width="80" height="43" rx="7" fill="#2563eb"/><path d="M92 211 L108 184 H141 L161 211" fill="#2563eb"/><circle cx="105" cy="258" r="10" fill="#334155"/><circle cx="149" cy="258" r="10" fill="#334155"/><path d="M85 120 V300 M285 120 V300" stroke="#64748b" stroke-dasharray="5 5" stroke-width="2"/><rect x="85" y="178" width="87" height="95" fill="none" stroke="#ea580c" stroke-width="3"/><text x="385" y="100" font-size="19" font-weight="bold">② 早期版：填边，框未更新</text><rect x="385" y="120" width="310" height="180" fill="#111827"/><rect x="385" y="120" width="310" height="180" fill="#e0e7ff"/><rect x="385" y="230" width="310" height="70" fill="#cbd5e1"/><rect x="440" y="120" width="200" height="180" fill="#bfdbfe"/><rect x="440" y="230" width="200" height="70" fill="#94a3b8"/><rect x="405" y="211" width="115" height="43" rx="7" fill="#2563eb"/><path d="M447 211 L463 184 H496 L516 211" fill="#2563eb"/><circle cx="460" cy="258" r="10" fill="#334155"/><circle cx="504" cy="258" r="10" fill="#334155"/><path d="M440 120 V300 M640 120 V300" stroke="#64748b" stroke-dasharray="5 5" stroke-width="2"/><rect x="440" y="178" width="87" height="95" fill="none" stroke="#ea580c" stroke-width="3"/><text x="740" y="100" font-size="19" font-weight="bold">③ 修订版：填边＋更新框</text><rect x="740" y="120" width="310" height="180" fill="#111827"/><rect x="740" y="120" width="310" height="180" fill="#e0e7ff"/><rect x="740" y="230" width="310" height="70" fill="#cbd5e1"/><rect x="795" y="120" width="200" height="180" fill="#bfdbfe"/><rect x="795" y="230" width="200" height="70" fill="#94a3b8"/><rect x="760" y="211" width="115" height="43" rx="7" fill="#2563eb"/><path d="M802 211 L818 184 H851 L871 211" fill="#2563eb"/><circle cx="815" cy="258" r="10" fill="#334155"/><circle cx="859" cy="258" r="10" fill="#334155"/><path d="M795 120 V300 M995 120 V300" stroke="#64748b" stroke-dasharray="5 5" stroke-width="2"/><rect x="755" y="178" width="127" height="95" fill="none" stroke="#ea580c" stroke-width="3"/><text x="30" y="327" font-size="16">黑边外没有可用的原图像素</text><text x="385" y="327" font-size="16">补出的车身可能超出旧框</text><text x="740" y="327" font-size="16">用3D投影候选延伸原截断边</text>
+<rect x="30" y="350" width="1020" height="60" rx="10" fill="#fef3c7"/><text x="48" y="375" font-size="17">最终所有训练框裁到图像范围内；3D位置、尺寸和朝向不因扩框修改，验证仍用原图。</text><text x="48" y="398" font-size="16">注意：候选不是人工精确轮廓；全框裁剪还会改变部分不需要填边的样本。</text></g></svg><figcaption style="margin-top:10px;font-size:14px;color:#334155">几何示意，非真实样本或准确候选框。蓝色是车辆，黑色是增强后的空缺，虚线表示原图有效区域边界，橙色是二维监督框。补全未超出原有效区时，该区像素保持原样。</figcaption></figure></div>
+
+          <div class="callout warning"><h4>2026-10-11 最终决定：放弃补全方向</h4><p>修订版完成250轮，Best E187无NMS Car 3D AP_R40@0.7为32.0256 / 24.2003 / 21.0454；Exp59/63基线为33.2437 / 24.8539 / 21.4664，Moderate下降0.6536个百分点。结果未优于基线，尚未确定下降的因果来源。补全代码、配置、脚本及测试已撤出活动源码，恢复62fe961基线；其他实验改动未回退。没有重新训练。</p></div>
+          <h3>方案与修订</h3><p>以原KITTI尺寸和相机执行原增强，仅在几何有效区之外填入补全画布像素；不缩小整张补全画布。验证集保持原图。最后修订采用原3D框投影生成截断边候选，主图与MixUp供体同步更新二维监督，并按用户要求将全部训练框限制在最终图像内。候选批准表示接受方法，不代表逐框人工精标；全框裁剪也改变了部分不需要填边的样本。</p>
+          <h3>核验与证据边界</h3><p>最终方案10项单元测试通过；补边隔离回归192组、最终框修正64组和B16 GPU前后向通过。后续3712张主图、每图一个固定随机种子的审计中，14330个共同有效目标里802个框改变，60个高度改变超过10%；新增/丢弃目标均0。该审计不是250轮历史增强回放，也不能据此确定AP下降原因。</p>
+          <p>完整实现及回退回执保存在独立工作区<code>diagnostics/exp67_archived_20261011</code>；训练结果在<code>outputs/V2-0067_实验67_增强黑边补全</code>。原KITTI、审核过的补全图片、最终checkpoint、日志及诊断保留。<a href="https://swanlab.cn/@Grapymage/MonoDGP/runs/suzv2mj8">最终SwanLab运行</a>。</p>
+          <details><summary>完整历史记录：实现、检查、运行命令、框修订及回退</summary><p><strong>以下为按时间保留的历史记录；其中“已启动”“训练中”、旧方案限制和旧命令不表示当前状态，最终状态以本页顶部为准。</strong></p>
+<h1>Exp67：原增强黑边使用补全图片填充</h1>
+<p>2026-10-10 用户指出前次整张补全图直接训练偏离意图，并要求停止、回退、删除中间产物，使用正确方案重做Exp67。旧训练已在E233停止，runner/train退出130，子进程退出；错误checkpoint、日志、整图数据副本及旧诊断已删除。原KITTI和已审核补全图保留。简短撤销回执在diagnostics/exp67_cancelled_receipt.json。旧SwanLab run89flp0o8不代表正确方案；新训练将创建独立在线run。</p>
+<h2>正确接入</h2>
+<p>独立数据入口：<code>/home/zhangtingyu/Project/Mono3D/data/kitti_exp67_borderfill_v1</code>。training中的原图、标签、标定为原KITTI的只读使用链接，ImageSets独立复制；completion_image_2保存3712张已审核补全图的独立副本，包含用户最终确认的006256。completion_index.json绑定原尺寸、居中偏移和图片SHA256。全部3712张源照片区域逐像素一致，原图哈希核验通过。</p>
+<p>以Exp59原图尺寸和相机为基准，沿用原增强随机采样、颜色扰动、翻转、裁剪/缩放及同相机legacy MixUp。首先生成与原实现相同的增强图片，然后用同一逆仿射矩阵、加上补全图内原图偏移，从补全画布取像素；仅替换几何有效mask外的区域。有效mask内原像素原样保留，不根据RGB是否为黑色判断空缺。颜色扰动以原随机状态回放到补全图，回放后恢复随机状态，不改变后续采样。水平翻转同步调整补全画布偏移，MixUp同步混合两个补全画布，并保留原供体不做颜色扰动的行为。</p>
+<p>模型输入、标签、P2、物理深度和目标筛选不变，不将补全画布当作原图尺寸。验证集完全不用补全。当前仅支持train与legacy同相机MixUp，其他跨相机策略显式报错。像素超出补全画布时仍保持原空缺并计数，不伪造填满；当前正式配置仍为Exp59增强分布，未启用额外虚拟焦距。</p>
+<h2>验证</h2>
+<ul>
+<li>5项单元测试通过：真实黑像素保护、几何支持、无黑边不变、翻转与供体混合、超画布计数、颜色回放及随机流保持。</li>
+<li>对照干净main原始加载器，192组真实样本（正式配置64、强制MixUp/裁剪/翻转64、0.9虚拟焦距诊断64）中，所有targets、P2、原info字段、NumPy/Python随机状态及原图有效像素逐项相同。</li>
+<li>正式配置64帧中33帧发生填充，共1099052像素；强制增强64帧中61帧填充2274187像素。两组均无未覆盖像素。额外虚拟焦距诊断填充5644115像素，但18048像素超画布仍空缺；它不是正式训练设置。</li>
+<li>验证集6张编码结果逐项一致。全量训练补全图与原图源区域已核验，但192组样本不等价于遍历全部随机增强组合。</li>
+<li>CPU检查初次启动早于READY标记，未执行样本验证即退出；保留cpu_attempt1_not_ready.log和退出码。确认准备退出0后增加前置检查，一次正确性重跑退出0。代码、数据方法、参数未因重跑改变。</li>
+<li>2026-10-10重启恢复驱动后，GPU B16前向、反向及优化器更新通过；loss=185.96661376953125，梯度和更新后参数全有限。16帧中9帧填边，未覆盖像素均0。正式训练已启动，见下方记录。</li>
+</ul>
+<h2>启动阻碍历史与运行命令</h2>
+<p>宿主机已加载NVIDIA内核模块580.173.02，磁盘模块和libcuda均580.178.04。宿主可见上下文内PyTorch新进程cudaGetDeviceCount报804，CUDA不可用，nvidia-smi驱动库版本不匹配。不是沙箱观测。没有改驱动、依赖、环境或重编译扩展，也没有重启机器；按AGENTS.md环境修复要求等待用户授权。</p>
+<p>环境恢复后先执行：</p>
+<pre><code>tmux new-session -d -s exp67-borderfill-gpu 'bash /home/zhangtingyu/Project/Mono3D/MonoDGP-training-completed-20261009/diagnostics/exp67_borderfill/gpu.sh'
+</code></pre>
+<p>其先记录批准Python/CUDA栈、Git、TF32与准确命令，再执行真实B16训练前向、反向和优化器更新；只有gpu.exit为0且gpu_result.json通过后，才可正式运行：</p>
+<pre><code>tmux new-session -d -s monodgp_exp67_borderfill 'bash /home/zhangtingyu/Project/Mono3D/MonoDGP-training-completed-20261009/tools/run_exp67.sh'
+</code></pre>
+<p>正式命令（cwd为独立工作区）：<code>/home/zhangtingyu/Project/Mono3D/MonoDGP/.venv-cu129/bin/python tools/train_val.py --config /home/zhangtingyu/Project/Mono3D/MonoDGP-training-completed-20261009/configs/monodgp_exp67.yaml</code>。</p>
+<p>从头250轮、ImageNet骨干初始化、BS16、4workers、seed444、MixUp0.3、严格确定性、原学习率与评测规则，SwanLab required/online。输出预定outputs/V2-0067_实验67_增强黑边补全，train_console.log及status.tsv保存日志和退出码。启动器校验CPU/GPU结果与代码配置哈希，拒绝覆盖已有输出，不自动重跑失败。没有新的训练checkpoint或预先宣称训练成功。所有代码和记录未暂存、未提交、未推送。</p>
+<h2>2026-10-10 10:10 正确方案启动</h2>
+<p>用户授权并完成主机重启，已加载内核驱动与用户态库统一为580.178.04，RTX4090和CUDA恢复。GPU检查退出0，批准Python3.10.20/PyTorch2.8.0+cu129/torchvision0.23.0+cu129/CUDA12.9/cuDNN9.10.2/Numba0.66.0/Numba-CUDA0.30.4全部通过，TF32 matmul/cuDNN均True。正式训练从头250轮，ImageNet预训练骨干初始化，不恢复旧实验checkpoint。</p>
+<p>持久会话<code>monodgp_exp67_borderfill</code>，启动器PID25387，训练主进程PID25851，4个worker为27769/27771/27772/27773。准确编排命令与训练命令见上文；仅运行正确Exp67，不接力其他实验。输出目录<code>outputs/V2-0067_实验67_增强黑边补全</code>，环境和命令在run_manifest.txt，日志train_console.log，最终退出码status.tsv；源码和未提交差异冻结在source_snapshot。</p>
+<p>SwanLab <a href="https://swanlab.cn/@Grapymage/MonoDGP/runs/spia7591">spia7591</a>于10:10:00在线初始化，10:10:01进入E1。旧错误方案run89flp0o8不作为本实验结果。</p>
+<h2>2026-10-10 用户要求暂停，先审阅方案对比</h2>
+<p>未展示方案差异即启动训练，用户提出异议并明确要求停止。已向训练PID25851发送SIGINT；status.tsv记录train_exit=130、runner_exit=130，日志KeyboardInterrupt。宿主可见检查确认launcher、训练及4个worker均退出，无tmux会话和GPU计算进程。此次中断是用户主动停止，不是训练缺陷；不会自动恢复。</p>
+<p>全图对比位于diagnostics/exp67_borderfill/visual_review：scale_shift.jpg、flip.jpg、mixup.jpg。使用真实基线与当前数据加载器；旧整画布方案为重建示例，不是旧运行的存档帧。可视化关闭颜色扰动，强制裁剪/翻转/MixUp，正式配置未改变。三个样本各填31957像素，未覆盖0，原有效像素、targets和P2完全一致。可复现参数见results.json及render.py。仅用于实现检查，不代表性能提升证据。</p>
+<h2>2026-10-10 视觉确认及风扇排查后重新启动</h2>
+<p>用户已确认黑边补全全图对比，并明确要求开始训练。按既定正确方案从头运行250轮，不从上次中断checkpoint续训。上次手动中断记录完整归档至outputs/exp67_interrupted_before_visual_review_20261010_1010；本次沿用原配置、数据、超参数及评测规则，不属于缺陷修复重跑。批准环境核验通过，显卡两路风扇策略恢复自动。仅启动Exp67，SwanLab创建新运行。</p>
+<p>启动核验：11:33记录环境，持久tmux <code>monodgp_exp67_borderfill</code>，runner PID133978，训练PID134150。批准环境与TF32均通过；GPU显存约15910MiB，日志已推进第2轮，梯度有限。SwanLab新运行 https://swanlab.cn/@Grapymage/MonoDGP/runs/5woggkro ，API确认RUNNING并读到云端第2轮指标。完整命令、输出目录、初始化来源和核验记录见 outputs/V2-0067_实验67_增强黑边补全/startup_verification.json；环境见run_manifest.txt。</p>
+<h2>2026-10-10 贴边车辆二维监督检查：确认存在不一致</h2>
+<p>用户要求核查补全车身后包围框是否更新。使用未改动的Exp67数据配置、选择随机种子，通过真实getitem截取补边前后输入及有效targets。000016(seed112,源标签3)和000072(seed112,源标签0)可见车身延伸到原边界之外，但有效训练二维框左边界仍为87.730像素。三例检查的targets均有效，二维框均等于原截断框的仿射变换；代码未根据补全内容更新框。诊断见diagnostics/exp67_borderfill/label_audit/check.py、results.json、全图叠框jpg。geometry版本仅去除颜色扰动便于观察，仿射从同一框还原；不是新增训练配置。绿色原3D框投影仅作几何参照，不能直接冒充补全图准确二维标注。</p>
+<p>结论：此前“targets不变”的检查不足以验证补全后的语义/监督一致性，现确认至少这些有效样本存在车身与原截断2D框不一致。这不证明AP下降全部由此造成，也不提供全量发生率。没有修改正在运行的训练代码、标签或参数；未自动开始新实验。后续应先确定可靠的新2D监督与原3D几何的一致性，再修改方法；属于实验方法修订，不可称无变化正确性重跑。</p>
+<h2>2026-10-10 用户要求停止清理并先审核二维框修复</h2>
+<p>已SIGINT停止PID134150，E140第31批后退出；runner/train均130。宿主确认进程和GPU计算任务均退出。本次及首次手动中断的本地outputs目录已删除（含检查点、预测及大日志）；精简manifest/config/源码与退出、最佳成绩摘要保留diagnostics/exp67_cancelled_label_mismatch。原KITTI、3712张已审核补全图及独立训练数据目录未删除，云端旧记录未删除。</p>
+<p>新增completion_boxes.py读取独立侧车标注，不改原KITTI标签。只延伸原图截断边，候选先由原3D框投影提出并限于已有补全画布；在每次增强后仅将实际输入范围内的延伸并入原框。保留基线对原有超出裁剪框边缘的惯例。主图/翻转/legacy MixUp供体统一处理，boxes、size_2d、boxes_3d的中心至框边距离、obj_region及由这些目标生成的监督同步更新；3D尺寸、位置、朝向不因扩框修改。原Unknown/近距离过滤不因补全放宽，但扩框可能让原来因3D中心不在2D框而跳过的目标有效；本次64样本尚未观察到此变化。</p>
+<p>生成693个候选（含Car/Van/Truck初筛），分布634图；未覆盖全部生成内容的语义审核。全量标注reviewed=false，每框pending。正式入口禁止preview-only，加载器和runner检查逐框批准状态。旧CPU/GPU训练许可哈希已失效；用户确认后仍须按修订方案完成正确性前检，不能复用旧许可直接训练。</p>
+<p>9项单测通过；64组真实样本（32生产配置、32强制翻转MixUp）检查RGB/P2/RNG一致，原有效目标3D监督一致，框宽高及中心到边距离一致。分别7/6个有效目标被修正，其中供体3/2个；新增有效目标均0。验证集3样本完全一致。修复前后全图及check_result.json见diagnostics/exp67_borderfill/box_review。预览关闭颜色扰动并强制裁剪，以同一图同一随机种子比较实际加载器目标；未进行训练。</p>
+<p>重要未决事项：3D投影只提供候选，不等于生成车身的精确2D轮廓。000016/000072示例消除了原截断边问题；000038的候选下边界偏大，说明不能把693个自动候选直接当作GT。代码已支持独立人工修订框，仍须完成内容审核/校准后才能宣称全量标注修复完成。依据用户明确要求，等其审阅，不启动训练。没有Git暂存、提交、推送。</p>
+<h2>2026-10-10 用户接受候选框方法，追加全框裁剪后启动前检查</h2>
+<p>用户明确接受三维投影候选框，并要求整个框限制在最终输入图像内，检查后直接开始训练。annotation的approved表示用户接受候选生成方法，不是逐图人工精标认证。693个候选及3712份标签哈希完整核验通过，无未解决条目。</p>
+<p>变更：completion_boxes启用时所有训练框（包含没有延伸候选的原框）在仿射后整体clip到[0,W]×[0,H]，零面积立即过滤。主图与legacy MixUp供体相同；boxes/boxes_3d边距/size_2d/目标区域同步，原3D几何和验证路径不改。裁剪可能改变目标有效性；64样本中本次新增/丢弃目标均0，不能视为全组合无变化证明。</p>
+<p>10单测通过；补边隔离回归192样本与6验证样本通过（此回归关闭框修正，专门检查RGB/RNG）；最终框修正64样本与3验证样本通过，全部有效训练框在输入范围内且面积为正。生产/强制MixUp翻转分别改变11/13个有效框，其中供体4/5个。RGB、P2、随机状态及共同有效目标3D监督一致。更新预览见box_review目录。此为用户批准的实验方法修订，从头训练，不能与此前失败运行混作无方法变化重跑。</p>
+<p>GPU检查通过：B16 loss=186.0056915283203，梯度/更新参数有限，填充未覆盖像素0。2026-10-10 18:44用户授权修订版正式从头启动250轮；tmux monodgp_exp67_borderfill，训练PID2214771/父PID2214267，批准环境及TF32验证通过。新SwanLab运行 https://swanlab.cn/@Grapymage/MonoDGP/runs/suzv2mj8 ，已进入第1轮并持续推进，梯度正常。输出outputs/V2-0067_实验67_增强黑边补全，命令/初始化/日志/次序见startup_verification.json，云端核验见cloud_verification.json。旧轮次不续训。代码与记录未暂存未提交。</p>
+<h2>2026-10-11 Exp67 补全方案撤销，回退原基线</h2>
+<p>用户明确决定放弃补全idea并回退。最后一次修订版已于2026-10-11 06:44正常完成250轮，runner/train/manifest/tee退出码全部0，SwanLab上传完成。Best E187，无NMS Car 3D AP_R40@0.7为32.0256 / 24.2003 / 21.0454，best checkpoint复评一致；相对Exp59/63基线33.2437 / 24.8539 / 21.4664，Moderate低0.6536个百分点。记录仅支持本次结果未优于基线，不宣称已确定下降原因。SwanLab：https://swanlab.cn/@Grapymage/MonoDGP/runs/suzv2mj8 。</p>
+<p>在独立工作区MonoDGP-training-completed-20261009，将kitti_dataset.py、train_val.py按62fe961的原始内容恢复；补全helper、候选框helper、Exp67配置、启动/准备/检查脚本及专项测试移出活动源码，完整保存在diagnostics/exp67_archived_20261011。其余训练代码不变，原有增强、标签、越界框处理和验证规则恢复基线。没有回退主工作区中不属于Exp67的Exp66修改。</p>
+<p>补全数据不再接入训练，但原KITTI、已审核补全图、完成实验checkpoint/日志及诊断证据保留，未删除云端记录。无新训练，无Git暂存/提交/历史重写。旧章节的运行状态与命令仅为历史记录，不代表当前方案仍启用。</p>
+
+          </details>
+        </article></section>
+        <section id="exp66" class="content-panel" aria-labelledby="exp66-title"><article class="section-card">
+          <h2 id="exp66-title">实验66：属性覆盖引导 MixUp（已完成，已回退）</h2>
+<div id="exp66-method-diagram"><figure style="margin:20px 0;padding:16px;background:#f4f7fb;border:1px solid #cbd5e1;border-radius:12px;color:#152238"><svg viewBox="0 0 1080 430" role="img" aria-label="实验66：改变MixUp供体的选择概率" style="width:100%;height:auto;display:block" xmlns="http://www.w3.org/2000/svg"><title>实验66：改变MixUp供体的选择概率</title><rect width="1080" height="430" rx="12" fill="#f4f7fb"/><g font-family="sans-serif" fill="#152238">
+<text x="30" y="36" font-size="23" font-weight="bold">实验66：不改混图方式，改“另一张图从哪里选”</text>
+<rect x="30" y="70" width="235" height="95" rx="10" fill="#dbeafe"/><text x="48" y="105" font-size="19">一张正常训练图片</text><text x="48" y="137" font-size="16">沿用原来的增强和标签</text>
+<path d="M265 117 H340" stroke="#475569" stroke-width="3"/><text x="280" y="101" font-size="16">分支</text>
+<rect x="340" y="65" width="305" height="65" rx="10" fill="#e2e8f0"/><text x="358" y="94" font-size="18">70%：不触发MixUp</text><text x="358" y="118" font-size="15">按原流程训练这张图</text>
+<rect x="340" y="155" width="305" height="70" rx="10" fill="#bfdbfe"/><text x="358" y="183" font-size="18">30%：触发MixUp</text><text x="358" y="210" font-size="15">以下两条分支各占一半</text>
+<path d="M305 117 V190 H340 M645 190 H680 V137 H710 M680 190 V262 H710" fill="none" stroke="#475569" stroke-width="3"/>
+<rect x="710" y="85" width="340" height="100" rx="10" fill="#e2e8f0"/><text x="730" y="117" font-size="19">50%：原来的随机供体</text><text x="730" y="147" font-size="16">从训练图中按原规则选</text><text x="730" y="171" font-size="15">相当于全部样本约15%</text>
+<rect x="710" y="210" width="340" height="105" rx="10" fill="#fef3c7" stroke="#d97706"/><text x="730" y="242" font-size="19">50%：优先选少见车辆所在图</text><text x="730" y="272" font-size="16">同相机、同尺寸；无兼容池则回退</text><text x="730" y="297" font-size="15">相当于全部样本约15%的引导请求</text>
+<rect x="30" y="340" width="1020" height="65" rx="10" fill="#dcfce7"/><text x="50" y="368" font-size="19">成功混图：主图像素 × 0.5 ＋ 供体像素 × 0.5，按原规则编码两图目标</text><text x="50" y="392" font-size="16">潜在附带变化：稀少车辆增多的同时，同图其他车辆、框重叠和监督比例也会改变。</text></g></svg><figcaption style="margin-top:10px;font-size:14px;color:#334155">方案示意，非真实训练图片。少见属性按训练集车辆高、宽、长和朝向定义；选择的是整张图片，同图中的普通车辆也一起进入训练。</figcaption></figure></div>
+
+<div class="callout warning"><h4>2026-10-11 用户决定撤销实验66</h4><p>已移除属性覆盖引导采样、对应训练统计及运行清单字段，删除活动目录中的Exp66配置和专项测试，通用MixUp测试恢复基线。四个已跟踪文件恢复至62fe961原始内容，继续采用Exp59方法与Exp63尺寸损失零分母保护。历史实现保存在本地diagnostics/exp66_archived_20261011，训练结果和本页分析保留；以下配置路径及训练命令仅为历史记录，不代表当前可用入口。没有启动新训练。</p></div>
+          <div class="callout"><h4>09:49更新：严格筛选会使候选过少；最受偏向的属性未获益</h4><p>训练集256组检查：全部条件采用距离/面积±25%时，候选中位数仅2个，35.2%无候选、74.2%至多5个；放宽到±50%，仍有46.5%至多5个。撤回叠加硬条件的优先方案。</p><p>按训练代码重建含普通图、同帧车辆与翻转的属性曝光期望，按偏向程度分成五组。注意曝光未计裁剪损失；验证指标是3D IoU&gt;0.7的框覆盖，不是AP。</p><table><thead><tr><th>偏向程度（低→高）</th><th>验证车辆数</th><th>59</th><th>66</th><th>变化/百分点</th></tr></thead><tbody><tr><td>1</td><td>1496</td><td>51.34%</td><td>49.60%</td><td>-1.74</td></tr><tr><td>2</td><td>1608</td><td>50.87%</td><td>45.77%</td><td>-5.10</td></tr><tr><td>3</td><td>1953</td><td>45.98%</td><td>46.95%</td><td>+0.97</td></tr><tr><td>4</td><td>1238</td><td>49.19%</td><td>49.84%</td><td>+0.65</td></tr><tr><td>5</td><td>1579</td><td>40.34%</td><td>36.35%</td><td>-3.99</td></tr></tbody></table><p>最受偏向组1579辆40.34%→36.35%；扩大属性近邻范围后最受偏向组仍下降5.67个百分点。有局部改善，但没有随偏向增加而改善的趋势。单项距离误差改善也不代表完整3D框改善。描述性分组不证明偏向抽样本身有害，拥挤和训练随机性尚未分离。</p><p>250轮已正常完成，最佳E204 Moderate23.6166（比59低1.2373），E250为22.9256。CPU诊断退出0，未启动新训练。<a href="#exp66">完整口径、候选统计和全部五组结果</a>。</p></div>
+<div class="callout"><h4>历史进度 2026-09-17 09:17：机理诊断完成</h4>
+          <p>历史E242快照：当轮Moderate AP 23.0708；最佳仍为E204：31.6667 / <strong>23.6166</strong> / 20.0377，比Exp59低1.2373点。该快照时训练仍在运行；最终已完成250轮，状态以本节顶部为准。<a href="#exp66">完整分析、证据边界与方案</a>。</p>
+          <p><strong>同图验证确认：几何确实退步，排序也有影响。</strong> 两个最佳模型在全部3769张验证图上均精确复现正式AP。原分数：59为24.8539、66为23.6166；保持预测框及数量不动，仅用分类分数：20.0896与19.4913。差距由1.237缩至0.598，但两模型自身都更差，直接删深度置信度不是修复方案。</p>
+          <table><thead><tr><th>相同GT上的几何覆盖</th><th>目标数</th><th>Exp59</th><th>Exp66</th></tr></thead><tbody><tr><td>全部Moderate（包含Easy）</td><td>7874</td><td>47.37%</td><td>45.54%</td></tr><tr><td>原索引少见车辆，独占Moderate</td><td>1908</td><td>31.45%</td><td>28.20%</td></tr><tr><td>普通车辆，独占Moderate</td><td>3060</td><td>48.37%</td><td>47.12%</td></tr><tr><td>Easy</td><td>2906</td><td>56.78%</td><td>55.26%</td></tr></tbody></table>
+          <p>覆盖指至少一个Car预测3D IoU&gt;0.7，不是官方一对一召回。净少144个目标；按drive重采样的覆盖变化95%区间[-3.370,-0.395]个百分点，未包含训练种子波动。两个模型都准确框住的7598个共同目标，距离MAE仅0.8809→0.8859米：不能将训练深度loss变高等同于验证距离全面恶化，完整3D框还受尺寸、位置和朝向共同影响。</p>
+          <p><strong>数据侧两处问题已有证据。</strong> 稀有度未计入50%左右翻转；补入后约26.5%的原少见对象不再属于最稀少组。14848组训练集离线配对与512组真实编码配对均发现整帧引导同时增加车辆数量和重叠。后者固定主图及增强、逐张验证主图监督完全一致：供体GT 2.965→4.752，主图框覆盖面积17.91%→26.36%，重叠且两来源距离差&gt;2米的前景比例5.59%→7.62%。这是引导分支条件统计，不能当全训练变化。</p>
+          <p>RGB保留两车各50%，密集深度标签在重叠处却只取近车；同时对象级loss除以总车辆数，增加供体会摊薄原目标的监督份额。这些是有代码依据的作用路径，尚未单独干预证明各自造成多少AP损失。密集深度前景权重也随面积变化，不能凭其loss涨幅直接断言准确率下降。</p>
+          <p><strong>方案修订：</strong>不采用车辆数、距离、面积、重叠同时硬筛选；实测会压缩候选。偏向抽样是否让对应验证车辆变好，见最新检查。</p>
+          <p>诊断已退出0，证据统一在本实验<code>diagnostics/</code>。先后修正选框顺序、NumPy序列化；随后发现batch1基线复现差0.033点，明确修订为正式batch16并补齐float32转换，最终两模型完全复现。保留全部失败/修订记录，未隐藏重跑。</p>
+          <p>2026-10-11已精简归档：训练重叠与预测错例展示图片已删除，完整分析仍保留统计和文字记录。</p></div>
+          <p>严格基于Exp59，从头训练250轮。仅用<code>ImageSets/train.txt</code>的Moderate Car标签构造五维属性<code>[h,w,l,sin(alpha),cos(alpha)]</code>，在训练集标准化后以第20近邻距离定义稀有度，将最高20%对象所在帧作为属性尾部供体。验证集不建立、不读取也不使用该索引；<code>trainval</code>启用时会直接拒绝。</p>
+          <div class="callout"><h4>唯一方法变量</h4><p>MixUp总触发率仍为0.3。每次触发有50%从同P2、同图像尺寸的属性尾部帧采样供体，另50%沿用Exp59均匀采样。混图权重0.5、GT合并、相机矩阵、目标数上限、排除自身和50次重试预算不变。未额外施加跨drive约束。</p></div>
+          <p>真实训练集索引包含3712帧、4893个Moderate Car；80%分位阈值0.708018，得到979个尾部对象、765个尾部帧和3个兼容池。全部3712个接收帧都有兼容尾部供体，每帧候选数22—706。512个真实样本强制MixUp审计中，引导分支占52.34%，引导成功率100%，成功供体尾部比例62.35%；均匀帧级尾部占比为20.61%。</p>
+          <p>完整测试138通过、22跳过；真实B16 GPU前向/反向检查中16/16引导样本均使用尾部供体，loss和梯度有限。2026-09-16 21:53已启动正式训练：tmux <code>monodgp_exp66_attribute_mixup</code>，启动器PID 84570，训练PID 84750；E1日志已推进到step 91/232，GPU占用约15.9 GiB且利用率100%，梯度有限。SwanLab <a href="https://swanlab.cn/@Grapymage/MonoDGP/runs/4brktj5u">4brktj5u</a>已连接。配置<code>configs/monodgp_exp66.yaml</code>；输出<code>outputs/V2-0066_实验66_属性覆盖引导MixUp/</code>。主要判据为Moderate 3D AP_R40相对Exp59的24.8539至少提升1.0点；单种子结果仍不等同于稳定收益。</p>
+
+<details open><summary>完整机理分析：方法、统计、证据边界与诊断执行记录</summary>
+<p><strong>归档说明：</strong>以下按原记录保留分析过程。实验最终已完成250轮，最佳E204 Moderate AP为23.6166；早期“尚待完成”及优先方案表述属于历史状态，后文记录了结论修订。展示图片已删除，统计表和文字说明完整保留。</p>
+<h1>实验66机理分析（2026-09-17）</h1>
+<p>实验66按用户要求继续完成250轮。此次诊断不改训练、模型权重或训练数据。基线为Exp59最佳E178，候选为Exp66已保存的最佳模型；最终训练结果尚待完成。</p>
+<p>当前结论：完整验证确认3D几何覆盖下降，原本要帮助的少见车辆也变差；分数排序解释了部分敏感性，却不能靠直接去掉深度置信度修复。数据侧已证实选样忽略翻转、增加拥挤及改变监督份额，优先方案是修正这些选样约束。它们与掉点有一致的作用路径，但尚未通过分别干预训练，确定各自造成多少AP损失；也没有足够证据承诺新方案必涨1点。</p>
+<h2>已证实的设计问题</h2>
+<h3>1. 筛选依据没有包含已有的左右翻转</h3>
+<p>代码用原始训练标签的<code>[h,w,l,sin(alpha),cos(alpha)]</code>计算稀有度，但训练有50%概率左右翻转。翻转保持车辆尺寸不变，将朝向变成<code>pi-alpha</code>。因此，原始标签少见不等于模型实际训练时少见。</p>
+<p>把训练标签及其镜像各按一半权重组成实际增强属性分布，重新标准化，以40近邻对应原来N个样本的20近邻，并仍取最稀少20%：979个原始稀少对象中，有26.46%不再落在最稀少组；另有同样数量的实际稀少对象被原索引漏掉。这是选样依据的遗漏，不等于已证明它解释全部AP下降。</p>
+<p>修正稀有度定义后，问题仍存在：Exp59在验证集独占Moderate车辆中，稀少组1393辆的几何覆盖率29.22%，非稀少组3576辆46.78%。按距离、图像高度、遮挡、截断分组控制后，稀少组相对中间60%仍低14.00个百分点；按采集drive重采样的95%区间为[-21.43,-7.24]个百分点。这里“覆盖”指同图至少有一个Car预测3D IoU&gt;0.7，不是官方一对一召回率，也不是AP；属性索引严格仅用训练集，验证标签只用于诊断。</p>
+<h3>2. 想增加少见车辆，却同时增加了混图拥挤程度</h3>
+<p>仅用3712张训练图，每张固定抽4组，得到14848组配对。相同相机、图像尺寸、排除自身、原始对象数小于50；这是成功供体条件下的离线采样，尚未施加随机裁剪及最终目标编码过滤。</p>
+<table>
+<thead>
+<tr>
+<th>供体选择方式</th>
+<th style="text-align:right">平均车辆数</th>
+<th style="text-align:right">主图车辆框与供体框覆盖面积/主图框面积</th>
+<th style="text-align:right">至少一次跨图框重叠</th>
+<th style="text-align:right">每张供体中的少见对象数</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>原均匀抽样</td>
+<td style="text-align:right">2.967</td>
+<td style="text-align:right">18.50%</td>
+<td style="text-align:right">49.56%</td>
+<td style="text-align:right">0.264</td>
+</tr>
+<tr>
+<td>全部从少见车辆所在图抽样</td>
+<td style="text-align:right">4.895</td>
+<td style="text-align:right">27.65%</td>
+<td style="text-align:right">64.26%</td>
+<td style="text-align:right">1.272</td>
+</tr>
+<tr>
+<td>先抽普通供体，只在车辆数相同的候选中换成少见供体；无候选则保留</td>
+<td style="text-align:right">2.967</td>
+<td style="text-align:right">18.14%</td>
+<td style="text-align:right">48.92%</td>
+<td style="text-align:right">0.963</td>
+</tr>
+</tbody>
+</table>
+<p>这些是<strong>引导分支对照</strong>；实际Exp66只有一半MixUp使用引导，不能将整次训练说成重叠面积增加49.5%。普通分支与引导分支各占一半时，估计供体车辆数3.931，覆盖面积23.08%，对比基线增加约32.5%和24.7%；MixUp又仅占全部训练图片的30%。实际训练E210—230编码后平均GT数3.837→4.124，增加7.48%。</p>
+<p>框重叠是视觉干扰的代理量，不是像素分割遮挡率。稀少对象往往所在图车多，框面积、距离和道路场景也可能共同变化，不能只靠这张表确定主因。车辆数匹配方案已在离线抽样中证明能保留属性增量并消除这一拥挤增量，但会进一步集中到少量候选，必须约束重复次数；尚未证明AP会提高。</p>
+<p>进一步对512张固定训练主图运行真实数据加载器，强制MixUp，在三种策略下使用相同种子，逐张断言主图最终有效GT、2D框和深度完全相同；保留实际颜色增强、翻转、裁剪与标签编码。最终结果如下（均为MixUp条件下，不是全训练集均值）：</p>
+<table>
+<thead>
+<tr>
+<th>实际编码指标</th>
+<th style="text-align:right">普通供体</th>
+<th style="text-align:right">原引导供体</th>
+<th style="text-align:right">车辆数匹配供体</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>主图GT数</td>
+<td style="text-align:right">2.908</td>
+<td style="text-align:right">2.908</td>
+<td style="text-align:right">2.908</td>
+</tr>
+<tr>
+<td>供体GT数</td>
+<td style="text-align:right">2.965</td>
+<td style="text-align:right">4.752</td>
+<td style="text-align:right">3.055</td>
+</tr>
+<tr>
+<td>主图框面积受到跨图重叠</td>
+<td style="text-align:right">17.91%</td>
+<td style="text-align:right">26.36%</td>
+<td style="text-align:right">18.93%</td>
+</tr>
+<tr>
+<td>前景联合区域中重叠且两来源距离差&gt;2米的比例</td>
+<td style="text-align:right">5.59%</td>
+<td style="text-align:right">7.62%</td>
+<td style="text-align:right">5.33%</td>
+</tr>
+<tr>
+<td>密集深度图前景面积比例</td>
+<td style="text-align:right">11.64%</td>
+<td style="text-align:right">14.86%</td>
+<td style="text-align:right">11.50%</td>
+</tr>
+<tr>
+<td>供体属于原少见帧集合的比例</td>
+<td style="text-align:right">22.07%</td>
+<td style="text-align:right">100%</td>
+<td style="text-align:right">81.84%</td>
+</tr>
+</tbody>
+</table>
+<p>原引导增加前景、叠车和不同距离的标签冲突，匹配方案大幅减小这些附带变化。512张的匹配分支参考供体由独立固定随机数产生，因此其平均最终GT数并非与普通分支逐张严格相等；它也尚未实现“裁剪后有效GT数完全匹配”。所有抽样仍仅使用训练集。普通分支MixUp成功率99.02%，其余100%，差异一并保留。</p>
+<p>数量还会改变目标权重，而不是简单抬高loss：对象级loss按batch总目标数归一化。相同主图监督不变、供体目标增加时，已有目标在平均loss中的份额会下降。这512组中，主图目标占所有目标的比例由49.52%降为37.96%（仅强制MixUp样本的汇总比例，不是全训练梯度占比）。这就是“多加整张图片里的车”可能稀释原本训练目标的具体路径。梯度实际大小还受每个目标误差、不确定度及网络导数影响，不能将目标比例直接当梯度能量。</p>
+<p>另一个目标定义上的区别：代码的<code>level_str == Moderate</code>是排除了Easy的独占分组；官方Moderate AP同时包含符合条件的Easy车辆。只补独占Moderate的少见属性，必须检查是否以Easy及普通车辆退步为代价，不能只看被补的子集。</p>
+<p>（展示图片已于2026-10-11按用户要求删除，以下保留原样例的文字记录。）</p>
+<p>图中主图000003的车距13.22米。引导供体004802带来9.43米、14.76米、20.11米等车辆，叠到相近位置；近车9.43米的框可覆盖主图车的大部分区域。两车仍各有50%图像强度，但密集深度监督只取近者。这是机制示例，刻意选择高重叠情形；总体频率以配对统计为准，不用单个图证明普遍性。</p>
+<h3>3. 混图的视觉信息与密集深度标签并不完全一致</h3>
+<p>RGB仍为两图各50%，两车都能显现。<code>DDNLoss.build_target_depth_from_3dcenter</code>先画远车再画近车，所以重叠位置只剩近车的深度标签。对象级监督却仍保留两辆车。这一矛盾基线也有；实验66增加重叠，可能放大它，而非新引入它。</p>
+<p>深度图分支与后续深度特征共享卷积表示；但不能说最终距离直接取该深度图的像素值：当前最终距离是<code>fy × 预测车高 / 预测图像框高 + 学到的残差</code>，原代码的深度图采样求平均已被注释。</p>
+<p>密集深度损失以前景权重13、背景权重1加权，再除以全部像素数。因此前景面积变化本身也会改变损失量级。密集深度loss上涨不能单独证明深度分类准确率下降。</p>
+<h2>训练损失究竟在哪里升高</h2>
+<p>读取两次实验本地SwanLab二进制记录，使用E210—230每轮全部232批的均值，而非选几个高loss批次。</p>
+<table>
+<thead>
+<tr>
+<th>指标</th>
+<th style="text-align:right">Exp59</th>
+<th style="text-align:right">Exp66</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>总训练损失</td>
+<td style="text-align:right">5.2324</td>
+<td style="text-align:right">6.1229</td>
+</tr>
+<tr>
+<td>最终层深度绝对误差（米）</td>
+<td style="text-align:right">0.5334</td>
+<td style="text-align:right">0.5967</td>
+</tr>
+<tr>
+<td>最终层深度损失</td>
+<td style="text-align:right">0.0740</td>
+<td style="text-align:right">0.2030</td>
+</tr>
+<tr>
+<td>深度对数尺度均值</td>
+<td style="text-align:right">-0.9250</td>
+<td style="text-align:right">-0.7964</td>
+</tr>
+<tr>
+<td>密集深度图损失</td>
+<td style="text-align:right">0.2097</td>
+<td style="text-align:right">0.2553</td>
+</tr>
+<tr>
+<td>物体区域损失</td>
+<td style="text-align:right">0.2965</td>
+<td style="text-align:right">0.3422</td>
+</tr>
+<tr>
+<td>最终层尺寸损失</td>
+<td style="text-align:right">0.2013</td>
+<td style="text-align:right">0.2132</td>
+</tr>
+</tbody>
+</table>
+<p>主要对象级损失除以真实目标数×查询组数，“车多所以总loss自然升高”不成立。总loss高17.02%，最终层距离误差高11.86%；但它们来自不同增强图片，不能当成同图上的模型能力比较。</p>
+<p>深度损失公式为<code>L = sqrt(2) × exp(-s) × |距离误差| + s</code>。本次最终层深度loss增加0.12907，其中<code>s</code>均值增加0.12858，二者之差仅0.00049。<strong>loss的数值增量几乎都来自不确定度项上升</strong>，并不是距离误差翻了两倍。按几何平均解释，<code>exp(-s)</code>缩小到约87.9%；这一项也会缩小距离误差梯度，并参与测试排序分数<code>分类分数×exp(-s)</code>。是否影响AP，取决于各预测框之间的相对变化：统一乘同一常数并不会改变排序，不能凭均值上升断言排序变差。</p>
+<p>SwanLab里验证loss为0、legacy供体GT数/重叠监控为0的字段在当前路径没有实际采集，不能解释成验证无误差或供体没有车辆。</p>
+<h2>同图固定模型对照</h2>
+<p>已完成对同一3769张验证图像的固定模型对照：Exp59 E178与Exp66 E204。保留正式协议的分类top50候选和原分数精度、几何两位小数，不加NMS，最终使用与正式验证相同的batch16及float32解码路径。两模型的正式AP均精确复现，诊断退出0。</p>
+<table>
+<thead>
+<tr>
+<th>固定模型验证</th>
+<th style="text-align:right">Exp59</th>
+<th style="text-align:right">Exp66</th>
+<th style="text-align:right">66−59</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>原分数，Moderate 3D AP_R40</td>
+<td style="text-align:right">24.853888</td>
+<td style="text-align:right">23.616597</td>
+<td style="text-align:right">-1.237291</td>
+</tr>
+<tr>
+<td>框和数量不动，仅用分类分数排序，Moderate 3D AP_R40</td>
+<td style="text-align:right">20.089561</td>
+<td style="text-align:right">19.491267</td>
+<td style="text-align:right">-0.598295</td>
+</tr>
+<tr>
+<td>原分数，Moderate 2D AP_R40</td>
+<td style="text-align:right">84.7078</td>
+<td style="text-align:right">84.6360</td>
+<td style="text-align:right">-0.0718</td>
+</tr>
+<tr>
+<td>合格Moderate GT的几何覆盖率</td>
+<td style="text-align:right">47.3711%</td>
+<td style="text-align:right">45.5423%</td>
+<td style="text-align:right">-1.8288个百分点</td>
+</tr>
+</tbody>
+</table>
+<p><strong>结论：几何质量确实下降，排序也参与了差距。</strong> 改分数后两模型差距缩小0.639点，但AP不是可线性拆分的因果量，不能说“恰好52%损失由不确定度导致”。去掉不确定度会让Exp66自身掉4.125点，因此它不是可用的直接修复。2D AP几乎不变而3D AP下降，也不支持把主要问题说成“看不见车了”。</p>
+<p>7874个相同GT中，Exp66失去928个原本有合格框的目标，新获得784个，净减少144个。按采集drive做2000次配对重采样，覆盖变化的95%区间为[-3.370,-0.395]个百分点；这反映验证场景差异，不包含重新训练不同种子的随机性。</p>
+<table>
+<thead>
+<tr>
+<th>验证GT分组</th>
+<th style="text-align:right">数量</th>
+<th style="text-align:right">Exp59几何覆盖</th>
+<th style="text-align:right">Exp66几何覆盖</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Easy</td>
+<td style="text-align:right">2906</td>
+<td style="text-align:right">56.78%</td>
+<td style="text-align:right">55.26%</td>
+</tr>
+<tr>
+<td>原索引定义的少见、独占Moderate</td>
+<td style="text-align:right">1908</td>
+<td style="text-align:right">31.45%</td>
+<td style="text-align:right">28.20%</td>
+</tr>
+<tr>
+<td>原索引定义的普通、独占Moderate</td>
+<td style="text-align:right">3060</td>
+<td style="text-align:right">48.37%</td>
+<td style="text-align:right">47.12%</td>
+</tr>
+<tr>
+<td>20米以内</td>
+<td style="text-align:right">3088</td>
+<td style="text-align:right">64.99%</td>
+<td style="text-align:right">62.40%</td>
+</tr>
+<tr>
+<td>20—40米</td>
+<td style="text-align:right">3793</td>
+<td style="text-align:right">35.70%</td>
+<td style="text-align:right">34.80%</td>
+</tr>
+<tr>
+<td>40米及以上</td>
+<td style="text-align:right">993</td>
+<td style="text-align:right">37.16%</td>
+<td style="text-align:right">34.14%</td>
+</tr>
+</tbody>
+</table>
+<p>这里按官方高度边界构造分组；与前文沿用旧诊断的边界定义略有不同，不能混加样本数。考虑翻转后的真正稀少组也下降29.26%→27.03%。因此，本次并未实现“稀少车辆变好、普通车辆略退步”的预期交换：目标组本身也退步。</p>
+<p>在两模型2D IoU都大于0.7的7598个共同目标上，距离MAE仅0.8809→0.8859米，并未随训练loss同比明显变差；车高MAE为0.0689→0.0701米。40米外901个共同目标的距离MAE则从1.6724增到1.7896米。完整3D框是多个误差共同作用，平均误差不等于过0.7阈值的比例。航向应区分完整车头方向和长方体轴向：相差180°会影响朝向指标，但不改变长方体IoU；轴向按模π比较，全体共同目标误差0.05148→0.05324弧度，40米外0.07201→0.07888弧度。不能把车头反向次数直接当作3D框失败原因。</p>
+<p>（展示图片已于2026-10-11按用户要求删除，以下保留原样例的文字记录。）</p>
+<p>图中每个模型显示该GT可得到的最高3D IoU框；绿为GT、橙为预测。四个样例来自不同drive，按约0.15的中等IoU降幅选取，不是只挑极端错误，也不替代全量统计。八个展示框已用独立CPU凸多边形交集核对，与官方IoU差小于0.001。</p>
+<p>例如001662的第5号GT，真实距离36.52米，两模型预测36.66和36.74米，距离都较接近；但车高由1.60变1.68米（GT1.46），横向位置由0.39变0.27米（GT0.46），同时尺寸和朝向也变化，最高IoU从0.758降到0.608。这支持联合几何退步，不能只归因于深度。005938的第1号GT，真实距离30.49米，最佳框预测30.67→31.02米，并伴随宽度、长度和横向位置变化，IoU由0.781降到0.631。</p>
+<p>诊断tmux：<code>monodgp_exp66_mechanism</code>。脚本、环境、权重哈希、日志和结果都放在Exp66输出的<code>diagnostics/</code>。最初单批1张，PyTorch显存分配上限15%，不停止训练。初次诊断脚本误用融合分数选top50，发现与正式配置<code>historical_topk=true</code>不一致后停止；未产生可解释的完整AP结果。仅修正为分类top50，记录第1次正确性重跑，保留attempt0日志与退出状态。</p>
+<p>第1次重跑完成基线推理后，在JSON保存时遇到<code>numpy.float32</code>不可直接序列化；未得到完整AP。仅添加NumPy标量/数组转换，并用真实类型检查保存与读取一致后，进行第2次正确性重跑；checkpoint、数据、batch1和评测协议均不变，保留attempt1日志与非零退出状态。</p>
+<p>第2次重跑得到基线AP24.821014，未通过与24.853888相差小于0.03的预设检查。调查发现解码缺少正式Tester的float32转换，仅这一转换就会改变571帧中的629个坐标分量在两位小数处的舍入；同时batch1与正式batch16不同。第3次运行明确修订诊断协议为正式batch16，并补齐float32转换，显存上限仍15%，不是冒充“完全同条件重试”；保留attempt2预测、日志和退出状态。最终两模型AP精确一致，峰值PyTorch分配约2595 MiB，进程显存约3.5 GiB，原训练持续运行。没有单独分离batch和float32各自造成的复现差值。</p>
+<h2>方案与证据门槛</h2>
+<p>此前候选方案（经下文检查，已撤回作为优先实现）：稀有度计入已有翻转；先按原规则选普通供体，再在同相机、相同可训练车辆数及相近距离/框面积的候选中增加真正稀少属性；无合适候选保留原供体。最后确认稀少车辆在本次裁剪后仍进入监督，并限制同一帧重复使用。仍使用训练集，保持MixUp概率0.3、各占50%、监督及优化器不变。</p>
+<p>范围说明：当前数量匹配原型仍使用原属性池；翻转感知索引、距离/框面积匹配、重复上限和裁剪后稀少目标保留检查尚未合并成训练实现。因此，表中数字证明的是“数量约束这一步”有效，不能冒充完整组合方案已通过验证。</p>
+<p>不先提高混图概率，也不把修改深度损失、训练末期关闭增强、改变排序等同时加进去，否则无法知道收益来自哪里。若进一步证实跨图重叠的密集深度冲突是主因，再单独验证对混图两来源分别计算密集深度损失后加权的方案；它保持双峰监督，不应把两个物体距离平均成不存在的中间距离，但其对共享特征的影响仍需对照。</p>
+<p>对解决方案的信心分层：修正有效属性定义、控制拥挤增量有代码和离线配对证据；恢复或超过Exp59、达到用户要求的+1 AP，必须通过受控训练验证，当前不能承诺。单种子59与66还存在供体抽样改变随机数序列的混杂。建议先固定数据顺序/增强随机数，在相同训练预算下核实属性覆盖收益而不牺牲普通车辆，再决定正式250轮，而不是用另一个猜测开长跑。</p>
+<h2>2026-09-17：候选是否过少、被增加采样的属性是否获益</h2>
+<p>结论修订：撤回把车辆数、距离、面积、重叠同时作为硬条件的优先方案。它会明显压缩候选；当前也没有证据证明只要消除拥挤，属性偏向采样就能带来验证收益。</p>
+<p>只用训练集抽取256组主图和原普通供体，按现有概率抽取翻转/裁剪，检查所有相机兼容候选。数量按裁剪后的可编码Car计算，并要求至少一辆原索引少见车保留。距离用中位数、面积用裁剪后的框面积总和；重叠/相差超过2米的冲突用80×24栅格近似。±25%和±50%只是两档敏感性探查，不是已批准的训练参数，也不是完整RGB数据加载器测试。</p>
+<table>
+<thead>
+<tr>
+<th>条件</th>
+<th style="text-align:right">候选中位数</th>
+<th style="text-align:right">无候选</th>
+<th style="text-align:right">至多5个候选（含0）</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>相机兼容、容量可容纳的原少见帧</td>
+<td style="text-align:right">706</td>
+<td style="text-align:right">0.0%</td>
+<td style="text-align:right">0.0%</td>
+</tr>
+<tr>
+<td>同车辆数且裁剪后保留少见车</td>
+<td style="text-align:right">43</td>
+<td style="text-align:right">16.4%</td>
+<td style="text-align:right">19.9%</td>
+</tr>
+<tr>
+<td>再要求距离和面积±25%</td>
+<td style="text-align:right">4</td>
+<td style="text-align:right">27.3%</td>
+<td style="text-align:right">55.5%</td>
+</tr>
+<tr>
+<td>再要求重叠与深度冲突不增加</td>
+<td style="text-align:right">2</td>
+<td style="text-align:right">35.2%</td>
+<td style="text-align:right">74.2%</td>
+</tr>
+<tr>
+<td>距离面积放宽至±50%，仍检查重叠</td>
+<td style="text-align:right">6</td>
+<td style="text-align:right">21.5%</td>
+<td style="text-align:right">46.5%</td>
+</tr>
+</tbody>
+</table>
+<p>因此“找不到就用B”只能保证继续训练，不能保证稀少属性被有效增加；存在少量候选时还会重复使用。含无候选回退的256次条件期望中，最常用10张图占比由仅数量条件的6.12%升至完整±25%条件的9.17%；±50%为10.13%，说明放宽局部条件也不自动保证全局均匀。这些是有限主图样本的诊断，不是250轮的实际抽样频率。</p>
+<p>进一步按原代码重建59/66每张训练图的期望抽样次数，考虑主图、普通/引导混图比例、相机/尺寸/容量/自身排除、50次重试、同帧其他车及50%翻转。目标属性为尺寸和方向。对每辆验证车找到属性最相近的50个训练目标，看这片属性区域在66中占全部训练目标的比例增加还是减少；组界限只由训练集确定。下表为全部五组，没有只挑退步的组。</p>
+<table>
+<thead>
+<tr>
+<th>训练属性区域受偏向程度</th>
+<th style="text-align:right">验证车辆数</th>
+<th style="text-align:right">局部训练占比平均变化</th>
+<th style="text-align:right">59框达标比例</th>
+<th style="text-align:right">66框达标比例</th>
+<th style="text-align:right">变化/百分点</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>第1组（减少最多）</td>
+<td style="text-align:right">1496</td>
+<td style="text-align:right">-15.36%</td>
+<td style="text-align:right">51.34%</td>
+<td style="text-align:right">49.60%</td>
+<td style="text-align:right">-1.74</td>
+</tr>
+<tr>
+<td>第2组（由低到高）</td>
+<td style="text-align:right">1608</td>
+<td style="text-align:right">-8.91%</td>
+<td style="text-align:right">50.87%</td>
+<td style="text-align:right">45.77%</td>
+<td style="text-align:right">-5.10</td>
+</tr>
+<tr>
+<td>第3组（由低到高）</td>
+<td style="text-align:right">1953</td>
+<td style="text-align:right">-3.21%</td>
+<td style="text-align:right">45.98%</td>
+<td style="text-align:right">46.95%</td>
+<td style="text-align:right">+0.97</td>
+</tr>
+<tr>
+<td>第4组（由低到高）</td>
+<td style="text-align:right">1238</td>
+<td style="text-align:right">+3.61%</td>
+<td style="text-align:right">49.19%</td>
+<td style="text-align:right">49.84%</td>
+<td style="text-align:right">+0.65</td>
+</tr>
+<tr>
+<td>第5组（增加最多）</td>
+<td style="text-align:right">1579</td>
+<td style="text-align:right">+17.26%</td>
+<td style="text-align:right">40.34%</td>
+<td style="text-align:right">36.35%</td>
+<td style="text-align:right">-3.99</td>
+</tr>
+</tbody>
+</table>
+<p>最受增加采样的1579辆车，原有达标框而现在没有的215辆，反向改善152辆，净少63辆。把近邻范围从50扩大到100，最受偏向组1499辆仍从39.49%降至33.82%（-5.67个百分点）。按单项属性看也不是普遍获益：宽度最高四分位2397辆43.05%→39.72%，长度最高四分位1860辆45.43%→41.29%；也有改善，例如长度第三四分位1949辆52.18%→53.16%，但该组训练相对份额反而减少2.63%。所有20个尺寸/方向分组保存在实验输出中。</p>
+<p>“达标”仅指至少一个Car预测与该GT的3D IoU&gt;0.7，既不是AP，也不是官方一对一召回。训练占比是重建期望值，未记录250轮逐次抽样，未模拟裁剪造成的曝光损失/像素可见程度；不能当作精确实际曝光。固定59 E178和66 E204，7874个相同Moderate GT；无新增模型推理或训练。局部分组是描述性探索，未作多重比较显著性检验，训练种子/增强随机轨迹与整帧拥挤变化仍是混杂。</p>
+<p>此外不能说偏向属性完全没有任何单项改善：原少见组共同2D匹配的1786辆车，距离MAE从1.26669降到1.24733米；但车体轴向误差0.08512→0.09406弧度、车高误差0.08437→0.08590米，完整框覆盖仍下降。这支持检查多个几何误差的共同作用，不能据此归因于某一个分支。</p>
+<p>执行判断：不采用四项条件叠加的硬筛选，也不把“稀少就应多抽”当成已经成立。若继续设计抽样方案，只将有限幅度的概率调整、保留普通采样机会作为待检验候选；需证明增加的是可学习的有效监督且不会持续重复少数帧。当前证据不足以声称可恢复1.24 AP或增加1 AP，未启动新训练。</p>
+<p>CPU诊断tmux为<code>monodgp_sampling_benefit</code>，PID2136446，退出0；脚本、环境/命令/源哈希、日志和JSON均位于原Exp66输出diagnostics，未新增Git未跟踪路径。训练已于09:42正常完成250轮，runner/manifest/train/tee均退出0，最佳仍E204 Moderate23.616597，E250为22.925611。</p>
+
+</details>
+</article></section>
         <section id="exp64" class="content-panel" aria-labelledby="exp64-title"><article class="section-card">
 <h2 id="exp64-title">实验64：几何合格度深度减力（已完成，暂不采用）</h2>
 <p>2026-09-11用户批准，12:47启动。基于Exp59/63，仅最终层训练深度均值梯度按当前3D IoU调节：≤0.70保留原梯度，0.70–0.75连续降低，≥0.75保留一半。须GT深度点IoU≥0.70且满足有效几何条件；不满足时保持原梯度。原生前向loss、不确定度直接监督及辅助层保持原样。</p>
@@ -4256,7 +4805,7 @@
       </div>
     </div>
 
-    <footer class="footer">MonoDGP 实验总览 v2 · 序号01—65</footer>
+    <footer class="footer">MonoDGP 实验总览 v2 · 序号01—67</footer>
   </main>
 
   <script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js"></script>
@@ -4887,5 +5436,6 @@
       renderAll();
     })();
   </script>
+<p style="padding:16px"><a href="#baseline-audit">Exp59 泛化与 badcase 审计（统计与文字归档，展示图片已删除）</a></p>
 </body>
 </html>
