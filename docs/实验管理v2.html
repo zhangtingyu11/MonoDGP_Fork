@@ -693,6 +693,7 @@
     <div class="workspace">
       <nav class="sidebar" aria-label="页面导航">
         <div class="nav-title">快速切换</div>
+<button class="nav-button" data-target="refinement-results" type="button"><span class="nav-index">修正</span><span class="nav-copy"><strong>深度候选修正两组结果</strong><small>质量23.06 / 风险23.54 · 均未超基线</small></span></button>
 <button class="nav-button" data-target="baseline-audit" type="button"><span class="nav-index">分析</span><span class="nav-copy"><strong>Exp59 基线诊断</strong><small>统计与历史分析归档</small></span></button>
         <button class="nav-button active" data-target="overview" type="button">
           <span class="nav-index">总</span>
@@ -907,7 +908,122 @@
       </nav>
 
       <div>
-        <section id="overview" class="content-panel active" aria-labelledby="overview-title">
+        <style>
+#refinement-results .rf-intro{color:#60718a;margin:4px 0 24px}
+#refinement-results .rf-label{font-size:12px;font-weight:800;letter-spacing:.07em;color:#536680;margin:0 0 8px}
+#refinement-results .rf-block{margin:25px 0;padding:22px;border:1px solid #dce4ee;border-radius:18px;background:#fff}
+#refinement-results .rf-block h3{margin:0 0 14px;font-size:19px}
+#refinement-results .rf-flow{display:grid;grid-template-columns:1fr 26px 1fr 26px 1fr;align-items:center;gap:6px}
+#refinement-results .rf-node{padding:18px 12px;border-radius:13px;background:#f0f4fa;text-align:center;min-height:106px;display:flex;flex-direction:column;justify-content:center;gap:7px}
+#refinement-results .rf-node small{font-size:12px;color:#52647c}
+#refinement-results .rf-new{background:#e9f1ff;border:1px solid #aecbff}
+#refinement-results .rf-arrow{text-align:center;color:#5276b8;font-size:25px}
+#refinement-results .rf-note{font-size:13px;color:#52647c;margin:12px 0 0}
+#refinement-results .rf-pair{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+#refinement-results .rf-card{padding:20px;background:#edf4ff;border-radius:14px;border-top:4px solid #3973d5}
+#refinement-results .rf-card.risk{background:#eaf7f1;border-color:#239976}
+#refinement-results .rf-question{font-size:19px;font-weight:750;line-height:1.5;margin:12px 0}
+#refinement-results .rf-equation{padding:12px;background:#ffffffcf;border-radius:9px;text-align:center;font-size:15px;font-weight:700}
+#refinement-results .rf-train{border-left:4px solid #d4a34b;padding:12px 16px;background:#fff8e9;margin-top:18px;font-size:14px}
+#refinement-results .rf-controls{display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+#refinement-results input[type=range]{flex:1;min-width:140px;accent-color:#3973d5}
+#refinement-results .rf-svg{display:block;width:100%;height:auto;margin-top:12px}
+#refinement-results .rf-values{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin-top:10px}
+#refinement-results .rf-value{background:#f0f4fa;border-radius:10px;padding:12px;text-align:center;font-size:12px;color:#52647c}
+#refinement-results .rf-value strong{display:block;font-size:21px;color:#203d62}
+#refinement-results .rf-bars{display:grid;gap:15px}
+#refinement-results .rf-bar-row{display:grid;grid-template-columns:115px 1fr 52px;gap:10px;align-items:center;font-size:14px}
+#refinement-results .rf-track{height:24px;background:#f0f3f7;border-radius:5px;overflow:hidden}
+#refinement-results .rf-bar{height:100%;border-radius:5px}
+#refinement-results .rf-result{margin:18px 0 0;font-size:16px;font-weight:750}
+#refinement-results details{margin-top:18px;border:1px solid #dce4ee;border-radius:12px;padding:14px 18px}
+#refinement-results summary{cursor:pointer;font-weight:700}
+#refinement-results .rf-example{font-size:13px;margin-top:18px}
+#refinement-results .rf-example table{min-width:0;width:100%}
+@media(max-width:650px){#refinement-results .rf-pair{grid-template-columns:1fr}#refinement-results .rf-block{padding:15px}#refinement-results .rf-node{padding:12px 7px;font-size:13px}#refinement-results .rf-flow{grid-template-columns:1fr 16px 1fr 16px 1fr;gap:2px}#refinement-results .rf-bar-row{grid-template-columns:90px 1fr 45px;font-size:12px}#refinement-results .rf-value strong{font-size:17px}}
+</style>
+<section id="refinement-results" class="content-panel" aria-labelledby="refinement-results-title"><article class="section-card">
+<h2 id="refinement-results-title">两组实验，到底改了哪里？</h2>
+<p class="rf-intro">RFG-004 质量组 / RFG-005 风险组 · 全量数据，各训练250轮 · 2026-10-15记录</p>
+<div class="rf-block">
+<p class="rf-label">01 / 两组共同增加的部分</p><h3>原检测器出框 → 生成9个深度版本 → 学习选一个</h3>
+<div class="rf-flow">
+<div class="rf-node"><strong>原检测器</strong><small>输出3D框<br>和目标特征 query</small></div>
+<div class="rf-arrow" aria-hidden="true">→</div>
+<div class="rf-node rf-new"><strong>新增：候选选择头</strong><small>读取目标特征与预测几何<br>给9个深度候选打分</small></div>
+<div class="rf-arrow" aria-hidden="true">→</div>
+<div class="rf-node"><strong>输出选中的版本</strong><small>可以前移、后移<br>也可以保留原框</small></div>
+</div>
+<p class="rf-note">两组结构相同。新增的是“深度候选怎么选”；二维框、尺寸、全局朝向和检测评分保持原样，位置沿原投影中心对应的射线变化。</p>
+<div class="rf-train"><strong>训练时：</strong>真实标注 → 每个候选是否 IoU &gt; 0.7 → 新增损失 → 选择头和原检测器的共享特征。<br><strong>推理时：</strong>没有真实标注，只能依靠模型预测的候选评分。</div>
+</div>
+<div class="rf-block">
+<p class="rf-label">02 / 候选深度是怎样生成的？</p><h3>拖动原预测深度，看9个候选如何移动</h3>
+<div class="rf-controls"><label for="rf-depth">原预测深度</label><input id="rf-depth" type="range" min="10" max="80" step="1" value="40"><output id="rf-depth-label" for="rf-depth">40 米</output></div>
+<svg id="rf-depth-plot" class="rf-svg" viewBox="0 0 760 165" role="img" aria-labelledby="rf-plot-title rf-plot-description">
+<title id="rf-plot-title">原9个深度候选的位置</title><desc id="rf-plot-description">按 z乘以exp(delta)生成候选。中间蓝色为不修改，两侧为减小或增大深度；下方显示相应米数。</desc>
+<line x1="35" y1="75" x2="725" y2="75" stroke="#c5d1e1" stroke-width="2"/>
+<g id="rf-depth-marks"></g>
+<text x="35" y="150" fill="#60718a" font-size="13">更近 ←</text><text x="725" y="150" fill="#60718a" font-size="13" text-anchor="end">→ 更远（轴随深度缩放）</text>
+</svg>
+<div class="rf-values"><div class="rf-value">最近的负向候选<strong id="rf-near">39.01 m</strong></div><div class="rf-value">原深度 · 不修改<strong id="rf-original">40.00 m</strong></div><div class="rf-value">最近的正向候选<strong id="rf-far">41.01 m</strong></div></div>
+<p id="rf-step-note" class="rf-note" aria-live="polite">40米处，最小正向修改约1.01米；原网格没有+0.3米这个选项。</p>
+<details><summary>查看候选公式</summary><p>z′ = z × exp(δ)，δ = 0、±0.025、±0.05、±0.1、±0.2。共9个候选；非零深度裁剪到0.1—200米。上图仅演示公式，不是某个真实样本的预测。</p></details>
+</div>
+<div class="rf-block">
+<p class="rf-label">03 / 两组的区别在这里</p><h3>同样的候选，不同的监督与选法</h3>
+<div class="rf-pair">
+<div class="rf-card"><strong>RFG-004 · 质量组</strong><p class="rf-question">“改完以后，哪个最有可能合格？”</p><div class="rf-equation">选择：预测合格概率最高</div><p class="rf-note">训练标签：候选的真实 IoU 是否超过0.7。模型学习预测合格概率。</p></div>
+<div class="rf-card risk"><strong>RFG-005 · 风险组</strong><p class="rf-question">“能救回来多少？又可能改坏多少？”</p><div class="rf-equation">选择：救回概率 − 4 × 改坏概率最高</div><p class="rf-note">训练时区分原框是否合格，学习修改后的条件概率。保留原框的效用为0。</p></div>
+</div>
+<div class="rf-example"><strong>一个评分示意（虚构数值，仅解释规则）</strong>
+<div class="table-wrap"><table><thead><tr><th>候选</th><th>预测合格</th><th>预测救回</th><th>预测改坏</th><th>风险效用</th></tr></thead><tbody>
+<tr><td>不修改</td><td>60%</td><td>0%</td><td>0%</td><td>0.00</td></tr>
+<tr><td>候选A</td><td><strong>78% ← 质量组选</strong></td><td>32%</td><td>14%</td><td>−0.24</td></tr>
+<tr><td>候选B</td><td>76%</td><td>20%</td><td>4%</td><td><strong>+0.04 ← 风险组选</strong></td></tr>
+</tbody></table></div></div>
+<p class="rf-note"><strong>两组都没有直接监督最高真实IoU：</strong>IoU 0.71与0.90的候选都标记为合格。质量组预测的是“过线概率”，不是IoU数值。</p>
+</div>
+<div class="rf-block">
+<p class="rf-label">04 / 正式训练效果</p><h3>两组都没有超过原基线</h3>
+<div class="rf-bars" role="img" aria-label="最佳Car 3D Moderate AP：基线24.86，质量组23.06，风险组23.54。柱形从0开始，上限30。">
+<div class="rf-bar-row"><span>Exp63 基线</span><div class="rf-track"><div class="rf-bar" style="width:82.852646%;background:#65758e"></div></div><strong>24.86</strong></div>
+<div class="rf-bar-row"><span>质量组 E198</span><div class="rf-track"><div class="rf-bar" style="width:76.860993%;background:#3973d5"></div></div><strong>23.06</strong></div>
+<div class="rf-bar-row"><span>风险组 E126</span><div class="rf-track"><div class="rf-bar" style="width:78.467168%;background:#239976"></div></div><strong>23.54</strong></div>
+</div>
+<p class="rf-note">Car 3D Moderate AP_R40 · 柱形量程0—30 · 比较最佳检查点，展示保留两位小数。</p>
+<p class="rf-result">质量组比基线低1.80 AP；风险组低1.32 AP。</p>
+<p class="rf-note">同一检查点关闭修正：质量组23.25，风险组23.50。新增选择并未带来稳定收益，原因仍需区分候选覆盖、选择能力和训练影响。</p>
+</div>
+<details><summary>完整结果、训练设置与后续诊断</summary>
+
+<p>2026-10-15归档 · 两组250轮已完成 · 均未超过Exp63基线 · 本页只记录，不迁移代码</p>
+<p>两组均基于Exp63/ResNet50，使用完整3712张训练图、BS16、seed444，从相同初始化分别训练250轮，先质量组、后风险组；不是短训或冻结头微调。2026-10-13启动，2026-10-14完整序列结束。</p>
+<p>增加一个共享特征的深度候选选择头，输入query特征及预测深度、投影中心、尺寸、朝向、深度不确定性和Car分类概率；每个候选附加修正量δ。候选为 z′=z·exp(δ)，δ∈{0,±0.025,±0.05,±0.1,±0.2}，含不修改；非零候选深度限制在0.1—200米。修改深度时沿原投影中心更新位置，保持二维框、尺寸、全局朝向及检测评分。新增损失系数1，通过query特征回传原检测器；几何输入detach。</p>
+<p>RFG-004：质量组。训练每个候选“修正后是否IoU&gt;0.7”的合格概率，推理选预测合格概率最高的候选。监督是过线/不过线，不直接监督真实IoU的数值或最高IoU排序。</p>
+<p>RFG-005：风险组（此前也称关系组）。与质量组共享相同结构和初始化，改为在真实原框合格/失败状态下监督候选的条件合格概率；推理选择“预测救回概率−4×预测改坏概率”最大的候选。不修改的效用为0，损坏代价4预先固定，不是经过校准的风险保证。</p>
+<p>主要比较各组主策略选出的最佳检查点，而非只比E250。统一复评Car 3D AP_R40@IoU0.7、无额外NMS、几何不额外截取两位小数；下表仅展示两位小数。Exp63使用历史选出的E178最佳权重重评，未重新扫描所有历史checkpoint。单种子、不同最佳轮次、历史基线与新训练环境差异限制训练因果解释。</p>
+<h3>最佳结果 · Car 3D AP_R40@0.7</h3><div class="table-wrap"><table><thead><tr><th>模型/策略</th><th>轮次</th><th>Easy</th><th>Moderate</th><th>Hard</th><th>Moderate相比基线</th></tr></thead><tbody>
+<tr><td>Exp63基线</td><td>178</td><td>33.26</td><td>24.86</td><td>21.46</td><td>+0.00</td></tr>
+<tr><td>RFG-004关闭修正</td><td>198</td><td>30.32</td><td>23.25</td><td>20.20</td><td>-1.60</td></tr>
+<tr><td>RFG-004质量选择</td><td>198</td><td>30.30</td><td>23.06</td><td>20.05</td><td>-1.80</td></tr>
+<tr><td>RFG-005关闭修正</td><td>126</td><td>30.86</td><td>23.50</td><td>20.11</td><td>-1.36</td></tr>
+<tr><td>RFG-005风险选择</td><td>126</td><td>30.86</td><td>23.54</td><td>20.34</td><td>-1.32</td></tr></tbody></table></div>
+<p>正式结果：两组均未超过基线。质量组主策略Moderate为23.06，比基线低1.80；风险组23.54，低1.32。质量组同一检查点关闭修正为23.25，说明选择本身再损失约0.20；风险组关闭修正为23.50，风险选择仅增加约0.04。两组关闭修正后也低于基线，但不能仅凭这些结果断言新增损失的梯度冲突就是原因。当前没有将两组作为成功改进采纳。</p><p>E250仅辅助：质量主策略22.26、关闭22.47；风险主策略22.58、关闭22.61。主要结论使用最佳checkpoint。</p>
+<h3>后续诊断：不训练、不更新权重</h3><ul>
+<li>选择器泛化：按全部Moderate有效Car GT、固定二维Hungarian≥0.5关联统计，质量组训练救回373/改坏70，验证救回228/改坏164；风险组训练29/1，验证36/34。上述是逐目标几何过线计数，不是官方TP或AP。</li>
+<li>梯度检查：两组最佳与E250共四个检查点重放相同8个增强批次，32次检查中原检测梯度方向冲突14次、临界框IoU方向冲突16次。存在局部冲突，但未证明难样本普遍抢走梯度；不是32个独立批次，也不是实际优化器更新。</li>
+<li>候选步长：质量组验证7874个目标中，原9候选至少有一个合格答案的为5602（71.15%）；米制9为5785（73.47%），混合17为6128（77.83%），加密比例17为6166（78.31%）。原网格存在覆盖缺口，但不能断言比例公式本身不如米制；候选更多也不等于模型能选对。</li>
+<li>固定原9候选的真值选择：最高IoU的Moderate AP为质量56.52/风险54.34；“原框合格就保留，否则选最小幅度合格候选”为56.55/54.35。二者几乎相同。使用GT及GT关联，既不可部署，也不保证学习可达；不能用它证明换成IoU监督一定更好。</li>
+<li>上述后续分析均不训练、不更新模型。候选覆盖和真值选择属于探索诊断，与两次正式250轮训练结果分开。当前待验证的是如何学会可靠选择；尚未训练新的IoU/排序监督方案。</li>
+</ul>
+<h3>执行与来源</h3><p>执行说明：最终有效实验为RFG-004/005。早期70%数据探针及停止的RFG-002/未启动的RFG-003不属于本表正式结果；RFG-004/005采用批量候选标签计算和不额外取整评估，重新从头训练。批准环境为Python3.10.20、PyTorch2.8.0+cu129、torchvision0.23.0+cu129、CUDA12.9、cuDNN9.10.2、Numba0.66.0/numba-cuda0.30.4，FP32、TF32 matmul/cuDNN开启，严格确定性设置；Git基线2169d66，实验源码另有未提交改动。</p>
+<p>证据保留在同级MonoDGP-refinement工作目录。最佳结果：diagnostics/refinement_best_20261014/{baseline,quality,transition}/policy_evaluation.json；环境与checkpoint摘要见各目录manifest。训练产物为outputs/RFG-004_full_quality_precision_seed444和outputs/RFG-005_full_transition_precision_seed444。</p>
+<p><a href="实验总账v2.md">Markdown总账：完整记录与证据路径</a></p>
+</details>
+</article></section>
+
+<section id="overview" class="content-panel active" aria-labelledby="overview-title">
           <article class="section-card">
             <div class="section-head">
               <div>
@@ -5437,5 +5553,31 @@
     })();
   </script>
 <p style="padding:16px"><a href="#baseline-audit">Exp59 泛化与 badcase 审计（统计与文字归档，展示图片已删除）</a></p>
+<script>
+(() => {
+ const slider=document.getElementById('rf-depth');
+ if(!slider) return;
+ const ns='http://www.w3.org/2000/svg';
+ const deltas=[-.2,-.1,-.05,-.025,0,.025,.05,.1,.2];
+ function render(){
+  const z=Number(slider.value),lo=z*.78,hi=z*1.25;
+  document.getElementById('rf-depth-label').textContent=z+' 米';
+  document.getElementById('rf-original').textContent=z.toFixed(2)+' m';
+  document.getElementById('rf-near').textContent=(z*Math.exp(-.025)).toFixed(2)+' m';
+  document.getElementById('rf-far').textContent=(z*Math.exp(.025)).toFixed(2)+' m';
+  document.getElementById('rf-step-note').textContent=z+'米处，最小正向修改约'+(z*Math.expm1(.025)).toFixed(2)+'米；更细的修改可能落在候选之间。';
+  const marks=document.getElementById('rf-depth-marks');marks.replaceChildren();
+  deltas.forEach((d,i)=>{
+   const value=z*Math.exp(d),x=35+(value-lo)/(hi-lo)*690,highlight=d===0;
+   const dot=document.createElementNS(ns,'circle');
+   dot.setAttribute('cx',x);dot.setAttribute('cy',75);dot.setAttribute('r',highlight?8:5);dot.setAttribute('fill',highlight?'#3973d5':'#8ca3c1');
+   const title=document.createElementNS(ns,'title');title.textContent='δ='+d+'，深度'+value.toFixed(3)+'米';dot.append(title);marks.append(dot);
+   const label=document.createElementNS(ns,'text');label.setAttribute('x',x);label.setAttribute('y',i%2?112:48);label.setAttribute('text-anchor','middle');label.setAttribute('font-size',highlight?15:13);label.setAttribute('fill',highlight?'#2458aa':'#52647c');label.textContent=value.toFixed(2);marks.append(label);
+   const line=document.createElementNS(ns,'line');line.setAttribute('x1',x);line.setAttribute('x2',x);line.setAttribute('y1',i%2?83:56);line.setAttribute('y2',i%2?96:67);line.setAttribute('stroke','#b3c2d5');marks.append(line);
+  });
+ }
+ slider.addEventListener('input',render);render();
+})();
+</script>
 </body>
 </html>
