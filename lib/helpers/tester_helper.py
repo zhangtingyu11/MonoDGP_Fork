@@ -494,11 +494,8 @@ class Tester(object):
                 f.write('{} 0.0 0'.format(class_name))
                 for j in range(1, len(results[img_id][i])):
                     value = results[img_id][i][j]
-                    if j == 13:
-                        # Preserve score ordering and match in-memory evaluation.
-                        f.write(' ' + repr(float(value)))
-                    else:
-                        f.write(' {:.2f}'.format(value))
+                    # Match in-memory evaluation without rounding geometry.
+                    f.write(' ' + repr(float(value)))
                 f.write('\n')
             f.close()
 

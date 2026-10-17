@@ -17,7 +17,7 @@ def _prediction_from_anno(anno, class_to_id, index):
     ]
 
 
-def test_in_memory_annotations_match_historical_text_roundtrip(tmp_path):
+def test_in_memory_annotations_and_text_export_preserve_prediction_precision(tmp_path):
     # This contract tests only the annotation conversion.  Avoid importing the
     # historical evaluator, which initializes CUDA as an import side effect.
     eval_name = 'lib.datasets.kitti.kitti_eval_python.eval'
@@ -68,8 +68,9 @@ def test_in_memory_annotations_match_historical_text_roundtrip(tmp_path):
     memory_annos = dataset._decoded_predictions_to_annos(precise_decoded)
     np.testing.assert_array_equal(memory_annos[0]['score'], scores.astype(np.float64))
     assert memory_annos[0]['score'][0] < memory_annos[0]['score'][1]
-    np.testing.assert_array_equal(memory_annos[0]['alpha'], [-0.12] * len(scores))
-    np.testing.assert_array_equal(memory_annos[0]['bbox'][:, 0], [10.13] * len(scores))
+    np.testing.assert_array_equal(memory_annos[0]['alpha'], predictions[:, 1].astype(np.float64))
+    np.testing.assert_array_equal(memory_annos[0]['bbox'], predictions[:, 2:6].astype(np.float64))
+    np.testing.assert_array_equal(memory_annos[0]['location'], predictions[:, 9:12].astype(np.float64))
 
     tester = object.__new__(Tester)
     tester.output_dir = str(tmp_path / 'export')
