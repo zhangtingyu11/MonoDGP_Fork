@@ -1,0 +1,18 @@
+base_config: monodgp_exp63.yaml
+
+# Transfer of accepted Exp63; not an exact reproduction of unpublished MonoIA config.
+model_name: 'V2-0083_实验83_Exp63_nuScenes前视基线'
+dataset:
+  root_dir: /data/nuscenes/kitti_front_deviant
+  image_extension: .jpg
+  resolution: [896, 512]
+
+trainer:
+  gpu_ids: '0'
+  dimension_loss_audit:
+    enabled: false
+  swanlab:
+    experiment_name: '实验83_Exp63_nuScenes前视基线'
+    group: 'nuScenes基线'
+    description: 'Exp63模型/损失/优化器迁移到nuScenes CAM_FRONT；28130训练/6019验证，Car-only，896x512，DEVIANT风格KITTI标注与AP_R40。保留65米训练过滤、MixUp0.3、BS16、seed444、250轮。非MonoIA精确复现；数据/分辨率/训练轮数与论文配置存在未核实项。'
+    tags: ['实验83', 'nuScenes', 'Exp63', 'CAM_FRONT', 'Car', '250轮']

@@ -59,7 +59,12 @@ class KITTI_Dataset(data.Dataset):
         self.max_objs = 50
         self.class_name = ['Pedestrian', 'Car', 'Cyclist']
         self.cls2id = {'Pedestrian': 0, 'Car': 1, 'Cyclist': 2}
-        self.resolution = np.array([1280, 384])  # W * H
+        self.resolution = np.asarray(cfg.get('resolution', [1280, 384]), dtype=np.int64)
+        if self.resolution.shape != (2,) or np.any(self.resolution <= 0) or np.any(self.resolution % 32):
+            raise ValueError('resolution must be [width, height], positive multiples of 32')
+        self.image_extension = cfg.get('image_extension', '.png')
+        if self.image_extension not in ('.png', '.jpg'):
+            raise ValueError('image_extension must be .png or .jpg')
         self.use_3d_center = cfg.get('use_3d_center', True)
         self.writelist = cfg.get('writelist', ['Car'])
         # anno: use src annotations as GT, proj: use projected 2d bboxes as GT
@@ -77,7 +82,7 @@ class KITTI_Dataset(data.Dataset):
         # data split loading
         assert self.split in ['train', 'val', 'trainval', 'test']
         self.split_file = os.path.join(self.root_dir, 'ImageSets', self.split + '.txt')
-        self.idx_list = [x.strip() for x in open(self.split_file).readlines()]
+        self.idx_list = self._load_split_ids()
 
         # path configuration
         self.data_dir = os.path.join(self.root_dir, 'testing' if split == 'test' else 'training')
@@ -177,8 +182,25 @@ class KITTI_Dataset(data.Dataset):
         self.pd = PhotometricDistort()
         self.clip_2d = cfg.get('clip_2d', False)
 
+    def _load_split_ids(self):
+        with open(self.split_file) as handle:
+            return [x.strip() for x in handle]
+
+    def _passes_primary_training_filter(self, obj):
+        return (obj.level_str != 'UnKnown' and 2 <= obj.pos[-1] <= 65)
+
+    def _passes_donor_training_filter(self, obj):
+        if obj.level_str == 'UnKnown' or obj.pos[-1] < 2:
+            return False
+        if (self.cross_focal_mixup_policy == 'unified_v2'
+                and (obj.pos[-1] > 65 or obj.trucation > 0.5 or obj.occlusion > 2)):
+            return False
+        if self.cross_focal_mixup_policy == 'protected_legacy_v3' and obj.pos[-1] > 65:
+            return False
+        return True
+
     def get_image(self, idx):
-        img_file = os.path.join(self.image_dir, '%06d.png' % idx)
+        img_file = os.path.join(self.image_dir, '%06d%s' % (idx, self.image_extension))
         assert os.path.exists(img_file)
         return Image.open(img_file)    # (H, W, 3) RGB mode
 
@@ -1004,12 +1026,7 @@ class KITTI_Dataset(data.Dataset):
                 continue
 
             # filter inappropriate samples
-            if objects[i].level_str == 'UnKnown' or objects[i].pos[-1] < 2:
-                continue
-
-            # ignore the samples beyond the threshold [hard encoding]
-            threshold = 65
-            if objects[i].pos[-1] > threshold:
+            if not self._passes_primary_training_filter(objects[i]):
                 continue
 
             # process 2d bbox & get 2d center
@@ -1142,17 +1159,7 @@ class KITTI_Dataset(data.Dataset):
                     if objects[i].cls_type not in self.writelist:
                         continue
 
-                    if (objects[i].level_str == 'UnKnown'
-                            or objects[i].pos[-1] < 2):
-                        continue
-                    if (self.cross_focal_mixup_policy == 'unified_v2'
-                            and (objects[i].pos[-1] > 65
-                                 or objects[i].trucation > 0.5
-                                 or objects[i].occlusion > 2)):
-                        continue
-                    if (self.cross_focal_mixup_policy
-                            == 'protected_legacy_v3'
-                            and objects[i].pos[-1] > 65):
+                    if not self._passes_donor_training_filter(objects[i]):
                         continue
                     # process 2d bbox & get 2d center
                     bbox_2d = objects[i].box2d.copy()

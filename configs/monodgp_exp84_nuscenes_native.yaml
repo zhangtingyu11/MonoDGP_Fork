@@ -1,0 +1,32 @@
+base_config: monodgp_exp63.yaml
+
+model_name: 'V2-0084_实验84_Exp63_nuScenes原生前视24轮'
+dataset:
+  type: NuScenesFront
+  root_dir: /data/nuscenes/native_front_car_v1
+  resolution: [896, 512]
+  class_merging: false
+  use_dontcare: false
+  writelist: ['Car']
+
+lr_scheduler:
+  # Exp63's four half-rate milestones compressed to the authorized 24 epochs.
+  decay_list: [8, 12, 16, 20]
+
+trainer:
+  gpu_ids: '0'
+  max_epoch: 24
+  validation_start_epoch: 1
+  save_frequency: 1
+  primary_ap_only_validation: true
+  dimension_loss_audit:
+    enabled: false
+  swanlab:
+    experiment_name: '实验84_Exp63_nuScenes原生前视24轮'
+    group: 'nuScenes基线'
+    description: '原生nuScenes CAM_FRONT Car；完整28130训练/6019验证，896x512，BS16，24轮逐轮验证。模型与损失继承Exp63；中心图外目标保留评估但无法完整学习，原模型只表达相机yaw。AP使用官方距离匹配算法的前视Car子集，非官方全类别NDS；速度属性不预测。'
+    tags: ['实验84', 'nuScenes原生', 'Exp63', 'CAM_FRONT', 'Car', '24轮']
+
+tester:
+  type: NuScenesFront
+  best_refresh_bev_nms_thresholds: []

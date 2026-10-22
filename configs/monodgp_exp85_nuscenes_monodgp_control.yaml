@@ -1,0 +1,15 @@
+base_config: monodgp_exp84_nuscenes_native.yaml
+
+# YAML-only method control. Shared data/evaluation, numerical fixes and
+# execution optimizations remain identical to Exp84; not an untouched release.
+model_name: 'V2-0085_实验85_MonoDGP方法对照_nuScenes24轮'
+dataset:
+  random_mixup3d: 0.5
+model:
+  set_cost_iou3d: 0
+  decoder_group_num: 1
+trainer:
+  swanlab:
+    experiment_name: '实验85_MonoDGP方法对照_nuScenes24轮'
+    description: '实验84同协议、全量数据、BS16、24轮逐轮验证；只将3D IoU匹配权重5改0、3D解码器自注意力分组11改1、MixUp概率0.3改0.5。保留共同坐标适配、数值修复、精度与执行优化；非官方原样复现。从头初始化。对照实验84曾断电续训，随机轨迹不完全可控。'
+    tags: ['实验85', 'MonoDGP方法对照', 'nuScenes原生', 'CAM_FRONT', '24轮', 'YAML对照']

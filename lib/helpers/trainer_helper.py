@@ -899,6 +899,10 @@ class Trainer(object):
                             early_validation or primary_ap_only))
                     evaluation = self.tester.evaluate(
                         results, return_metrics=True)
+                    if evaluation.get('selection_metric') == 'front_car_AP':
+                        _write_json_atomically(os.path.join(
+                            self.output_dir, f'nuScenes_epoch_{self.epoch:03d}.json'),
+                            dict(epoch=int(self.epoch), **evaluation))
                     if primary_ap_only:
                         current_nms_selection = {}
                     else:
@@ -1048,7 +1052,8 @@ class Trainer(object):
                         best_ap_snapshots, evaluation['metrics'], self.epoch)
                     cur_result = evaluation['selection_score']
                     nms_report = {}
-                    if cur_result > best_result:
+                    if (cur_result > best_result or (
+                            best_epoch == 0 and evaluation.get('selection_metric') == 'front_car_AP')):
                         best_result = cur_result
                         best_epoch = self.epoch
                         ckpt_name = os.path.join(self.output_dir, 'checkpoint_best')
@@ -1086,6 +1091,9 @@ class Trainer(object):
                         payload = {
                             '训练轮次': self.epoch,
                         }
+                        if evaluation.get('selection_metric') == 'front_car_AP':
+                            payload.update({f'nuScenes前视Car/{key}': value
+                                            for key, value in evaluation['metrics'].items()})
                         payload.update(historical_best_ap_payload(
                             best_ap_snapshots))
                         payload.update(best_refresh_nms_payload(nms_report))

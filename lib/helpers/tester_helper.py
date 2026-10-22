@@ -476,6 +476,15 @@ class Tester(object):
         return report
 
     def save_results(self, results):
+        if self.dataset_type == 'NuScenesFront':
+            import json
+            from lib.datasets.nuscenes.front_eval import predictions
+            pred, counts = predictions(results, self.dataloader.dataset.records)
+            os.makedirs(self.output_dir, exist_ok=True)
+            with open(os.path.join(self.output_dir, 'native_front_predictions.json'), 'w') as handle:
+                json.dump({'protocol': 'CAM_FRONT Car subset; not official submission',
+                           'results': pred.serialize(), 'counts': counts}, handle)
+            return
         output_dir = os.path.join(self.output_dir, 'outputs', 'data')
         os.makedirs(output_dir, exist_ok=True)
 

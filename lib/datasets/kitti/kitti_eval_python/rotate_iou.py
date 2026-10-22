@@ -249,6 +249,17 @@ def inter(rbbox1, rbbox2):
 def devRotateIoUEval(rbox1, rbox2, criterion=-1):
     area1 = rbox1[2] * rbox1[3]
     area2 = rbox2[2] * rbox2[3]
+    # Coincident rotated edges are numerically degenerate for the polygon
+    # intersection routine (strict point/segment boundary comparisons).
+    # Use the exact area for identical positive-size rectangles. This also
+    # supplies the correct BEV intersection to the 3-D height calculation.
+    if (rbox1[2] > 0 and rbox1[3] > 0
+            and rbox1[0] == rbox2[0] and rbox1[1] == rbox2[1]
+            and rbox1[2] == rbox2[2] and rbox1[3] == rbox2[3]
+            and rbox1[4] == rbox2[4]):
+        if criterion == -1 or criterion == 0 or criterion == 1:
+            return 1.0
+        return area1
     area_inter = inter(rbox1, rbox2)
     if criterion == -1:
         return area_inter / (area1 + area2 - area_inter)

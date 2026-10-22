@@ -697,6 +697,9 @@
       <nav class="sidebar" aria-label="页面导航">
         <div class="nav-title">快速切换</div>
 <button class="nav-button" data-target="exp81" type="button"><span class="nav-index">81</span><span class="nav-copy"><strong>排序监督加强5倍</strong><small>已结束 · 23.72 / E191 · 停止沿用</small></span></button>
+<button class="nav-button" data-target="exp85" type="button"><span class="nav-index">85</span><span class="nav-copy"><strong>MonoDGP方法对照</strong><small>已完成 · 最佳44.91 / E22</small></span></button>
+<button class="nav-button" data-target="exp84" type="button"><span class="nav-index">84</span><span class="nav-copy"><strong>原生nuScenes前视</strong><small>已完成 · 最佳32.96 / E16</small></span></button>
+<button class="nav-button" data-target="exp83" type="button"><span class="nav-index">83</span><span class="nav-copy"><strong>nuScenes优化基线</strong><small>已停止 · 待改24轮</small></span></button>
 <button class="nav-button" data-target="exp82" type="button"><span class="nav-index">82</span><span class="nav-copy"><strong>两类目标分别平均</strong><small>已结束 · 23.15 / E175 · 停止沿用</small></span></button>
 
 <button class="nav-button" data-target="exp77" type="button"><span class="nav-index">77</span><span class="nav-copy"><strong>候选图像特征 A：32通道 / 3×3</strong><small>已完成 · 23.82 / E246 · 未超基线</small></span></button>
@@ -976,6 +979,46 @@
 <h3>同一个模型，打开修正前后</h3><div class="stable-flow"><div class="stable-node">保留原框<br><strong>23.69</strong></div><strong>→</strong><div class="stable-node">启用修正<br><strong>23.72</strong></div><strong>+0.03 AP</strong></div>
 <p>关闭修正也低于原方案79，不能把下降全部归因于最后一步选错候选。</p><p>81未发现与82相同的动态分母问题；效果下降的原因尚未确定。</p>
 <details><summary>实验条件与证据边界</summary><p>全量3712张训练图、3769张验证图；seed444、batch 16、从头250轮。81先运行，82后运行；两次退出码均0。对照79复用已有完整训练。各组按启用修正AP选最佳模型，最佳轮次不同，只有一个种子。</p><p>启用/关闭修正使用同一次前向，保留检测分数、类别、2D框、尺寸、朝向；独立AP复评与最佳模型记录一致。关闭修正不会撤销新增损失对训练的影响。损失数值检查未发现配置串用、重复计入或排序方向写反，不能因此认定方法设计合理。</p><p>来源：diagnostics/supervision_pair_20261020/post_eval/ap/results.json；diagnostics/supervision_implementation_audit_20261021/numeric.json。只记录方法、结果及问题，不附实现代码。</p></details>
+</article></section>
+<section id="exp85" class="content-panel" aria-labelledby="exp85-title"><article class="section-card">
+<h2 id="exp85-title">实验85：只改YAML，补MonoDGP方法对照</h2>
+<p>2026-10-22 17:36已完成24轮，退出码0。最佳E22：44.91；最终E24：43.69。</p>
+<div style="display:flex;gap:16px;flex-wrap:wrap;margin:20px 0"><div style="background:#eaf2ff;padding:18px;border-radius:12px">3D IoU匹配权重<br><strong>5 → 0（关闭）</strong></div><div style="background:#e7f7f0;padding:18px;border-radius:12px">解码器自注意力分组<br><strong>11 → 1（原版）</strong></div><div style="background:#fff4df;padding:18px;border-radius:12px">MixUp概率<br><strong>0.3 → 0.5</strong></div></div>
+<p><strong>共同条件：</strong>全量28130张训练图，6019张验证图；BS16，24轮，每轮验证；从头训练。</p>
+<table><thead><tr><th>对照</th><th>最佳前视Car距离AP</th></tr></thead><tbody><tr><td>84：实验63优化方法</td><td>32.96 / 第16轮</td></tr><tr><td>85：YAML恢复MonoDGP方法</td><td><strong>44.91 / 第22轮（+11.95）</strong></td></tr></tbody></table>
+<svg viewBox="0 0 760 280" role="img" aria-label="实验84和85的24轮验证AP曲线，纵轴0到50" style="width:100%;max-width:900px;background:#fff;border-radius:12px"><line x1="55" y1="230.0" x2="720" y2="230.0" stroke="#e2e8f0"/><text x="20" y="235.0" fill="#475569" font-size="13">0</text><line x1="55" y1="194.0" x2="720" y2="194.0" stroke="#e2e8f0"/><text x="20" y="199.0" fill="#475569" font-size="13">10</text><line x1="55" y1="158.0" x2="720" y2="158.0" stroke="#e2e8f0"/><text x="20" y="163.0" fill="#475569" font-size="13">20</text><line x1="55" y1="122.0" x2="720" y2="122.0" stroke="#e2e8f0"/><text x="20" y="127.0" fill="#475569" font-size="13">30</text><line x1="55" y1="86.0" x2="720" y2="86.0" stroke="#e2e8f0"/><text x="20" y="91.0" fill="#475569" font-size="13">40</text><line x1="55" y1="50.0" x2="720" y2="50.0" stroke="#e2e8f0"/><text x="20" y="55.0" fill="#475569" font-size="13">50</text><polyline points="55.00,206.21 83.91,187.83 112.83,186.34 141.74,174.25 170.65,164.91 199.57,161.91 228.48,154.25 257.39,175.93 286.30,135.47 315.22,142.60 344.13,139.16 373.04,132.94 401.96,127.27 430.87,121.17 459.78,131.08 488.70,111.35 517.61,122.74 546.52,116.88 575.43,128.30 604.35,116.29 633.26,114.33 662.17,116.60 691.09,116.67 720.00,113.35" fill="none" stroke="#64748b" stroke-width="3"/><circle cx="488.70" cy="111.35" r="5" fill="#64748b"/><text x="458.70" y="99.35" fill="#64748b" font-size="15">32.96</text><polyline points="55.00,198.20 83.91,163.50 112.83,154.76 141.74,155.94 170.65,128.08 199.57,131.78 228.48,126.59 257.39,108.36 286.30,104.01 315.22,85.49 344.13,87.60 373.04,93.69 401.96,84.45 430.87,84.42 459.78,84.37 488.70,75.68 517.61,74.23 546.52,74.64 575.43,72.08 604.35,70.95 633.26,71.15 662.17,68.34 691.09,69.62 720.00,72.72" fill="none" stroke="#15803d" stroke-width="3"/><circle cx="662.17" cy="68.34" r="5" fill="#15803d"/><text x="632.17" y="56.34" fill="#15803d" font-size="15">44.91</text><text x="55" y="258" fill="#475569">第1轮</text><text x="660" y="258" fill="#475569">第24轮</text><text x="55" y="25" fill="#64748b">━━ 84 优化配置</text><text x="270" y="25" fill="#15803d">━━ 85 MonoDGP方法对照</text></svg><p>两组均逐轮完整验证。85最佳模型训练后复评仍为44.91；四个距离门槛均高于84最佳模型。</p><p><strong>比较边界：</strong>保留共同修复，不是官方原样复现；三项一起改变，只能比较整体。84曾断电续训，随机轨迹不完全对应。</p>
+<details><summary>下一步：已接受的8组早停消融（尚未启动）</summary><p>3D IoU权重0/5 × 注意力分组1/11 × MixUp概率0.5/0.3，共8组，包含两个端点配置重跑。每组从头训练，至少24轮、上限60轮，连续10轮没有刷新原始精度AP时停止。LR仍在8/12/16/20轮减半，之后保持。每组30轮约10小时，8组约80小时；单seed结果不证明跨seed稳定性。</p></details>
+<details><summary>Git里的11个新文件是什么？会影响KITTI吗？</summary><p>3个实验配置＋4个nuScenes读取/评估模块＋2个回归测试＋2个数据准备工具。不是训练输出；只有明确调用才启用。另有7个已修改文件：两份总账、5个公共代码。</p><p>KITTI默认仍1280×384、PNG，nuScenes专用分支不自动启用。但公共旋转IoU修复会影响KITTI BEV/3D评估的自重合边界，不应宣称所有行为完全不变。完整文件清单和影响边界见同目录实验总账MD。未删除、隐藏或提交文件。</p></details>
+<details><summary>配置与检查细节</summary><p>monodgp_exp85_nuscenes_monodgp_control.yaml继承84。仅三个方法字段和实验名称/描述/标签改变；模型、损失、评估Python源码未改。匹配仍分11组，改的是3D解码器自注意力。LR2e-4，第8/12/16/20轮减半，seed444，阈值0，top50，坐标处理、加速、零分母保护和MixUp排除自身均保留。</p><p>实际模型开关已断言确认；BS16真实8批训练和16图推理检查通过，参数/梯度有限，峰值分配13.23GiB。短检查不代表最终效果。证据：diagnostics/nuscenes_exp85；持久会话monodgp-exp85-native24，启动前记录固定环境、源码哈希和命令。</p></details>
+</article></section>
+<section id="exp84" class="content-panel" aria-labelledby="exp84-title"><article class="section-card">
+<h2 id="exp84-title">实验84：保留模型，换成原生nuScenes评估</h2>
+<p><strong>24轮已完成 · 最佳E16：32.96 · 最终E24：32.40 · 含断电续训</strong></p>
+<div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin:24px 0">
+<div style="background:#eaf2ff;padding:20px;border-radius:12px">原始前视图像<br><strong>全量28,130张</strong></div><span>→</span>
+<div style="background:#e7f7f0;padding:20px;border-radius:12px">实验63模型<br><strong>结构、损失不变</strong></div><span>→</span>
+<div style="background:#fff4df;padding:20px;border-radius:12px">原始世界坐标标注<br><strong>按距离计算AP</strong></div></div>
+<p><strong>断电恢复：</strong>E5模型、优化器、学习率状态完整，E6重新训练。检查点未保存随机数状态，续训数据顺序和增强不能保证与不断电时一致。原日志和检查点已保留。</p>
+<h3>保留困难目标，不删掉来提高成绩</h3>
+<div role="img" aria-label="验证Car共13948个，中心图内11954个，中心图外1994个，占14.3%" style="display:flex;height:42px;color:#fff;border-radius:8px;overflow:hidden"><div style="width:85.7%;background:#347d70;padding:10px">中心图内：11,954</div><div style="width:14.3%;background:#ad6335;padding:10px;white-space:nowrap">图外14.3%</div></div>
+<p><strong>1,994个图外中心目标仍参加评估。</strong>按用户选择保留原模型，因此这些目标无法完整学习；原模型也不能表达完整俯仰/侧倾。</p>
+<div style="display:flex;gap:18px;flex-wrap:wrap"><p>✓ 真值预测 AP <strong>100</strong></p><p>✓ <strong>13项</strong>回归测试</p><p>✓ 真实训练 <strong>8批</strong>数值正常</p></div>
+<p>主指标：前视Car AP、位置/尺寸/朝向误差。<strong>不能与MonoIA的IoU AP或官方十类别NDS直接比较。</strong></p>
+<details><summary>范围、训练参数和没有解决的限制</summary><p>官方700/150场景，28130/6019图。Car、自车地面距离小于50米、框的投影与画面有面积交集；GT去掉零激光且零雷达点，GT与预测共用前视筛选。训练71548个、验证13948个GT。BS16，896×512，seed444，MixUp0.3；学习率2e-4在第8/12/16/20轮减半。完整原始GT坐标及姿态保留，不经过KITTI文本，不改旧转换脚本。</p><p>相机时刻位姿只补偿自车时间差，未对运动物体做时间插值。不预测速度/属性；自定义NDS式汇总给这两项零贡献，上限80分，不称官方NDS。原分数可能大于1，保持原排序，不夹到1。</p></details>
+<details><summary>工程检查与失败记录</summary><p>完整验证集GT预测AP=100；13项测试通过；8批BS16梯度和参数正常，16图解码/原生评估正常。全部85496个GT原始字段逐项一致；2259个目标与官方相机转换一致。持久会话monodgp-exp84-native24，训练PID2225091，日志和源文件快照保存在实验84输出目录。短检查不证明长期效果。包装器只推理1批16图，旧日志误读完整dataset长度，不采用其吞吐数字。</p><p>首次索引仅在最终统计JSON写入失败（NumPy int64）；转为Python整数后重跑1次成功，未改变数据规则。证据：diagnostics/nuscenes_native24。正式实验单独编号84，83保留停止记录。</p></details>
+</article></section>
+<section id="exp83" class="content-panel" aria-labelledby="exp83-title"><article class="section-card">
+<h2 id="exp83-title">实验83：把已接受的基线迁移到 nuScenes</h2>
+<p><strong>2026-10-21 20:30按用户要求停止250轮训练；后续原生协议另见实验84；此运行不再续训。</strong></p>
+<div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin:24px 0">
+<div style="background:#eaf2ff;padding:20px;border-radius:12px">前置相机 RGB<br><strong>28,130 张训练图</strong></div><span>→</span>
+<div style="background:#e7f7f0;padding:20px;border-radius:12px">实验63模型与损失<br><strong>不加候选修正</strong></div><span>→</span>
+<div style="background:#fff4df;padding:20px;border-radius:12px">6,019 张验证图<br><strong>Car 3D AP_R40</strong></div></div>
+<p>实现检查已通过。原250轮运行已主动停止，日志保留；原生24轮训练另记为实验84。</p>
+<p><strong>比较边界：</strong>MonoIA未公开完整配置；其论文数字只作参照。不能拿KITTI的24.86直接与这里相减。</p>
+<details><summary>数据与训练设置</summary><p>官方700训练场景/150验证场景，场景不交叉；单帧CAM_FRONT，输入896×512，只训练Car。保持实验63损失、MixUp 0.3、65米主图过滤、BS16、seed444和优化器。初始化使用原有ImageNet骨干，不从KITTI检测checkpoint续训。</p><p>DEVIANT风格转换：过滤零激光且零雷达点目标，投影框裁到图内，遮挡/截断字段设0，保留参考标签精度和未补偿传感器时差的做法。预测仍保留完整精度。原JPEG直接读取，不另存PNG。</p></details>
+<details><summary>启动前发现并修复的问题</summary><p>真值框当预测时，旧评估器错误地给出接近0的3D AP。定位为完全相同旋转框的边界计算退化；加精确自重合分支后，自检恢复100。不同框128对与独立计算最大误差约0.000022；修复前后最大变化约0.00000018，不声称逐位一致，也不将其认定为过去AP下降原因。</p><p>64图174个标签与参考输出完全一致。BS16真实数据8批训练及16图解码通过，无无穷大/NaN。原失败和1次正确性重跑均已保留。</p></details>
+<details><summary>检查和来源</summary><p>转换标签独立对照、划分和增强检查、真值AP自检、GPU训练与解码检查。证据集中在 diagnostics/nuscenes_exp83；配置 monodgp_exp83_nuscenes.yaml。</p><p><a href="https://arxiv.org/html/2505.04594v3#S5.SS1">MonoCoP数据协议</a> · <a href="https://arxiv.org/html/2603.27059v1">MonoIA论文</a> · <a href="https://github.com/abhi1kumar/nuscenes-devkit/blob/master/python-sdk/nuscenes/scripts/export_kitti.py">DEVIANT转换脚本</a></p></details>
 </article></section>
 <section id="exp82" class="content-panel" aria-labelledby="exp82-title"><article class="section-card">
 <h2 id="exp82-title">实验82：两类目标分别平均</h2>

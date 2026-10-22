@@ -14,6 +14,10 @@ def build_dataloader(cfg, workers=4):
     if cfg['type'] == 'KITTI':
         train_set = KITTI_Dataset(split=cfg['train_split'], cfg=cfg)
         test_set = KITTI_Dataset(split=cfg['test_split'], cfg=cfg)
+    elif cfg['type'] == 'NuScenesFront':
+        from lib.datasets.nuscenes.front_dataset import NuScenesFrontDataset
+        train_set = NuScenesFrontDataset(split=cfg['train_split'], cfg=cfg)
+        test_set = NuScenesFrontDataset(split=cfg['test_split'], cfg=cfg)
     else:
         raise NotImplementedError("%s dataset is not supported" % cfg['type'])
 
